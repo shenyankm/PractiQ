@@ -1,0 +1,63 @@
+{
+  "web": {
+    "command": "npm --prefix web run check",
+    "passed": 339,
+    "skipped": 1
+  },
+  "app_ui": {
+    "command": "npm --prefix app run check:ui",
+    "passed": 595,
+    "skipped": 6
+  },
+  "web_browser": {
+    "command": "npm --prefix web run test:browser",
+    "passed": 5,
+    "providers": "substituted HTTP"
+  },
+  "service_focused": {
+    "command": "python3.14 -m pytest -q tests/test_admin_operations.py",
+    "passed": 19,
+    "database": "disposable PostgreSQL"
+  },
+  "service_full": {
+    "command": "make verify AI_PYTHON=.../python3.14",
+    "status": "passed",
+    "passed": 3977,
+    "coveragePercent": 93,
+    "lock": "passed",
+    "ruff": "passed",
+    "pyright": "passed",
+    "evaluationFixtures": "passed",
+    "recoveryProbes": "passed",
+    "packageBuildAndIntegrity": "passed",
+    "durationSeconds": 889.17
+  },
+  "app_check": {
+    "command": "make app-check AI_PYTHON=.../python3.14",
+    "status": "passed",
+    "rustPassed": 294,
+    "rustIgnored": 27,
+    "contracts": "passed",
+    "fixtures": "passed",
+    "format": "passed",
+    "clippy": "passed"
+  },
+  "web_build": {
+    "status": "passed"
+  },
+  "design_detector": {
+    "findings": []
+  },
+  "not_run": [
+    "production deployment",
+    "real provider/payment",
+    "external backup and alert delivery",
+    "native installed GUI"
+  ],
+  "sourceBase": "75c43b6d8119df94a5cd82fe0b4efd5cb46419e9",
+  "screenshots": {
+    "operations-dark.png": "761deeaadadc33f628471576c8257b9a939008bcc10c57549279c506461739cb",
+    "user-detail-light.png": "6a796b3a61208c2e8f7beb76123adb8ac934dbebf2e3a5a608b9efc324ba540b",
+    "operations-light.png": "1f4abda6add4ec0676f183015a05e18a6d7e1fdd997728c52f603412923eb478"
+  }
+}

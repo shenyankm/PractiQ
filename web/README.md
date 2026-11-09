@@ -48,3 +48,12 @@ do not prove real provider calls or macOS Keychain/dialog acceptance.
 See [accounts and deployment](../server/docs/accounts.md),
 [App cloud workflow](../docs/guides/cloud-service.md) and
 [document tasks](../docs/guides/import-tasks.md).
+
+## Support and operations
+
+The console now includes account balance/grant details, linked tasks/orders/calls,
+bounded search and exception filters, allowance previews with reason/conflict
+checks, usage summaries, audit differences, targeted credential revocation and a
+read-only service/monitoring overview. See the [administration guide](../docs/guides/administration.md).
+External backup/alert observations are optional, validated and visibly stale or
+missing; they do not authorize browser-driven restoration or secret configuration.

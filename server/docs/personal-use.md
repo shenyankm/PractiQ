@@ -44,3 +44,15 @@ If schema 3/4 contains any account-owned document tasks, upload records or pendi
 Changed execution signatures prevent resuming old model checkpoints under this code. Saved results remain readable/exportable after an eligible upgrade; explicitly parse again as a new task when needed. Finish unfinished tasks with their original deployment before switching if you need checkpoint continuation. Rollback requires restoring the matching old database/storage backup and original executable; no automatic downgrade is provided.
 
 Remove obsolete `AI_INPUT_POINTS_PER_1K`, `AI_OUTPUT_POINTS_PER_1K`, `AI_ACCOUNT_*`, `PAYMENT_*` and checkout-only secrets from active configuration. They are no longer read. The payment SDK extra, management commands, Vite proxy and `/purchase` checkout are removed. Account, product and payment APIs return 404; old `Authorization: Account` requests return 401 on protected task APIs.
+
+## Administrator support console
+
+The [administration guide](../../docs/guides/administration.md) describes user
+balance/grant inspection, account/time/state searches, uncertain-operation
+worklists, explicit reasoned allowance adjustment, usage/audit reporting, targeted
+session revocation and read-only runtime status. These use the existing schema-8
+ledgers and preserve historical ownership. Optional external monitoring evidence
+uses the trusted absolute `AI_OPERATIONS_STATUS_FILE`; no missing observation is
+reported as a successful backup or delivered alert. No deployment or migration is
+performed by opening the console. Keep the matching executable for unfinished
+checkpoints when upgrading.

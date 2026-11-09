@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import UserPortal from '../../shared/cloud/AccountPortal';
 import AdminPortal from './AdminPortal';
 function AccountPortal() { return location.pathname === '/admin' ? <AdminPortal /> : <UserPortal />; }
+import { adminUserDetail } from './test-fixtures';
 import { setAccount, storageKey } from '../../shared/cloud/accountClient';
 const response = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } });
 const anonymous = { user: null, csrf: 'test-csrf', registrationEnabled: true };
@@ -41,12 +42,13 @@ it('does not show a reset link for a different selected user when a response is 
   history.replaceState(null,'','/admin');
   let finish!: (value:Response)=>void;
   const pending=new Promise<Response>(resolve=>{finish=resolve;});
-  const users=['one','two'].map(id=>({id,email:`${id}@example.test`,name:'',role:'user',enabled:true,limits:{}}));
+  const users=['one','two'].map(id=>({id,email:`${id}@example.test`,name:'',role:'user' as const,enabled:true,limits:{}}));
   const fetcher=vi.fn(async(path:string,_init?:RequestInit)=>{
     if(path==='/api/auth/session')return response({...anonymous,user:{...users[0],id:'admin',email:'admin@example.test',role:'admin'}});
     if(path==='/api/admin/settings')return response({registrationEnabled:true,freePages:50,modelCalls:1000,tencentCalls:50,activeTasks:2});
     if(path.startsWith('/api/admin/users?'))return response(users);
     if(path.endsWith('/reset-link'))return pending;
+    if(path.startsWith('/api/admin/users/'))return response(adminUserDetail(users.find(value => path.endsWith(value.id)) ?? users[0]));
     return response({ok:true});
   });vi.stubGlobal('fetch',fetcher);
   render(<AccountPortal />);const user=userEvent.setup();
@@ -68,7 +70,7 @@ it('fetches the next administrator task page when paging without starting work',
     if(path==='/api/auth/session')return response({...anonymous,user:{id:'admin',email:'admin@example.test',name:'',role:'admin',enabled:true}});
     if(path==='/api/admin/settings')return response({registrationEnabled:true,freePages:50,modelCalls:1000,tencentCalls:50,activeTasks:2});
     if(path.startsWith('/api/admin/users'))return response([]);
-    if(path.startsWith('/api/admin/document-tasks?'))return response({items:[{...summary,fileName:path.includes('offset=20')?'second.txt':'first.txt'}],hasMore:!path.includes('offset=20')});
+    if(path.startsWith('/api/admin/task-search?'))return response({items:[{...summary,fileName:path.includes('offset=20')?'second.txt':'first.txt'}],hasMore:!path.includes('offset=20')});
     return response({});
   });vi.stubGlobal('fetch',fetcher);
   render(<AccountPortal />);const user=userEvent.setup();
@@ -90,7 +92,7 @@ it('keeps administrator inspection and recovery available when preview loading f
     if(path==='/api/auth/session')return response({...anonymous,user:{id:'admin',email:'admin@example.test',name:'',role:'admin',enabled:true}});
     if(path==='/api/admin/settings')return response({registrationEnabled:true,freePages:50,modelCalls:1000,tencentCalls:50,activeTasks:2});
     if(path.startsWith('/api/admin/users'))return response([]);
-    if(path.startsWith('/api/admin/document-tasks?'))return response({items:[summary],hasMore:false});
+    if(path.startsWith('/api/admin/task-search?'))return response({items:[summary],hasMore:false});
     if(path.includes('/preview'))return pending;
     return response({...task,runId,state:'RUNNING',allowedActions:['pause','interrupt']});
   });vi.stubGlobal('fetch',fetcher);
@@ -116,7 +118,7 @@ it('keeps administrator task details bound to the latest selection after a delay
     if(path==='/api/auth/session')return response({...anonymous,user:{id:'admin',email:'admin@example.test',name:'',role:'admin',enabled:true}});
     if(path==='/api/admin/settings')return response({registrationEnabled:true,freePages:50,modelCalls:1000,tencentCalls:50,activeTasks:2});
     if(path.startsWith('/api/admin/users'))return response([]);
-    if(path.startsWith('/api/admin/document-tasks?'))return response({items:[summary,{...summary,threadId:newTaskId,fileName:'second.docx'}],hasMore:false});
+    if(path.startsWith('/api/admin/task-search?'))return response({items:[summary,{...summary,threadId:newTaskId,fileName:'second.docx'}],hasMore:false});
     if(path.includes('/preview'))return response({...preview,threadId:path.includes(newTaskId)?newTaskId:taskId});
     if(path===`/api/admin/document-tasks/${taskId}`)return delayed;
     return response({...task,threadId:newTaskId,fileName:'second.docx'});
@@ -180,12 +182,13 @@ it('namespaces local recovery by authenticated user and never adopts old keys', 
 });
 it('lets an administrator select a user, change limits and issue a bounded reset link explicitly', async () => {
   history.replaceState(null, '', '/admin');
-  const userRow = { id: 'selected-user', email: 'other@example.test', name: '', role: 'user', enabled: true, limits: { freePages:50 } };
+  const userRow = { id: 'selected-user', email: 'other@example.test', name: '', role: 'user' as const, enabled: true, limits: { freePages:50 } };
   const fetcher = vi.fn(async (path: string, init?: RequestInit) => {
     if (path === '/api/auth/session') return response({ ...anonymous, user: { ...userRow, id: 'admin', role: 'admin' } });
     if (path === '/api/admin/users?offset=0') return response([userRow]);
     if (path === '/api/admin/settings') return response({registrationEnabled:true,freePages:50,modelCalls:123,tencentCalls:9,activeTasks:3});
     if (path.endsWith('/reset-link')) return response({ path: '/reset-password#once-only-reset' });
+    if (path === '/api/admin/users/selected-user' && (!init?.method || init.method === 'GET')) return response(adminUserDetail(userRow));
     expect(init?.method).toBe('PATCH'); return response({ ok: true });
   }); vi.stubGlobal('fetch', fetcher);
   render(<AccountPortal />); const user = userEvent.setup();
@@ -195,6 +198,7 @@ it('lets an administrator select a user, change limits and issue a bounded reset
   const pages = screen.getByLabelText('免费页数总额度（含已用页数）');
   expect(pages).toHaveProperty('value', '50');
   await user.clear(pages); await user.type(pages, '75');
+  await user.type(screen.getByLabelText('变更原因'), 'Confirmed support adjustment');
   await user.type(screen.getByLabelText('管理员当前密码', { selector: '#admin-password' }), 'long-test-password');
   await user.click(screen.getByRole('button', { name: '更新指定用户' }));
   await screen.findByText('操作已完成。');

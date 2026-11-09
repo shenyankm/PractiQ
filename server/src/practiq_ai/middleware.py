@@ -39,7 +39,7 @@ class JsonBodyLimitMiddleware:
 
     async def __call__(self, scope, receive, send):
         # Bound every task mutation; binary uploads own their streaming/body limits.
-        if (scope['type'] != 'http' or scope['method'] not in {'POST', 'PUT', 'PATCH'}
+        if (scope['type'] != 'http' or scope['method'] not in {'POST', 'PUT', 'PATCH', 'DELETE'}
                 or not (scope['path'].rstrip('/') in {'/api/uploads', '/api/artifacts/read', '/api/document-tasks', '/api/subjective-grades', '/api/import-settings'}
                         or scope['path'] == '/payments/notify'
                         or scope['path'].startswith(('/api/document-tasks/', '/api/auth/', '/api/me/', '/api/admin/')))):

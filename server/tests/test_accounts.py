@@ -354,7 +354,7 @@ async def test_fifty_lifetime_pages_are_atomic_and_survive_replay_midnight_and_d
     settings = (await client.get('/api/admin/settings')).json()
     assert (await client.put('/api/admin/settings', json={**settings, 'freePages': 100})).status_code == 200
     assert (await database.rows('SELECT limits FROM auth_users WHERE id=%s', (user['id'],)))[0]['limits']['freePages'] == 50
-    changed = await client.patch('/api/admin/users/' + user['id'], json={'currentPassword': PASSWORD, 'enabled': True, 'role': 'user', 'limits': {'freePages': 55, 'modelCalls': 1000, 'tencentCalls': 50, 'activeTasks': 2}})
+    changed = await client.patch('/api/admin/users/' + user['id'], json={'currentPassword': PASSWORD, 'reason': 'Explicit lifetime allowance adjustment', 'enabled': True, 'role': 'user', 'limits': {'freePages': 55, 'modelCalls': 1000, 'tencentCalls': 50, 'activeTasks': 2}})
     assert changed.status_code == 200
     await login(client, 'pages@example.test')
     assert (await client.get('/api/me/usage')).json()['remainingPages'] == 6

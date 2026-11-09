@@ -1,6 +1,7 @@
 """Cookie account APIs and explicit audited administration."""
 import secrets
 from datetime import UTC, datetime, timedelta
+from typing import Annotated, LiteralString
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
@@ -24,6 +25,7 @@ from .contracts import (
     AccountTokenInfo,
     AccountUsage,
     AdministrationAudit,
+    AdministrationFilter,
     AdministrationSettings,
     AdministrationUser,
     AdministrationUserChange,
@@ -195,9 +197,28 @@ async def usage(offset: int = Query(default=0, ge=0)):
 
 
 @router.get('/api/admin/users', response_model=list[AdministrationUser])
-async def users(offset: int = Query(default=0, ge=0)):
+async def users(filters: Annotated[AdministrationFilter, Query()]):
     await auth.audit('users_read', 'users')
-    return await auth.db().rows('SELECT id,email,name,role,enabled,limits,created_at FROM auth_users ORDER BY created_at,id LIMIT 50 OFFSET %s', (offset,))
+    from .admin_api import period
+    where, args = period(filters, 'created_at')
+    if filters.issue not in {None, 'quota'}:
+        raise HTTPException(422, {'code': 'INVALID_USER_ISSUE'})
+    if filters.issue == 'quota':
+        where += """ AND coalesce((limits->>'freePages')::bigint,(SELECT (value->>'freePages')::bigint FROM auth_settings WHERE id=1),50)
+          <= coalesce((SELECT sum((c.record->>'quotaPages')::bigint) FROM auth_calls c WHERE c.user_id=auth_users.id AND c.kind='tencentCalls'),0)
+          - coalesce((SELECT sum(a.pages) FROM page_allocations a JOIN page_grants g USING(order_id) WHERE g.owner_id=auth_users.id),0)
+          AND NOT EXISTS (SELECT 1 FROM page_grants g WHERE g.owner_id=auth_users.id AND g.state='active' AND g.expires_at>now()
+          AND (g.product->>'pages')::bigint>coalesce((SELECT sum(a.pages) FROM page_allocations a WHERE a.order_id=g.order_id),0))"""
+    if filters.q:
+        where += ' AND (strpos(lower(email),lower(%s))>0 OR strpos(lower(name),lower(%s))>0 OR id=%s)'
+        args += [filters.q] * 3
+    if filters.role is not None:
+        where += ' AND role=%s'
+        args.append(filters.role)
+    if filters.enabled is not None:
+        where += ' AND enabled=%s'
+        args.append(filters.enabled)
+    return await auth.db().rows(f'SELECT id,email,name,role,enabled,limits,created_at FROM auth_users WHERE true {where} ORDER BY created_at,id LIMIT 50 OFFSET %s', (*args, filters.offset))
 
 
 @router.patch('/api/admin/users/{user_id}', response_model=AccountOperation)
@@ -205,6 +226,16 @@ async def user_change(user_id: str, value: AdministrationUserChange):
     await confirm(value.currentPassword)
     async with auth.db().transaction() as conn:
         await auth.current_actor(conn)
+        from .admin_api import user_row
+        before_user = await user_row(user_id, conn)
+        before_balance = await billing.balance(conn, before_user)
+        if value.expectedFreePages is not None and value.expectedFreePages != before_balance['freePages']:
+            raise HTTPException(409, {'code': 'ALLOWANCE_CHANGED'})
+        defaults_row = await (await conn.execute('SELECT value FROM auth_settings WHERE id=1')).fetchone()
+        assert defaults_row is not None
+        next_free = value.limits.freePages if value.limits else defaults_row['value'].get('freePages', 50)
+        if next_free != before_balance['freePages'] and not value.reason.strip():
+            raise HTTPException(422, {'code': 'ALLOWANCE_REASON_REQUIRED'})
         admins = await (await conn.execute("SELECT id FROM auth_users WHERE role='admin' AND enabled")).fetchall()
         if len(admins) == 1 and admins[0]['id'] == user_id and (not value.enabled or value.role != 'admin'):
             raise HTTPException(409, {'code': 'LAST_ADMIN'})
@@ -215,7 +246,7 @@ async def user_change(user_id: str, value: AdministrationUserChange):
         await conn.execute('DELETE FROM auth_tokens WHERE user_id=%s', (user_id,))
         if not value.enabled:
             await conn.execute("UPDATE document_runs SET pause_requested=true WHERE thread_id IN (SELECT thread_id FROM document_tasks WHERE owner_id=%s) AND status IN ('pending','running')", (user_id,))
-        await auth.audit('user_update', user_id, {'enabled': value.enabled, 'role': value.role, 'limits': value.limits.model_dump() if value.limits else {}}, conn=conn)
+        await auth.audit('user_update', user_id, {'enabled': value.enabled, 'role': value.role, 'limits': value.limits.model_dump() if value.limits else {}, 'reason': value.reason, 'before': {'enabled': before_user['enabled'], 'role': before_user['role'], 'limits': before_user['limits']}, 'after': {'enabled': value.enabled, 'role': value.role, 'limits': value.limits.model_dump() if value.limits else {}}}, conn=conn)
     return {'ok': True}
 
 
@@ -245,20 +276,47 @@ async def save_settings(value: AdministrationSettings):
         raise HTTPException(409, {'code': 'SERVICE_READ_ONLY'})
     async with auth.db().transaction() as conn:
         await auth.current_actor(conn)
+        previous_row = await (await conn.execute('SELECT value FROM auth_settings WHERE id=1')).fetchone()
+        assert previous_row is not None
+        previous = previous_row['value']
         await conn.execute('UPDATE auth_settings SET value=%s WHERE id=1', (Jsonb(value.model_dump()),))
-        await auth.audit('settings_update', 'settings', value.model_dump(), conn=conn)
+        await auth.audit('settings_update', 'settings', {'before': previous, 'after': value.model_dump()}, conn=conn)
     return value
 
 
 @router.get('/api/admin/audit', response_model=list[AdministrationAudit])
-async def audit_log(offset: int = Query(default=0, ge=0)):
-    return await auth.db().rows('SELECT * FROM auth_audit ORDER BY id DESC LIMIT 100 OFFSET %s', (offset,))
+async def audit_log(filters: Annotated[AdministrationFilter, Query()]):
+    from .admin_api import period
+    where, args = period(filters, 'created_at')
+    selectors: tuple[tuple[LiteralString, str], ...] = (('actor', filters.actor), ('target', filters.target), ('action', filters.action))
+    for column, value in selectors:
+        if value:
+            where += f' AND {column}=%s'
+            args.append(value)
+    if filters.userId:
+        where += """ AND (actor=%s OR target=%s
+          OR target='/api/admin/users/'||%s OR strpos(target,'/api/admin/users/'||%s||'/')=1
+          OR EXISTS (SELECT 1 FROM document_tasks t WHERE t.owner_id=%s
+            AND (t.thread_id=auth_audit.target OR auth_audit.target='/api/admin/document-tasks/'||t.thread_id
+              OR strpos(auth_audit.target,'/api/admin/document-tasks/'||t.thread_id||'/')=1))
+          OR EXISTS (SELECT 1 FROM payment_orders p WHERE p.owner_id=%s
+            AND (p.id=auth_audit.target OR auth_audit.target='/api/admin/payments/'||p.id
+              OR strpos(auth_audit.target,'/api/admin/payments/'||p.id||'/')=1))
+          OR EXISTS (SELECT 1 FROM grades g WHERE g.owner_id=%s AND g.id=auth_audit.target))"""
+        args += [filters.userId] * 7
+    if filters.q:
+        where += ' AND (strpos(lower(actor),lower(%s))>0 OR strpos(lower(target),lower(%s))>0 OR strpos(lower(action),lower(%s))>0)'
+        args += [filters.q] * 3
+    return await auth.db().rows(f'SELECT * FROM auth_audit WHERE true {where} ORDER BY id DESC LIMIT 100 OFFSET %s', (*args, filters.offset))
 
 
 @router.get('/api/admin/usage', response_model=list[AccountCall])
-async def provider_usage(offset: int = Query(default=0, ge=0)):
-    await auth.audit('usage_read', 'provider')
-    return await auth.db().rows('SELECT * FROM auth_calls ORDER BY created_at DESC LIMIT 100 OFFSET %s', (offset,))
+async def provider_usage(filters: Annotated[AdministrationFilter, Query()]):
+    from .admin_api import CALLS, call_where
+    where, args = call_where(filters)
+    await auth.audit('usage_read', filters.userId or 'provider')
+    rows = await auth.db().rows(CALLS + f'SELECT call_key,user_id,scope,kind,day,record,created_at FROM calls WHERE true {where} ORDER BY created_at DESC,call_key LIMIT 100 OFFSET %s', (*args, filters.offset))
+    return rows
 
 
 @router.get('/api/admin/import-settings', response_model=ImportSettingsSnapshot)
@@ -273,8 +331,9 @@ async def execution_settings_save(value: ImportSettingsSnapshot):
     if load().read_only:
         raise HTTPException(409, {'code': 'SERVICE_READ_ONLY'})
     from .task_api import client
+    previous = client().import_control.snapshot.model_dump(mode='json')
     result = await client().import_control.save(auth.db().store, value)
-    await auth.audit('import_settings_update', 'settings')
+    await auth.audit('import_settings_update', 'settings', {'before': previous, 'after': result.model_dump(mode='json')})
     return result
 
 

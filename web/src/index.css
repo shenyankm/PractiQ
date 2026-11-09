@@ -32,3 +32,24 @@ SOFTWARE.
 */
 
 @custom-variant dark (&:is(.dark *));
+
+/* Administrative support keeps filters, facts and recovery actions in the existing shell. */
+.admin-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; margin-block: 1.5rem; align-items: end; }
+.admin-filter-actions, .admin-links, .admin-pagination { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.admin-links { margin-block: 1.5rem; }
+.admin-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem 2rem; margin-block: 1.5rem; }
+.admin-facts dt { color: var(--muted-foreground); font-size: .875rem; }
+.admin-facts dd { margin: .35rem 0 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.admin-section { margin-block: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border); }
+.admin-section h3 { margin-block: 1.5rem .75rem; font-weight: 600; }
+.admin-credential-controls { display: flex; flex-wrap: wrap; gap: 1rem; align-items: end; margin-block: 1rem; }
+.admin-credential-controls legend { padding-bottom: .75rem; }
+.account-table td { vertical-align: top; overflow-wrap: anywhere; }
+.account-table small { display: block; color: var(--muted-foreground); margin-top: .35rem; }
+.account-table .admin-number { text-align: right; font-variant-numeric: tabular-nums; }
+.account-table pre { max-width: 48rem; max-height: 28rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.account-table caption { text-align: left; margin-block: .75rem; color: var(--muted-foreground); }
+.dark .account-layout > nav button { color: var(--foreground); }
+.dark .account-layout > nav button[aria-current="page"] { background: var(--accent); color: var(--accent-foreground); }
+@media (prefers-reduced-motion: reduce) { .cloud-portal .account-layout > nav button { transition: none; } }
+@media (max-width: 800px) { .admin-filters { grid-template-columns: minmax(0, 1fr); } .admin-facts { grid-template-columns: minmax(0, 1fr); } }
