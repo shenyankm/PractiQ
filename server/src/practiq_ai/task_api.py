@@ -18,6 +18,7 @@ from .config import load, require_model_config
 from .contracts import (
     COMPOSITE_MODES,
     OFFICE_SOURCE_TYPES,
+    AdministrationFilter,
     DocumentAnswerEvidence,
     DocumentAnswerMatches,
     DocumentAnswerProposal,
@@ -643,10 +644,17 @@ FILTER_RUN_SQL: dict[TaskFilter, LiteralString] = {
 
 
 async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None, state_filter: TaskFilter | None = None,
-                     office_mode: OfficeMode | None = None, cursor: str | None = None) -> dict[str, Any]:
+                     office_mode: OfficeMode | None = None, cursor: str | None = None, *, admin_filter: AdministrationFilter | None = None) -> dict[str, Any]:
     service = client()
     after = None
-    scope = [sha256, state_filter, office_mode]
+    scope: list[Any] = [sha256, state_filter, office_mode]
+    if admin_filter is not None:
+        administrator = identity.actor.get()
+        if not administrator or administrator['role'] != 'admin':
+            raise DocumentProcessingError(403, 'Administrator access required', 'ADMIN_REQUIRED')
+        if cursor:
+            raise DocumentProcessingError(400, 'Use bounded offset pagination for administrator search', 'INVALID_CURSOR')
+        scope.append(admin_filter.model_dump(mode='json'))
     if identity.actor.get():
         scope.append(identity.owner.get())
     if cursor:
@@ -666,9 +674,30 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
     params: tuple[Any, ...] = (sha256,) if sha256 else ()
     join: LiteralString = ''
     where = supported_task_sql('t') + source_filter
-    if identity.owner.get():
+    if identity.owner.get() and admin_filter is None:
         where += ' AND t.owner_id=%s'
         params += (identity.owner.get(),)
+    if admin_filter is not None:
+        if admin_filter.userId:
+            where += ' AND t.owner_id=%s'
+            params += (admin_filter.userId,)
+        if admin_filter.q:
+            where += " AND (strpos(lower(t.document->>'fileName'),lower(%s))>0 OR t.thread_id::text=%s OR EXISTS (SELECT 1 FROM auth_users u WHERE u.id=t.owner_id AND strpos(lower(u.email),lower(%s))>0))"
+            params += (admin_filter.q,) * 3
+        if admin_filter.since:
+            where += ' AND t.created_at>=%s'
+            params += (admin_filter.since,)
+        if admin_filter.until:
+            where += ' AND t.created_at<%s'
+            params += (admin_filter.until,)
+        if admin_filter.issue == 'stalled':
+            where += " AND EXISTS (SELECT 1 FROM document_runs busy WHERE busy.thread_id=t.thread_id AND busy.status IN ('pending','running') AND busy.created_at<now()-interval '30 minutes')"
+        if admin_filter.issue == 'unknown':
+            where += """ AND NOT EXISTS (SELECT 1 FROM document_runs busy WHERE busy.thread_id=t.thread_id AND busy.status IN ('pending','running'))
+              AND (EXISTS (SELECT 1 FROM store s WHERE s.prefix='document_tasks.'||t.thread_id::text||'.tencent_jobs'
+                AND (s.expires_at IS NULL OR s.expires_at>now()) AND (s.value->>'status'='Unknown' OR (s.value->>'status'='SUBMITTING' AND s.value->>'taskId' IS NULL)))
+              OR EXISTS (SELECT 1 FROM auth_calls c WHERE c.scope='task:'||t.thread_id::text AND c.kind='modelCalls'
+                AND c.record->>'usageStatus'='unknown' AND c.record->>'status' IN ('started','failed')))"""
     if office_mode is not None:
         where += (" AND (t.document->>'sourceType') IN ('doc','docx','xls','xlsx')"
                   " AND (SELECT (initial.input->>'officeMode') FROM document_runs initial"
@@ -693,7 +722,7 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
         next_cursor = urlsafe_b64encode(json_encode([items[-1]['createdAt'], items[-1]['threadId'], scope]).encode()).decode() if more else None
         return DocumentTaskList.model_validate({'items': items, 'hasMore': more, 'nextCursor': next_cursor}).model_dump(mode='json')
 
-    if state_filter is None:
+    if state_filter is None and (admin_filter is None or admin_filter.issue not in {'blocked', 'quota'}):
         query, arguments = page_query(after)
         rows = await service.db.rows(query, (*arguments, limit + 1, offset))
         items = [item async for item in _task_summaries(service, rows[:limit])]
@@ -705,7 +734,19 @@ async def list_tasks(limit: int = 20, offset: int = 0, sha256: str | None = None
         rows = await service.db.rows(query, (*arguments, 100, 0))
         # ponytail: ambiguous paused/review candidates still scan; persist head-keyed summaries if they dominate.
         async for item in _task_summaries(service, rows):
-            if item['state'] in FILTER_STATES[state_filter]:
+            include = state_filter is None or item['state'] in FILTER_STATES[state_filter]
+            if include and admin_filter is not None and admin_filter.issue in {'blocked', 'quota'}:
+                if item['state'] == 'EXPIRED':
+                    include = False
+                else:
+                    try:
+                        detail = await get_task_model(str(item['threadId']))
+                        include = bool(detail.blocking)
+                        if admin_filter.issue == 'quota':
+                            include = any(any(code in str(reason) for code in ('QUOTA', 'COST_BUDGET_EXCEEDED', 'MODEL_BUDGET_EXCEEDED')) for reason in detail.blocking)
+                    except DocumentProcessingError:
+                        include = admin_filter.issue == 'blocked'
+            if include:
                 if matched >= offset:
                     items.append(item)
                 matched += 1

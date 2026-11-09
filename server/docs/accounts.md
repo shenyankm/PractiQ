@@ -158,3 +158,15 @@ The restore tool revokes all sessions and reset/grading tokens before reopening
 schema-8 data, preventing old credentials from being resurrected. Users must log
 in and explicitly create new App tokens. Rollback uses the complete matching old
 backup and old executable; no in-place downgrade is supported.
+
+## Administrator support console
+
+The [administration guide](../../docs/guides/administration.md) describes user
+balance/grant inspection, account/time/state searches, uncertain-operation
+worklists, explicit reasoned allowance adjustment, usage/audit reporting, targeted
+session revocation and read-only runtime status. These use the existing schema-8
+ledgers and preserve historical ownership. Optional external monitoring evidence
+uses the trusted absolute `AI_OPERATIONS_STATUS_FILE`; no missing observation is
+reported as a successful backup or delivered alert. No deployment or migration is
+performed by opening the console. Keep the matching executable for unfinished
+checkpoints when upgrading.

@@ -1206,6 +1206,8 @@ class AdministrationSettings(AccountLimits):
 
 
 class AdministrationUserChange(StrictModel):
+    expectedFreePages: int | None = Field(default=None, ge=0, le=1_000_000)
+    reason: str = Field(default='', max_length=200)
     currentPassword: str = Field(min_length=1, max_length=128, repr=False)
     enabled: StrictBool
     role: Literal['user', 'admin']
@@ -1369,3 +1371,132 @@ class PaymentOffer(StrictModel):
     amount: str
     subject: str
     environment: Literal['sandbox', 'production']
+
+
+class AdministrationFilter(StrictModel):
+    offset: int = Field(default=0, ge=0, le=1_000_000)
+    q: str = Field(default='', max_length=254)
+    userId: str = Field(default='', max_length=128)
+    since: datetime | None = None
+    until: datetime | None = None
+    state: str = Field(default='', max_length=40)
+    environment: Literal['sandbox', 'production'] | None = None
+    kind: Literal['modelCalls', 'tencentCalls'] | None = None
+    provider: str = Field(default='', max_length=255)
+    actor: str = Field(default='', max_length=128)
+    target: str = Field(default='', max_length=255)
+    action: str = Field(default='', max_length=80)
+    role: Literal['user', 'admin'] | None = None
+    enabled: bool | None = None
+    issue: Literal['unknown', 'blocked', 'stalled', 'quota', 'refund'] | None = None
+
+    @model_validator(mode='after')
+    def valid_period(self):
+        if any(value is not None and value.tzinfo is None for value in (self.since, self.until)):
+            raise ValueError('Administration timestamps require a timezone')
+        if self.since and self.until and self.since > self.until:
+            raise ValueError('Administration time range is reversed')
+        return self
+
+
+class AdministrationAllowanceChange(AccountPasswordConfirm):
+    expectedFreePages: StrictInt = Field(ge=0, le=1_000_000)
+    freePages: StrictInt = Field(ge=0, le=1_000_000)
+    reason: str = Field(min_length=1, max_length=200, pattern=r'\S')
+
+
+class AdministrationCredentialRevoke(AccountPasswordConfirm):
+    reason: str = Field(min_length=1, max_length=200, pattern=r'\S')
+
+
+class AdministrationUserDetail(StrictModel):
+    user: AdministrationUser
+    balance: PlanBalance
+    limits: AccountLimits
+    settledPages: int
+    heldPages: int
+    unknownPages: int
+    activeSessions: int
+    activeTokens: int
+
+
+class AdministrationCall(AccountCall):
+    email: str
+    provider: str
+    state: Literal['completed', 'failed', 'unknown', 'pending', 'reserved']
+    status: str
+
+
+class AdministrationUsageBucket(StrictModel):
+    day: date
+    userId: str
+    email: str
+    provider: str
+    kind: str
+    calls: int
+    failedCalls: int
+    unknownCalls: int
+    pendingCalls: int
+    pages: int
+    inputTokens: int
+    outputTokens: int
+    unknownTokenCalls: int
+
+
+class AdministrationUsageSummary(StrictModel):
+    totals: dict[str, int]
+    items: list[AdministrationUsageBucket]
+    hasMore: bool
+
+
+class AdministrationTaskSummary(DocumentTaskSummary):
+    ownerId: str | None
+    ownerEmail: str | None
+
+
+class AdministrationTaskList(StrictModel):
+    items: list[AdministrationTaskSummary]
+    hasMore: bool
+    nextCursor: str | None = None
+
+
+class AdministrationMonitoring(StrictModel):
+    version: Literal[1]
+    observedAt: datetime
+    backupLastSuccessAt: datetime | None
+    backupLastAttemptSuccess: StrictBool | None
+    alertState: Literal['unknown', 'healthy', 'firing']
+    alertDeliveryVerifiedAt: datetime | None
+
+    @model_validator(mode='after')
+    def aware_times(self):
+        if any(value is not None and value.tzinfo is None for value in (self.observedAt, self.backupLastSuccessAt, self.alertDeliveryVerifiedAt)):
+            raise ValueError('Monitoring timestamps require a timezone')
+        if any(value and value > self.observedAt for value in (self.backupLastSuccessAt, self.alertDeliveryVerifiedAt)):
+            raise ValueError('Monitoring evidence cannot postdate its observation')
+        return self
+
+
+class AdministrationOperations(StrictModel):
+    observedAt: datetime
+    codeVersion: str
+    schemaVersion: int
+    maintenance: bool
+    readOnly: bool
+    accepting: bool
+    broker: dict[str, bool]
+    runs: dict[str, int]
+    outboxPending: int
+    oldestPendingSeconds: float
+    queueCapacity: int
+    workersAvailable: int
+    storageHealthy: bool | None
+    storageFreeBytes: int | None
+    modelId: str
+    parserConfigured: bool
+    costCurrency: str
+    dailyCostLimitMicros: int | None
+    dailyReservedMicros: int | None
+    taskCostLimitMicros: int | None
+    monitoringState: Literal['not_configured', 'unavailable', 'stale', 'current']
+    monitoring: AdministrationMonitoring | None

@@ -1,0 +1,18 @@
+{
+  "server/src/practiq_ai/admin_api.py": "bf68636b2fb2fe64c42e9fe178d8f61763f15a95ba45b992ae157253cd725cf3",
+  "server/src/practiq_ai/account_api.py": "7a20c9a10dbb495d1600748de4f467457dffd962facc47ba4a8fc405760d80d9",
+  "server/src/practiq_ai/contracts.py": "38cafb4b1c6371c4dbae32709d796448c7e99b5d9be6ebd08bb8fad6ec8a6b53",
+  "server/src/practiq_ai/task_api.py": "25996fc3f277ec18f5f9d77d5c4f389535665ba6632d31e247b5107e02139487",
+  "server/src/practiq_ai/config.py": "3e45364ba996ae045782556bf5ea3b047f8727b62ef0ce71457ed5062953f7fa",
+  "server/src/practiq_ai/middleware.py": "42afc060afb82098f4c3b296c3085a4357eafff3112de6a93d4d6d92f520efa9",
+  "server/src/practiq_ai/payment_api.py": "3fdd0294dda88d4affc97df82e1b5e759b3e304e1d9032da8db0ee93b6ac0435",
+  "web/src/AdminUserDetails.tsx": "6c6641cb33948cf760caf68e9cfbf4dc01f4905a9f17cb610cff8cfea704ee9b",
+  "web/src/AdminReports.tsx": "a5b7854bf54b59917a278c3fd75dd530b438e25ea29993c21a57145fa3545d21",
+  "web/src/AdminViews.tsx": "bef9ab33bef08ad6944d058bfc00a9404e3e5a8cac5837da2f9de4c218d3b443",
+  "web/src/AdminPayments.tsx": "37d7a7645616f0ec7a3f1b7ff43e832da5fee38adeeb670d2769a62e9288d8b3",
+  "web/src/AdminPortal.tsx": "b5d1535698f04db30a8e8959b665db6a9359bd24c522f8c9447aa5640663d0a5",
+  "web/src/adminTools.tsx": "920c1f42fd58294f1077e7a24c876c74ac898c78e8791bf5d86b91c3f43143d5",
+  "web/src/index.css": "0b90d1401c52163926cdd2ea8f8f2edaf7bc90b043ba929f4f37e4eed093dea1",
+  "shared/cloud/accountUI.tsx": "cafa8bac1f8b9263b235b75327beff1184be1a536591fad96a0c60bc7df547de",
+  "server/src/practiq_ai/grading.py": "dea0f3d3d95fcf8b40e8ade5eb5c121a787b2147295d013296c322905c095c86"
+}

@@ -21,6 +21,7 @@ from starlette.types import Receive, Scope, Send
 from practiq_ai import identity, task_api
 from practiq_ai.account_api import router as account_router
 from practiq_ai.account_middleware import AccountMiddleware, private_validation_error
+from practiq_ai.admin_api import router as admin_router
 from practiq_ai.bank_export import ZIP_CHUNK_BYTES
 from practiq_ai.config import load, require_model_config
 from practiq_ai.contracts import (
@@ -86,6 +87,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(lifespan=lifespan)
+app.include_router(admin_router)
 app.include_router(account_router)
 app.include_router(payment_router)
 app.add_exception_handler(RequestValidationError, private_validation_error)

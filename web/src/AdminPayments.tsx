@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { accountRequest as request, storageKey } from "../../shared/cloud/accountClient";
 import { errorMessage, Field } from "../../shared/cloud/accountUI";
-import type { AdministrationPaymentOrder, PaymentRefund } from "./contracts.generated";
+import type { AdministrationFilter, AdministrationPaymentOrder, PaymentRefund } from "./contracts.generated";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
+
+import { FilterBar, query, type AdminNavigate } from "./adminTools";
 
 type RefundIntent = { orderId: string; requestId: string; amount: string; reason: string };
 const orderPattern = /^[a-f0-9]{32}$/;
@@ -15,7 +17,9 @@ function pending(key: string): RefundIntent | null {
   if (Object.keys(value).sort().join() !== "amount,orderId,reason,requestId" || !orderPattern.test(value.orderId) || !uuid.test(value.requestId) || !/^\d{1,9}(\.\d{1,2})?$/.test(value.amount) || typeof value.reason !== "string" || !value.reason.trim() || value.reason.length > 200) throw Error("退款恢复记录无法读取，请保留本机记录并联系管理员核实。");
   return value;
 }
-export function AdminPayments() {
+export function AdminPayments({ initial = {}, initialId = "", navigate }: { initial?: AdministrationFilter; initialId?: string; navigate?: AdminNavigate }) {
+  const [filters, setFilters] = useState<AdministrationFilter>(initial);
+  const selection = useRef(0);
   const key = storageKey("practiq-admin-refund-v1");
   const [orders, setOrders] = useState<AdministrationPaymentOrder[]>([]), [order, setOrder] = useState<AdministrationPaymentOrder | null>(null);
   const [offset, setOffset] = useState(0), [revision, setRevision] = useState(0);
@@ -28,12 +32,20 @@ export function AdminPayments() {
   }, [key]);
   useEffect(() => {
     const controller = new AbortController(); setLoading(true);
-    void request<AdministrationPaymentOrder[]>(`/api/admin/payments?offset=${offset}`, "GET", undefined, controller.signal)
+    void request<AdministrationPaymentOrder[]>(`/api/admin/payments?${query(filters, offset)}`, "GET", undefined, controller.signal)
       .then(value => { if (!controller.signal.aborted) setOrders(value); })
       .catch(e => { if (!controller.signal.aborted) setError(errorMessage(e)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [offset, revision]);
+  }, [offset, revision, filters]);
+  useEffect(() => {
+    if (!initialId) return;
+    const controller = new AbortController(), selected = ++selection.current;
+    void request<AdministrationPaymentOrder>(`/api/admin/payments/${encodeURIComponent(initialId)}`, "GET", undefined, controller.signal)
+      .then(value => { if (!controller.signal.aborted && selected === selection.current) { setOrder(value); setId(value.id); setAmount(value.amount); } })
+      .catch(error => { if (!controller.signal.aborted) setError(errorMessage(error)); });
+    return () => controller.abort();
+  }, [initialId]);
   async function act(job: () => Promise<void>) {
     if (busy) return;
     setBusy(true); setError(""); setNotice("");
@@ -71,14 +83,15 @@ export function AdminPayments() {
   const selected = order && (!intent || intent.orderId === order.id);
   return <section>
     <h1>订单与退款</h1>
+    <FilterBar kind="payments" initial={initial} apply={value => { selection.current++; setFilters(value); setOffset(0); setOrder(null); setPassword(""); }} />
     <p>查询和查看订单不会付款或调用模型。退款需要管理员当前密码；未知结果保留原请求，只查询或显式重试原退款。</p>
     {error && <p role="alert" className="error-banner">{error}</p>}{notice && <p role="status">{notice}</p>}
-    <form className="account-form" onSubmit={e => { e.preventDefault(); void act(async () => setOrder(await request(`/api/admin/payments/${id}`))); }}>
+    <form className="account-form" onSubmit={e => { e.preventDefault(); void act(async () => { selection.current++; const value = await request<AdministrationPaymentOrder>(`/api/admin/payments/${id}`); setOrder(value); setAmount(value.amount); }); }}>
       <label className="account-field">订单编号<Input required pattern="[a-f0-9]{32}" value={id} onChange={e => setId(e.target.value)} disabled={busy} /></label>
       <Button variant="outline" disabled={busy}>读取原订单</Button>
     </form>
     {intent && <p role="status">保留的退款请求：{intent.requestId}，订单：{intent.orderId}，金额：¥{intent.amount}。请先读取此订单。</p>}
-    {loading ? <p role="status">正在读取订单…</p> : !orders.length ? <p>暂无订单。</p> : <div className="account-table"><table><thead><tr><th>订单</th><th>用户</th><th>金额</th><th>环境 / 状态</th><th>操作</th></tr></thead><tbody>{orders.map(row => <tr key={row.id}><td>{row.subject}<br />{row.id}</td><td>{row.ownerId}</td><td>¥{row.amount}</td><td>{row.environment} / {row.state}</td><td><Button variant="outline" disabled={busy} onClick={() => { setOrder(row); setId(row.id); setAmount(row.amount); setReason(""); setPassword(""); }}>查看订单 {row.id}</Button></td></tr>)}</tbody></table></div>}
+    {loading ? <p role="status">正在读取订单…</p> : !orders.length ? <p>暂无订单。</p> : <div className="account-table"><table><thead><tr><th>订单</th><th>用户</th><th>金额</th><th>环境 / 状态</th><th>操作</th></tr></thead><tbody>{orders.map(row => <tr key={row.id}><td>{row.subject}<br />{row.id}</td><td>{navigate ? <Button variant="link" onClick={() => navigate("users", {}, row.ownerId)}>{row.ownerId}</Button> : row.ownerId}</td><td>¥{row.amount}</td><td>{row.environment} / {row.state}</td><td><Button variant="outline" disabled={busy} onClick={() => { selection.current++; setOrder(row); setId(row.id); setAmount(row.amount); setReason(""); setPassword(""); }}>查看订单 {row.id}</Button></td></tr>)}</tbody></table></div>}
     <nav className="admin-pagination" aria-label="订单分页"><Button variant="outline" disabled={busy || !offset} onClick={() => setOffset(v => Math.max(0, v - 50))}>上一页</Button><Button variant="outline" disabled={busy || orders.length < 50} onClick={() => setOffset(v => v + 50)}>下一页</Button><Button variant="outline" disabled={busy} onClick={() => setRevision(v => v + 1)}>刷新订单</Button></nav>
     {order && <section className="settings-panel mt-6" aria-label="订单详情"><h2>{order.subject}</h2><p>订单 {order.id} · 用户 {order.ownerId} · ¥{order.amount} · {order.environment} / {order.state}</p>
       <p>{order.grant ? `权益 ${order.grant.state}，已用或预留 ${order.grant.usedPages} / ${order.grant.totalPages} 页，可用 ${order.grant.remainingPages} 页，到期 ${new Date(order.grant.expiresAt).toLocaleString()}` : "此订单没有正式页数权益。"}</p>

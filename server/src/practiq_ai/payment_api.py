@@ -11,6 +11,7 @@ from . import identity as auth
 from .account_api import confirm
 from .contracts import (
     AccountPlan,
+    AdministrationFilter,
     AdministrationPaymentOrder,
     PaymentCreate,
     PaymentForm,
@@ -70,8 +71,30 @@ async def admin_snapshot(order: dict) -> dict:
 
 
 @router.get('/api/admin/payments', response_model=list[AdministrationPaymentOrder])
-async def admin_orders(offset: int = Query(default=0, ge=0)):
-    rows = await auth.db().rows('SELECT * FROM payment_orders ORDER BY created_at DESC,id LIMIT 50 OFFSET %s', (offset,))
+async def admin_orders(filters: Annotated[AdministrationFilter, Query()]):
+    if filters.issue not in {None, 'refund', 'unknown'}:
+        raise HTTPException(422, {'code': 'INVALID_PAYMENT_ISSUE'})
+    from .admin_api import period
+    where, args = period(filters, 'p.created_at')
+    if filters.userId:
+        where += ' AND p.owner_id=%s'
+        args.append(filters.userId)
+    if filters.q:
+        where += ' AND (strpos(lower(u.email),lower(%s))>0 OR strpos(p.id,%s)>0 OR strpos(lower(p.subject),lower(%s))>0)'
+        args += [filters.q] * 3
+    if filters.state:
+        if filters.state not in {'UNKNOWN', 'PENDING_PAYMENT', 'PAID', 'CLOSED'}:
+            raise HTTPException(422, {'code': 'INVALID_PAYMENT_STATE'})
+        where += ' AND p.state=%s'
+        args.append(filters.state)
+    if filters.environment:
+        where += ' AND p.environment=%s'
+        args.append(filters.environment)
+    if filters.issue == 'refund':
+        where += " AND (EXISTS (SELECT 1 FROM page_grants g WHERE g.order_id=p.id AND g.state='refund_pending') OR EXISTS (SELECT 1 FROM payment_refunds r WHERE r.order_id=p.id AND r.state='UNKNOWN'))"
+    if filters.issue == 'unknown':
+        where += " AND p.state='UNKNOWN'"
+    rows = await auth.db().rows(f'SELECT p.* FROM payment_orders p JOIN auth_users u ON u.id=p.owner_id WHERE true {where} ORDER BY p.created_at DESC,p.id LIMIT 50 OFFSET %s', (*args, filters.offset))
     return [await admin_snapshot(order) for order in rows]
 
 

@@ -1,11 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import type { AdministrationSettings, AccountLimits, DocumentTaskDetail, DocumentTaskReview, DocumentTaskList } from "./contracts.generated";
+import type { AdministrationSettings, AdministrationFilter, AdministrationTaskList, AccountLimits, DocumentTaskDetail, DocumentTaskReview } from "./contracts.generated";
 import { accountRequest as request } from "../../shared/cloud/accountClient";
 import { Field, Form, Records, errorMessage } from "../../shared/cloud/accountUI";
 import { Client } from "../../shared/cloud/api";
 import { ImportSettingsPanel } from "../../shared/cloud/ImportSettingsPanel";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
+import { FilterBar, query, type AdminNavigate } from "./adminTools";
+import { AdminUserDetails } from "./AdminUserDetails";
 const Review = lazy(() => import("../../shared/cloud/ResultReview"));
 export function AdminSettings() {
   const [executionClient] = useState(() => new Client(true));
@@ -65,7 +67,9 @@ export function AdminSettings() {
     </>
   );
 }
-export function AdminUsers() {
+export function AdminUsers({ initial = {}, initialId = "", navigate }: { initial?: AdministrationFilter; initialId?: string; navigate: AdminNavigate }) {
+  const [filters, setFilters] = useState<AdministrationFilter>(initial);
+  const [reason, setReason] = useState(""), [baselineFree, setBaselineFree] = useState(50), [editing, setEditing] = useState(false);
   const [defaults, setDefaults] = useState<AccountLimits | null>(null),
     [defaultsError, setDefaultsError] = useState("");
   useEffect(() => {
@@ -75,7 +79,7 @@ export function AdminUsers() {
       .catch(error => { if (!controller.signal.aborted) setDefaultsError(errorMessage(error)); });
     return () => controller.abort();
   }, []);
-  const [id, setId] = useState(""),
+  const [id, setId] = useState(initialId),
     [password, setPassword] = useState(""),
     [enabled, setEnabled] = useState(true),
     [role, setRole] = useState<"user" | "admin">("user"),
@@ -92,9 +96,11 @@ export function AdminUsers() {
   return (
     <>
       <h1>用户管理</h1>
+      <FilterBar kind="users" initial={initial} apply={value => { setFilters(value); setOffset(0); setId(""); setEditing(false); setPassword(""); setLink(null); }} />
       {defaultsError && <p role="alert">{defaultsError}</p>}
       {!defaults && !defaultsError && <p role="status">正在读取默认额度…</p>}
-      <Records path={`/api/admin/users?offset=${offset}`} refresh={revision} onSelect={defaults ? row => {
+      <Records path={`/api/admin/users?${query(filters, offset)}`} refresh={revision} onSelect={defaults ? row => {
+        setEditing(true); setReason(""); setBaselineFree((row.limits as Partial<AccountLimits>).freePages ?? defaults.freePages);
         setId(String(row.id)); setEnabled(row.enabled === true); setRole(row.role === 'admin' ? 'admin' : 'user');
         setPassword(""); setLink(null);
         const saved = row.limits as Partial<AccountLimits>; setOverride(Object.keys(saved).length > 0);
@@ -112,20 +118,23 @@ export function AdminUsers() {
           下一页
         </Button>
       </div>
-      {id && <section className="settings-panel mt-8">
+      {id && <AdminUserDetails key={id} id={id} navigate={navigate} changed={() => setRevision(value => value + 1)} />}
+      {id && editing && <section className="settings-panel mt-8">
       <h2>编辑选中的用户</h2>
       <Form
         key={`update-${id}`}
         label="更新指定用户"
         submit={async () => {
-          await request(`/api/admin/users/${encodeURIComponent(id)}`, "PATCH", {
+          try { await request(`/api/admin/users/${encodeURIComponent(id)}`, "PATCH", {
             currentPassword: password,
+            reason, expectedFreePages: baselineFree,
             enabled,
             role,
             limits: override ? limits : null,
           });
-          setPassword("");
+          setBaselineFree(override ? limits.freePages : defaults!.freePages);
           setRevision((v) => v + 1);
+          } finally { setPassword(""); }
         }}
       >
         <Field name="user-id" label="用户编号" value={id} onChange={setId} readOnly />
@@ -136,6 +145,7 @@ export function AdminUsers() {
           value={password}
           onChange={setPassword}
         />
+        <label className="account-field">变更原因<Input required maxLength={200} value={reason} onChange={event => setReason(event.target.value)} /></label>
         <label>
           <input
             type="checkbox"
@@ -225,15 +235,16 @@ export function AdminUsers() {
     </>
   );
 }
-export function AdminTasks() {
+export function AdminTasks({ initial = {}, initialId = "", navigate }: { initial?: AdministrationFilter; initialId?: string; navigate: AdminNavigate }) {
+  const [filters, setFilters] = useState<AdministrationFilter>(initial);
   const [client] = useState(() => new Client(true)),
-    [tasks, setTasks] = useState<DocumentTaskList | null>(null),
+    [tasks, setTasks] = useState<AdministrationTaskList | null>(null),
     [detail, setDetail] = useState<DocumentTaskDetail | null>(null),
     [preview, setPreview] = useState<DocumentTaskReview | null>(null),
-    [id, setId] = useState(""),
+    [id, setId] = useState(initialId),
     [error, setError] = useState(""),
     [offset, setOffset] = useState(0);
-  const selectedId = useRef(""), pageOffset = useRef(0);
+  const selectedId = useRef(initialId), pageOffset = useRef(0);
   const listRequest = useRef<AbortController | null>(null), detailRequest = useRef<AbortController | null>(null);
   const readPage = useCallback(async (nextOffset: number) => {
     listRequest.current?.abort();
@@ -244,15 +255,15 @@ export function AdminTasks() {
     setTasks(null);
     setError("");
     try {
-      const result = await client.list(nextOffset, "", controller.signal);
+      const result = await request<AdministrationTaskList>(`/api/admin/task-search?${query(filters, nextOffset)}`, "GET", undefined, controller.signal);
       if (!controller.signal.aborted) setTasks(result);
     } catch (error) {
       if (!controller.signal.aborted) throw error;
     }
-  }, [client]);
+  }, [filters]);
   useEffect(() => {
     void readPage(0).catch(error => setError(errorMessage(error)));
-    return () => { listRequest.current?.abort(); detailRequest.current?.abort(); };
+    return () => { listRequest.current?.abort(); };
   }, [readPage]);
   function selectId(value: string) {
     selectedId.current = value;
@@ -262,7 +273,7 @@ export function AdminTasks() {
     setPreview(null);
     setError("");
   }
-  async function readDetail(target = selectedId.current) {
+  const readDetail = useCallback(async (target = selectedId.current) => {
     if (!target || selectedId.current !== target) return;
     detailRequest.current?.abort();
     const controller = new AbortController();
@@ -281,7 +292,11 @@ export function AdminTasks() {
     } catch (error) {
       if (!controller.signal.aborted) throw error;
     }
-  }
+  }, [client]);
+  useEffect(() => {
+    if (initialId) void readDetail(initialId).catch(error => setError(errorMessage(error)));
+    return () => detailRequest.current?.abort();
+  }, [initialId, readDetail]);
   async function read() {
     setError("");
     await readPage(pageOffset.current);
@@ -290,6 +305,7 @@ export function AdminTasks() {
   return (
     <>
       <h1>任务检查与恢复</h1>
+      <FilterBar kind="tasks" initial={initial} apply={value => { selectId(""); setFilters(value); }} />
       <Form label="读取任务" submit={read}>
         <label className="account-field">
           任务编号
@@ -305,6 +321,7 @@ export function AdminTasks() {
         <div className="account-bank" key={task.threadId}>
           <span>
             {task.fileName} · {task.state}
+            {task.ownerId && <Button variant="link" onClick={() => navigate("users", {}, task.ownerId!)}>{task.ownerEmail || task.ownerId}</Button>}
           </span>
           <Button
             variant="outline"

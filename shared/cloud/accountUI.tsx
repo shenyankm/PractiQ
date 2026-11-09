@@ -4,6 +4,11 @@ import { accountRequest as request } from "./accountClient";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 const messages: Record<string, string> = {
+  ALLOWANCE_CHANGED: "额度已被其他操作更新，请重新选择用户以读取最新额度，再决定是否调整。",
+  ALLOWANCE_REASON_REQUIRED: "修改免费总额度需要填写调整原因。",
+  CREDENTIAL_NOT_FOUND: "该凭证已失效或不属于所选用户，请重新读取凭证列表。",
+  USER_NOT_FOUND: "未找到该用户，请重新搜索并选择用户。",
+
   PLAN_REFUND_REQUIRES_UNUSED_FULL_ORDER: "套餐与加量包仅支持未使用、未预留额度的整单退款。请核对订单的实际付款金额及额度明细。",
   INVALID_CREDENTIALS: "邮箱或密码错误，或账户已停用。",
   CSRF_INVALID: "页面凭证已过期，请刷新后手动重试。",

@@ -58,3 +58,43 @@ test('administrator order inspection keeps refund submission explicit',async({pa
   await page.getByRole('button',{name:'查看订单 '+id}).click();await page.evaluate(()=>document.documentElement.classList.add('dark'));
   await page.screenshot({path:testInfo.outputPath('admin-refund-dark.png'),fullPage:true});
 });
+
+test('support console links balances, usage and reasoned recovery', async ({ page }, testInfo) => {
+  const { adminUserDetail } = await import('../src/test-fixtures');
+  let detail = adminUserDetail(); const writes: Record<string, unknown>[] = [], queries: string[] = [];
+  await page.route('**/api/**', async route => {
+    const request = route.request(), url = new URL(request.url()), path = url.pathname;
+    let value: unknown = [];
+    if (request.method() === 'GET') queries.push(path + url.search);
+    else writes.push(request.postDataJSON());
+    if (path === '/api/auth/session') value = { user: { id: 'admin', email: 'admin@example.test', name: '管理员', role: 'admin', enabled: true }, csrf: 'fixture', registrationEnabled: true };
+    else if (path === '/api/admin/settings') value = { registrationEnabled: true, freePages: 50, modelCalls: 1000, tencentCalls: 50, activeTasks: 1 };
+    else if (path === '/api/admin/users') value = [detail.user];
+    else if (path === '/api/admin/users/alice') value = detail;
+    else if (path === '/api/admin/users/alice/allowance') { detail = { ...detail, balance: { ...detail.balance, freePages: 75, freeRemainingPages: 68, remainingPages: 68 } }; value = detail; }
+    else if (path === '/api/admin/usage/summary') value = { totals: { calls: 1, failedCalls: 0, unknownCalls: 1, pendingCalls: 0, pages: 7, inputTokens: 0, outputTokens: 0, unknownTokenCalls: 1 }, items: [], hasMore: false };
+    else if (path === '/api/admin/calls') value = [{ call_key: 'fixture-call', user_id: 'alice', email: 'alice@example.test', scope: 'grade:example', day: '2026-11-09', kind: 'modelCalls', provider: 'fixture-model', state: 'unknown', status: 'failed', record: { error: 'MODEL_RESULT_UNKNOWN' } }];
+    else if (path === '/api/admin/operations') value = { observedAt: '2026-11-09T03:00:00Z', codeVersion: 'fixture-source', schemaVersion: 8, maintenance: false, readOnly: false, accepting: true, broker: { publisher: true, consumer: true }, runs: { pending: 2, running: 1 }, outboxPending: 2, oldestPendingSeconds: 42, queueCapacity: 300, workersAvailable: 7, storageHealthy: true, storageFreeBytes: 32 * 1024 ** 3, modelId: 'fixture-model', parserConfigured: true, costCurrency: 'CNY', dailyCostLimitMicros: 20_000_000, dailyReservedMicros: 2_000_000, taskCostLimitMicros: 5_000_000, monitoringState: 'not_configured', monitoring: null };
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(value) });
+  });
+  await page.goto('/admin'); await page.getByLabel('搜索邮箱、昵称或用户编号').fill('alice');
+  await page.getByRole('button', { name: '应用筛选', exact: true }).click(); await page.getByRole('button', { name: '选择', exact: true }).click();
+  await expect(page.getByRole('heading', { name: '用户详情', exact: true })).toBeVisible();
+  expect(queries.some(path => path.includes('q=alice'))).toBe(true); expect(writes).toHaveLength(0);
+  await page.screenshot({ path: testInfo.outputPath('admin-user-detail-light.png'), fullPage: true });
+  await page.getByLabel('新的免费总额度（页）').fill('75'); await page.getByLabel('调整原因').fill('补偿已确认的平台故障'); await page.locator('#allowance-password').fill('synthetic-password');
+  await expect(page.getByRole('status').filter({ hasText: '全部可用页数 68 页' })).toBeVisible(); expect(writes).toHaveLength(0);
+  await page.getByRole('button', { name: '确认调整总额度', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: '当前总额度 75 页' })).toBeVisible(); expect(writes).toHaveLength(1); expect(writes[0]).toMatchObject({ expectedFreePages: 50, reason: '补偿已确认的平台故障' });
+  await page.getByRole('button', { name: '查看该用户用量', exact: true }).click(); await expect(page.getByText('1 次调用', { exact: true })).toBeVisible();
+  expect(queries.some(path => path.startsWith('/api/admin/calls?') && path.includes('userId=alice'))).toBe(true);
+  await page.getByRole('navigation', { name: '管理导航' }).getByRole('button', { name: '运行状态', exact: true }).click(); await expect(page.getByText('未接入外部状态')).toBeVisible();
+  for (const [width, theme] of [[1440, 'light'], [1024, 'dark'], [800, 'light']] as const) {
+    await page.setViewportSize({ width, height: 1040 }); await page.evaluate(theme => document.documentElement.classList.toggle('dark', theme === 'dark'), theme);
+    await expect(page.getByRole('navigation', { name: '管理导航' }).getByRole('button', { name: '运行状态', exact: true })).toHaveCSS('color', theme === 'dark' ? 'rgb(147, 197, 253)' : 'rgb(29, 78, 216)');
+    await page.screenshot({ path: testInfo.outputPath(`admin-operations-${width}-${theme}.png`), fullPage: true });
+    await testInfo.attach(`navigation-${width}-${theme}.json`, { body: JSON.stringify(await page.getByRole('navigation', { name: '管理导航' }).evaluate(nav => { const button = nav.querySelector('button')!; const computed = getComputedStyle(button); return { color: computed.color, background: computed.backgroundColor, foreground: computed.getPropertyValue('--foreground'), accentForeground: computed.getPropertyValue('--accent-foreground') }; })), contentType: 'application/json' });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  expect(writes).toHaveLength(1);
+});
