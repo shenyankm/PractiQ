@@ -20,7 +20,7 @@ App and Web import `shared/document-content.css` for document rendering. Keep lo
 
 App retains sidebar navigation, header actions, bank grids, question lists, mistakes, favorites, history, settings, service configuration, practice and existing editor/confirmation dialogs. The expanded sidebar is 208px; the collapsed width is unchanged. The resume region shows the saved session title and progress: submitted answers for practice, saved drafts for exams. Bank counts sit below their descriptions, leaving titles room to wrap. Question filters share one surface. Narrow question lists place actions below the summary; Previous/Next remain together in practice.
 
-Web keeps separate import, task history and import-settings pages. Show import steps as one continuous region with a semantic current-step indicator. Connection uses the personal service token. The final step reflects a verified ZIP download for the same task/checkpoint, resets when the checkpoint changes and never starts model work. Result review puts question content, supplied answers and source text before collapsible technical records.
+The App keeps separate import, task history and import-settings pages in its cloud workspace. Show import steps as one continuous region with a semantic current-step indicator. Connection uses the signed-in account session. The final step reflects a verified ZIP download for the same task/checkpoint, resets when the checkpoint changes and never starts model work. Result review puts question content, supplied answers and source text before collapsible technical records. The administrator Web at `/admin` has no upload entry.
 
 ## Components
 
@@ -28,13 +28,13 @@ Cards use 16px corners and a single thin border without shadows. Overlays (dialo
 
 Ordinary buttons, inputs, input groups and selects have a desktop minimum height of 40px and a touch minimum of 48px. Desktop xs, sm and lg buttons use 32px, 36px and 44px minimums respectively, including icon buttons; compact selects are 36px. Panels use 16px corners, controls use `--radius`, menus use 12px and menu items use 8px. Badges remain pill-shaped; checkboxes and radio buttons retain their semantic shapes. English buttons may wrap, with the same minimum height as Chinese buttons.
 
-App and import Web reuse Card, Badge, Input and button variants from `shared/ui.tsx`; their local modules retain the public imports. App buttons keep their WebKit focus handling. Both Tailwind entries scan `shared/` for component classes.
+App and administrator Web reuse Card, Badge, Input and button variants from `shared/ui.tsx`; their local modules retain the public imports. App buttons keep their WebKit focus handling. Both Tailwind entries scan `shared/` for component classes.
 
-App and import Web share the shadcn/Radix single-select component. Desktop browsers use themed popup panels, selected surfaces and checkmarks without relying on `appearance: base-select` support. Coarse primary pointers retain system pickers with the same values and callbacks. Narrow desktop windows keep the custom menu. Both forms preserve labels, disabled states and keyboard selection; resizing preserves the current value.
+App and administrator Web share the shadcn/Radix single-select component. Desktop browsers use themed popup panels, selected surfaces and checkmarks without relying on `appearance: base-select` support. Coarse primary pointers retain system pickers with the same values and callbacks. Narrow desktop windows keep the custom menu. Both forms preserve labels, disabled states and keyboard selection; resizing preserves the current value.
 
-Web file selection keeps a keyboard-accessible native input and a visible Chinese action label, with 40px desktop / 48px touch targets. File selection alone does not upload or start import.
+App file selection uses the native picker with 40px desktop / 48px touch targets. File selection alone does not upload or start import.
 
-The bank-home Refresh action belongs to the top action group beside New bank and Import. Keep bank pagination below the list, and disable refresh while its read is pending. The import Web header shows the brand; connection errors remain next to their recovery action.
+The bank-home Refresh action belongs to the top action group beside New bank and Import. Keep bank pagination below the list, and disable refresh while its read is pending. The App import workspace header shows the brand; connection errors remain next to their recovery action.
 
 Single-select controls center their selected text within the shared control height, with wrappers matching the control bounds so the arrow stays centered. Do not render empty quick-count rows in study setup; unavailable presets must not add blank vertical spacing.
 
@@ -52,9 +52,9 @@ Dark mode uses deep slate pages (`#090d16`), dark slate cards (`#0f172a`), deep 
 
 Keep interface guidance concise: remove generic page subtitles and repeated bank-card instructions, while preserving user-authored descriptions. Both Chinese variants use full-width punctuation and “” quotes, refer to the desktop app as 应用/應用程式, and end error messages with terminal punctuation in every language; binary file limits are labelled MiB. Backup contents and import rules are available in keyboard-accessible disclosures. Keep supported formats and upload limits visible before file selection. Keep cost notices, destructive-action consequences, timed-exam behavior and recovery messages visible at the relevant action. App copy changes apply to Simplified Chinese, Traditional Chinese and English.
 
-Exam setup must state that answers stay hidden during the exam and that a score preview is required before starting. Active result filters must explain that exports still include all completed questions. Partial-export guidance retains the available-question and matching-checkpoint requirements. Describe account tokens as stored only in page memory, without implying that refresh revokes the token.
+Exam setup must state that answers stay hidden during the exam and that a score preview is required before starting. Active result filters must explain that exports still include all completed questions. Partial-export guidance retains the available-question and matching-checkpoint requirements. Describe administrator sessions as HttpOnly same-origin cookies and App sessions as Keychain-backed, without implying that refresh revokes either.
 
-Production continues to use existing local data or the independent service. Demo entry points use existing mock banks and task fixtures. Preserve unfinished practice, empty banks, failed units, missing answers, review flags, loading and errors. Do not change questions, grading, persistence, import, restore or authentication. The Web preview API is isolated from the real service and does not upload, call models or download real artifacts.
+Production continues to use existing local data or the independent service. Demo entry points use existing mock banks and task fixtures. Preserve unfinished practice, empty banks, failed units, missing answers, review flags, loading and errors. Do not change questions, grading, persistence, import, restore or authentication. The development-preview API is isolated from the real service and does not upload, call models or download real artifacts.
 
 ## OpenDesign workflow
 

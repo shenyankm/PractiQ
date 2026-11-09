@@ -10,7 +10,7 @@
 
 ## Affected areas
 
-<!-- List the affected components and platforms: app (macOS), import Web, AI service, shared contracts, documentation, or tooling. -->
+<!-- List the affected components and platforms: app (macOS), administrator Web, AI service, shared contracts, documentation, or tooling. -->
 
 ## Validation
 

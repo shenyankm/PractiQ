@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose an improvement to the practice app, import Web frontend, service, or tooling
+description: Propose an improvement to the practice app, administrator Web, service, or tooling
 title: "[Feature]: "
 labels: ["enhancement"]
 body:
@@ -15,7 +15,7 @@ body:
       label: Primary area
       options:
         - Practice app - macOS
-        - Import Web frontend
+        - Administrator Web
         - AI service or document processing
         - Shared UI or data contracts
         - Build, CI, or packaging
