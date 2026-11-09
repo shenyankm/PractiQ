@@ -22,15 +22,14 @@ visible and put merge in the labelled action menu. On phones, form labels sit
 above full-width controls. Use semantic color tokens for normal, warning, error,
 success, selected, read-only and disabled states.
 
-Web import keeps file selection, the pending queue, deduplication and the explicit
-Start action together. Above 1100px, a 296px guide beside the upload card holds
-formats, the complete call-budget explanation and the source → review → ZIP flow.
-At narrower widths the guide follows the upload card; the fee notice stays before
-Start. A single ready file keeps Start in the first 390×844 viewport. Larger queues
+The App import workspace keeps file selection, the pending queue, deduplication and the explicit
+Start action together. Put supported formats, the complete call-budget explanation
+and the source → review → ZIP flow in a side guide at wide desktop widths and above
+the upload card at narrow widths; keep the fee notice before Start. Larger queues
 remain bounded and scrollable. Navigation and selected records use neutral fills,
 leaving blue emphasis for the main action and focus. Desktop count/date columns
-align right; phone record rows align left. Narrow settings inputs stack below their
-labels and descriptions at full width.
+align right. Narrow settings inputs stack below their labels and descriptions at
+full width.
 
 The bank home reserves filled emphasis for resuming the unfinished session (or
 the first-import empty state). Bank viewing stays a text action; starting a new
@@ -53,12 +52,11 @@ Images initially fit the viewer. Original-size inspection is explicit and keeps
 horizontal/vertical scrolling and keyboard focus. Do not change source images,
 checksums, lazy asset loading or exam reference-answer restrictions.
 
-Web question review presents the question, missing-field warnings, supplied answer
-and source evidence before technical metadata. Preserve nulls, unknown answer
-structures and the complete original JSON under Source and technical details.
-Never infer or generate a reference answer. File selection remains a keyboard-
-accessible native input with a Chinese visible label; selection alone does not
-upload or submit anything.
+Result review in the App and administrator Web presents the question, missing-field
+warnings, supplied answer and source evidence before technical metadata. Preserve
+nulls, unknown answer structures and the complete original JSON under Source and
+technical details. Never infer or generate a reference answer. App file selection
+uses the native picker; selection alone does not upload or submit anything.
 
 Capture stable evidence with `shared/browser-evidence.mjs`: hide development
 controls, finish animations, record actual rendered theme/language/viewport, and

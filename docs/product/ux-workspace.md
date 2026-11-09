@@ -1,6 +1,6 @@
 # Workspace UX decisions
 
-PractiQ has two workflows: import and inspect documents in the independent Web frontend, then practise offline in the app. This review covers navigation, bank management, question lists and editors, session setup, answering, score review, history, connection settings, backups, Web uploads, task controls and parsed-result review. It does not establish usability results from real participants or live models.
+PractiQ has two workflows: import and inspect documents in the macOS App's cloud workspace, then practise offline in the same App. This review covers navigation, bank management, question lists and editors, session setup, answering, score review, history, connection settings, backups, the App import workspace, administrator task inspection and parsed-result review. It does not establish usability results from real participants or live models.
 
 ## Visual and interaction rules
 
@@ -22,9 +22,9 @@ The same workflows must fit narrow touch windows and desktop windows. Touch cont
 | Results | Show confirmed scores, skipped questions and unassessed counts separately. Keep rate calculations and pending-score details available under judgement details. Show scoring controls after the question/reference context, with visible score and reason labels. |
 | History | An empty filtered history can return to all records; a genuinely empty history leads to banks. Existing totals, resumable drafts and provisional-score labels are preserved. |
 | Settings | Explain whether a token is already saved without exposing it. Retain connection-test errors and success in the form until another test or relevant edit. Backup restoration and bank append remain distinct operations. |
-| Web upload | Derive file-picker extensions from current service capabilities. Files can be removed only before submission. Selecting/removing files never starts model work. |
-| Web tasks | Provide navigation between upload, list and detail. Keep allowed controls and ZIP export prominent; disclose reparse and delete separately. Keep stale-checkpoint and uncertain-mutation handling. Successful deletion focuses the surviving task-list heading; cancellation returns to the delete trigger. |
-| Web result review | Search stems, supplied/shared option text and source text across loaded records; filter explicit review flags. Filtering resets local pagination and preserves the complete unit-scoped material/option lookup. Idless cards use their original unit ordinal so filtering cannot transfer expansion to another question. It does not change export contents, DTOs, review flags or model usage. |
+| App upload | Derive file-picker extensions from current service capabilities. Files can be removed only before submission. Selecting/removing files never starts model work. |
+| App tasks | Provide navigation between upload, list and detail. Keep allowed controls and ZIP export prominent; disclose reparse and delete separately. Keep stale-checkpoint and uncertain-mutation handling. Successful deletion focuses the surviving task-list heading; cancellation returns to the delete trigger. |
+| Result review | Search stems, supplied/shared option text and source text across loaded records; filter explicit review flags in the App and administrator inspection. Filtering resets local pagination and preserves the complete unit-scoped material/option lookup. Idless cards use their original unit ordinal so filtering cannot transfer expansion to another question. It does not change export contents, DTOs, review flags or model usage. |
 
 ## Verification
 

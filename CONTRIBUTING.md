@@ -69,7 +69,7 @@ Run the relevant commands from the repository root:
 | Area | Install and develop |
 | --- | --- |
 | Practice app — macOS | `make app-install`, then `make app-dev AI_PYTHON=/path/to/python3.14` |
-| Import Web | `make web-install`, then `make web-dev` |
+| Administrator Web | `make web-install`, then `make web-dev` |
 | AI service | `make install-locked AI_PYTHON=/path/to/python3.14`; follow the [installation guide's service setup](docs/guides/installation.md#install-the-ai-import-service-optional) for configuration and `make server-dev AI_PYTHON=/path/to/python3.14` |
 
 See the [installation requirements](docs/guides/installation.md#before-you-start) for native toolchains. Service integration and recovery tests need Docker for disposable PostgreSQL/RabbitMQ instances; pure tests must not start Docker. Model-substitute tests need no real model credentials or running AI service.
@@ -116,7 +116,7 @@ Choose checks for every affected area, from the repository root. Install the loc
 | --- | --- |
 | AI service | `make verify`: lockfile, Ruff, Pyright, evaluation fixtures, tests with 90% coverage, PostgreSQL/RabbitMQ recovery probes, package build and archive source/lock integrity |
 | Shared AI contracts | Regenerate all four files above; run `make verify`, `make web-check`, and the applicable app checks below |
-| Import Web frontend | `make web-check web-build`: types, lint, coverage, fake-HTTP browser interactions, and static build |
+| Administrator Web | `make web-check web-build`: types, lint, coverage, fake-HTTP browser interactions, and static build |
 | Practice app UI, including touch layouts | `npm --prefix app run check:ui` and `npm --prefix app run test:browser`: types, lint, coverage, and desktop/touch browser checks |
 | App native commands, storage, or recovery | `make app-check` on macOS. Verify affected native flows |
 | Service Office conversion | Focused Office/normalization tests and `make verify`; verify fidelity with the actual deployed engine separately using the [Office guide](server/docs/desktop-office.md) |
@@ -173,7 +173,7 @@ Record evidence for the final release candidate before publication:
 - [ ] Confirm version, date, download URL, artifact hashes, OS/architecture, and signing/notarization status.
 - [ ] Run the applicable service, app, browser, and final-package checks for that candidate.
 - [ ] Verify installation, sample import, practice, submission, and backup restore on a clean target system.
-- [ ] Capture Web import/review and App ZIP import/practice/score workflows, identifying their separate candidates.
+- [ ] Capture App import/review and ZIP import/practice/score workflows, plus administrator Web inspection, identifying their separate candidates.
 - [ ] Record separately authorized live parsing/grading examples, failures, and consented user feedback.
 
 Report macOS native checks separately from browser mocks. Historical reports and model substitutes do not establish clean-machine acceptance or live-model accuracy. Keep unchecked items explicit; grading requires a reference answer or rubric.

@@ -15,7 +15,7 @@ body:
       label: Related area
       options:
         - Practice app - macOS
-        - Import Web frontend
+        - Administrator Web
         - AI service or document processing
         - Shared UI or data contracts
         - Build, CI, or packaging
