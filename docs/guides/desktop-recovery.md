@@ -22,3 +22,8 @@ Do not delete journals, clear a pending restore record, edit schema versions or 
 5. Export a fresh full backup to a location outside the application-data directory. Keep the original backup and preserved damaged directory until you have verified the recovered data and any later records have been salvaged separately.
 
 Without a valid supported backup, the preserved directory may still be useful for manual diagnosis, but this procedure cannot reconstruct its records. Keep it intact; reinstallation, an empty database or a bank ZIP does not restore lost practice history.
+
+Backup export resolves the destination's parent directory before checking protected
+data paths. Directory symlinks and `..` cannot bypass protection for the live study,
+grading-settings and learning databases, account origin file or resource directory.
+Ordinary external backup ZIPs may still be replaced after the native save confirmation.
