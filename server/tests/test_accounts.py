@@ -470,3 +470,61 @@ async def test_registration_rechecks_policy_after_password_hashing(accounts, mon
     response = await client.post('/api/auth/register', json={'email': 'late@example.test', 'password': PASSWORD}, headers={'X-CSRF-Token': csrf})
     assert response.status_code == 403
     assert not await database.rows("SELECT id FROM auth_users WHERE email='late@example.test'")
+
+
+async def test_rate_cleanup_preserves_both_active_windows_and_existing_counters(accounts, monkeypatch):
+    from datetime import UTC, datetime, timedelta
+
+    from fastapi import HTTPException
+    database, _ = accounts
+    fixed = datetime(2026, 11, 10, 12, 0, tzinfo=UTC)
+    class Clock:
+        @classmethod
+        def now(cls, tz): return fixed
+    monkeypatch.setattr(identity, 'datetime', Clock)
+    now = int(fixed.timestamp())
+    async with database.transaction() as conn:
+        await conn.execute("INSERT INTO auth_limits VALUES(%s,%s,5),(%s,%s,2),('expired-year',%s,1),('expired-day',%s,1)",
+                           (identity.digest('login:existing'), now//900, identity.digest('register:existing'), now//3600, (now-365*86400)//900, (now-86400)//3600))
+    with pytest.raises(HTTPException) as failure:
+        await identity.rate('login:existing', 5, 900)
+    assert failure.value.status_code == 429
+    assert (await database.rows('SELECT count(*) AS n FROM auth_limits'))[0]['n'] == 2
+    await identity.rate('register:existing', 5, 3600)
+    assert (await database.rows('SELECT count FROM auth_limits WHERE key=%s', (identity.digest('register:existing'),)))[0]['count'] == 3
+    fixed += timedelta(minutes=15)
+    await identity.rate('register:existing', 5, 3600)
+    assert not await database.rows('SELECT 1 FROM auth_limits WHERE key=%s', (identity.digest('login:existing'),))
+    assert (await database.rows('SELECT count FROM auth_limits WHERE key=%s', (identity.digest('register:existing'),)))[0]['count'] == 4
+    with pytest.raises(ValueError):
+        await identity.rate('unsupported', 5, 60)
+    async with database.transaction() as conn:
+        await conn.execute("INSERT INTO auth_limits SELECT 'expired-'||n,0,1 FROM generate_series(1,1001) n")
+    await identity.rate('new', 5, 900)
+    assert (await database.rows('SELECT count(*) AS n FROM auth_limits WHERE bucket=0'))[0]['n'] == 1
+    await identity.rate('new', 5, 900)
+    assert (await database.rows('SELECT count(*) AS n FROM auth_limits WHERE bucket=0'))[0]['n'] == 0
+
+
+async def test_rate_cleanup_keeps_parallel_limits_and_expires_each_window(accounts, monkeypatch):
+    import asyncio
+    from datetime import UTC, datetime, timedelta
+
+    from fastapi import HTTPException
+    database, _ = accounts
+    class Clock:
+        value = datetime(2026, 11, 10, 12, 0, tzinfo=UTC)
+        @classmethod
+        def now(cls, tz): return cls.value
+    monkeypatch.setattr(identity, 'datetime', Clock)
+    async def call():
+        try:
+            await identity.rate('concurrent', 3, 900)
+            return True
+        except HTTPException as exc:
+            assert exc.status_code == 429
+            return False
+    assert sum(await asyncio.gather(*(call() for _ in range(8)))) == 3
+    Clock.value += timedelta(hours=1)
+    await identity.rate('concurrent', 3, 900)
+    assert await database.rows('SELECT count FROM auth_limits') == [{'count': 1}]
