@@ -269,7 +269,7 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 .source-text mark { background: var(--primary); color: var(--primary-foreground); }
 .correction-editor { display: grid; gap: 1rem; }
 .correction-editor label { display: grid; gap: .5rem; font-weight: 500; }
-.correction-editor textarea { width: 100%; min-height: 6rem; resize: vertical; padding: .75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--background); color: var(--foreground); font: inherit; }
+.correction-editor textarea { width: 100%; min-height: 6rem; resize: vertical; padding: .75rem; border: 1px solid var(--input); border-radius: var(--radius); background: var(--card); color: var(--foreground); font: inherit; }
 .correction-editor textarea:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .correction-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .correction-option { display: grid; grid-template-columns: 5rem minmax(0, 1fr) auto; gap: .5rem; align-items: start; margin-block: .75rem; }
@@ -285,13 +285,13 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 .account-navigation { display: flex; gap: 0.5rem; padding: 0.75rem 1.5rem; flex-wrap: wrap; }
 .account-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); flex: 1; min-height: 0; }
 .account-layout > nav { padding: 1.25rem 0.75rem; display: flex; flex-direction: column; gap: 0.35rem; background: var(--sidebar); border-right: 1px solid var(--border); }
-.account-layout > nav button { justify-content: flex-start; width: 100%; height: 38px; padding: 0.5rem 0.875rem; border-radius: var(--radius-item); font-size: 13.5px; font-weight: 500; text-align: left; color: var(--muted-foreground); transition: all var(--motion-duration) var(--motion-ease); }
+.account-layout > nav button { justify-content: flex-start; width: 100%; padding: 0.5rem 0.875rem; font-size: var(--text-body); text-align: left; color: var(--muted-foreground); transition: color var(--motion-duration) var(--motion-ease), background-color var(--motion-duration) var(--motion-ease); }
 .account-layout > nav button:hover { color: var(--foreground); background: var(--muted); }
 .account-layout > nav button[data-variant="secondary"],
 .account-layout > nav button.bg-secondary { color: var(--primary); background: var(--secondary); font-weight: 600; }
 .account-content { max-width: 1240px; width: 100%; margin: 0; padding: 2rem 2.5rem; min-width: 0; }
-.account-content h1, .account-auth h1, .account-card h1 { font-size: 1.4rem; font-weight: 650; letter-spacing: -0.02em; margin-bottom: 1rem; color: var(--foreground); }
-.account-content h2 { font-size: 1.15rem; font-weight: 600; letter-spacing: -0.01em; margin: 1.75rem 0 0.85rem; color: var(--foreground); }
+.account-content h1, .account-auth h1, .account-card h1 { font-size: var(--text-page); font-weight: 600; line-height: 1.35; letter-spacing: -0.025em; margin-bottom: 1rem; color: var(--foreground); }
+.account-content h2 { font-size: var(--text-section); font-weight: 600; letter-spacing: -0.01em; margin: 1.75rem 0 0.85rem; color: var(--foreground); }
 .account-card, .account-auth { max-width: 440px; width: 100%; margin: 4.5rem auto; padding: 2.25rem 2rem; border: 1px solid var(--border); border-radius: var(--radius-panel); background: var(--card); }
 .account-card p, .account-auth p { font-size: 13px; color: var(--muted-foreground); line-height: 1.6; margin-top: 1rem; }
 .account-card > button, .account-auth > button { margin-top: 0.5rem; width: 100%; }
@@ -299,17 +299,15 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 .account-form fieldset { display: grid; gap: 1.15rem; border: 0; padding: 0; margin: 0; }
 .account-field { display: grid; gap: 0.45rem; font-size: 13px; font-weight: 500; color: var(--foreground); }
 .account-field input[type="number"] { max-width: 240px; }
-.account-form [data-slot="input"], .account-card [data-slot="input"], .account-auth [data-slot="input"] { border-radius: var(--radius-item); height: 38px; font-size: 14px; }
 .account-form label:has(input[type="checkbox"]) { display: inline-flex; align-items: center; gap: 0.55rem; font-size: 13.5px; font-weight: 500; color: var(--foreground); cursor: pointer; user-select: none; }
 .account-form label:has(select) { display: grid; gap: 0.45rem; font-size: 13px; font-weight: 500; color: var(--foreground); }
 .account-form input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); border-radius: 4px; cursor: pointer; margin: 0; vertical-align: middle; }
-.account-form select { height: 38px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-item); background: var(--background); color: var(--foreground); font-size: 13.5px; width: 100%; outline-color: var(--ring); }
-.account-form button[type="submit"] { margin-top: 0.5rem; height: 38px; font-size: 13.5px; font-weight: 500; border-radius: var(--radius-item); width: fit-content; min-width: 130px; }
-.account-card .account-form button[type="submit"], .account-auth .account-form button[type="submit"] { width: 100%; height: 40px; margin-top: 0.75rem; }
+.account-form select { padding: 0 10px; border: 1px solid var(--input); background: var(--card); width: 100%; outline-color: var(--ring); }
+.account-form button[type="submit"] { margin-top: 0.5rem; width: fit-content; min-width: 130px; }
+.account-card .account-form button[type="submit"], .account-auth .account-form button[type="submit"] { width: 100%; margin-top: 0.75rem; }
 .account-bank { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.85rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-item); background: var(--card); margin-bottom: 0.5rem; transition: border-color var(--motion-duration) var(--motion-ease); }
 .account-bank:hover { border-color: var(--primary); }
 .account-bank span { font-size: 13.5px; font-weight: 500; }
-.account-bank button { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; }
 .account-table { max-width: 100%; overflow-x: auto; margin: 1.25rem 0; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
 .account-content table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; font-variant-numeric: tabular-nums; }
 .account-content th { padding: 10px 16px; font-size: 12px; font-weight: 600; color: var(--muted-foreground); background: color-mix(in oklch, var(--muted) 60%, var(--card)); border-bottom: 1px solid var(--border); white-space: nowrap; letter-spacing: 0.02em; user-select: none; }
@@ -317,12 +315,17 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 .account-content td:first-child:has(button) { width: 1%; white-space: nowrap; }
 .account-content tbody tr:last-child td { border-bottom: 0; }
 .account-content tbody tr:hover { background: color-mix(in oklch, var(--muted) 45%, transparent); }
-.account-content td button { height: 28px; padding: 0 10px; font-size: 12px; border-radius: 6px; }
 .account-content td details summary { cursor: pointer; font-size: 12px; font-weight: 500; color: var(--primary); white-space: nowrap; outline: none; }
 .account-content td details summary:hover { text-decoration: underline; }
 .account-content pre { max-height: 360px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11.5px; line-height: 1.6; background: var(--muted); padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); margin-top: 8px; }
 .account-content nav[aria-label="记录分页"], .account-content nav[aria-label="分页导航"], .admin-pagination { display: flex; align-items: center; gap: 0.6rem; margin-top: 1rem; }
-.account-content nav[aria-label="记录分页"] button, .account-content nav[aria-label="分页导航"] button, .admin-pagination button { height: 32px; padding: 0 14px; font-size: 13px; border-radius: var(--radius-item); }
+.account-error { margin-block: var(--space-section); }
+.account-error > div { flex: 1; min-width: 0; }
+.account-error p { margin: 0; color: inherit; font-size: inherit; }
+.account-error details { margin-top: .5rem; }
+.account-error pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.account-notice { padding-inline: var(--space-page); }
+@media(max-width:1023px) { .account-content h1, .account-auth h1, .account-card h1 { font-size: var(--text-page-narrow); } }
 @media(max-width:768px) { .account-layout { display: block; } .account-layout > nav { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--border); } .account-content { padding: 1.25rem 1rem; } .account-header { flex-wrap: wrap; padding: 0.65rem 1rem; } .account-bank { align-items: start; flex-direction: column; } }
 @media(max-width:767px) {
   .account-header { min-height: 48px; padding: 6px 16px; gap: 8px; flex-wrap: nowrap; }
@@ -343,6 +346,8 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 
 }
 .cloud-portal.embedded .web-shell { min-height: 0; display: block; }
+.cloud-portal.embedded .account-content h1, .cloud-portal.embedded .account-card h1 { font-size: var(--text-section); }
+.cloud-portal.embedded .account-content h2 { font-size: var(--text-card); }
 .cloud-portal.embedded .web-sidebar .brand { display: none; }
 .cloud-portal.embedded .web-sidebar { width: auto; height: auto; min-height: 0; position: static; padding: 8px 16px; border-right: 0; border-bottom: 1px solid var(--border); }
 .cloud-portal.embedded .web-sidebar nav { display: flex; flex-wrap: wrap; margin-top: 0; }
@@ -366,7 +371,7 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 .plan-option { display: flex; flex-direction: column; padding: 24px; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
 .plan-recommended { border-color: var(--primary); }
 .plan-option-title { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
-.plan-option h2 { font-size: 21px; }
+.plan-option h2 { font-size: var(--text-section); }
 .plan-option > p:not(.plan-price) { color: var(--muted-foreground); font-size: 14px; }
 .plan-tag { background: var(--primary); color: var(--primary-foreground); font-size: 11px; border-radius: 6px; padding: 4px 7px; }
 .plan-price { font-size: 36px; font-weight: 650; margin-block: 22px; font-variant-numeric: tabular-nums; }
@@ -376,7 +381,7 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 .plan-option li svg { flex-shrink: 0; color: var(--muted-foreground); }
 .plan-option > button { margin-top: auto; width: 100%; white-space: normal; min-height: 38px; }
 .plan-topup { padding-block: 26px; margin-top: 16px; border-bottom: 1px solid var(--border); }
-.plan-topup h2, .plan-included h2, .plan-ledger h2 { font-size: 17px; margin-bottom: 10px; }
+.plan-topup h2, .plan-included h2, .plan-ledger h2 { font-size: var(--text-card); margin-bottom: 10px; }
 .plan-included, .plan-ledger { margin-top: 30px; }
 .plan-included p { max-width: 76ch; margin-bottom: 10px; font-size: 14px; }
 .plan-rules { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); }

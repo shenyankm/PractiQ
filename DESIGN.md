@@ -191,12 +191,19 @@ PractiQ 的绝大部分表面处于纯平状态。静止的卡片、选项容器
 ## Components
 
 ### Buttons
-- **Shape:** 圆角矩形（`0.5rem` / 8px）。
-- **Primary:** 背景 Academic Cobalt (`#1d4ed8`)，文字纯白，悬浮微暗（`hover:bg-primary/90`），高度 `2rem` (32px) / 移动端 `3rem` (48px)。
+- **Shape:** Regular buttons, inputs, and correction textareas share `--radius` (14px). Controls of the same size must not override radius, weight, or height per page. Preserve the existing size variants; reserve monospace for code and JSON receipts, and use the system font for text actions.
+- **Primary:** Academic Cobalt (`#1d4ed8`) with white text and `hover:bg-primary/90`. Regular desktop controls use `--control-height` (40px minimum); `xs`, `sm`, and `lg` use 32, 36, and 44px minimums. Narrow-screen or coarse-pointer controls use a 48px minimum.
 - **Secondary:** 背景 Ice Tint (`#eff6ff`)，文字 Cobalt，悬浮略微加深底色。
 - **Outline:** 背景透明或卡片白，边框 Slate Divider (`#e2e8f0`)，悬浮显露 Muted 底色。
 - **Ghost:** 静态完全透明无描边，悬浮呈现浅灰背景。
 - **Active / Focus:** 活跃按下瞬间沿 Y 轴轻微下沉 1px（`active:translate-y-px`）；Tab 聚焦呈现 3px 聚焦环（`ring-3 ring-ring`），边距偏移 2px。
+
+### Account and administrator surfaces
+
+- **Heading hierarchy:** Standalone page titles use `--text-page` (28px / 600), or `--text-page-narrow` (22px) in narrow desktop windows. Sections and cards use `--text-section` (20px / 600) and `--text-card` (18px / 600). When the App already supplies the page title, embedded account titles use the section level, with card headings below them.
+- **Density:** Keep administrator filters, tables, and details distinct from practice cards and answer layouts. Express density through layout and spacing rather than per-page visual overrides for equivalent inputs or buttons.
+- **Errors and recovery:** Account and administrator pages reuse `AccountError`, showing a localized explanation before technical codes in the diagnostic disclosure. Keep authentication read errors inside the login card with an explicit reload action. Reads may retry explicitly; never replay submissions automatically.
+- **Empty states:** Distinguish loading, no data, filtered-out results, and read failures. Filtered empty states should point to the existing filter adjustment or reset action.
 
 ### Cards & Panels
 - **Corner Style:** 圆润面板（`1rem` / 16px）。

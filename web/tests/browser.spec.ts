@@ -98,3 +98,54 @@ test('support console links balances, usage and reasoned recovery', async ({ pag
   }
   expect(writes).toHaveLength(1);
 });
+
+test('account and administration controls share geometry after explicit session recovery', async ({ page }, testInfo) => {
+  const { adminUserDetail } = await import('../src/test-fixtures');
+  let sessionAvailable = false, signedIn = false;
+  const writes: string[] = [];
+  await page.route('**/api/**', async route => {
+    const req = route.request(), path = new URL(req.url()).pathname;
+    if (req.method() !== 'GET') writes.push(path);
+    const account = { user: signedIn ? { id: 'admin', name: '管理员', email: 'admin@example.test', role: 'admin', enabled: true } : null, csrf: 'fixture', registrationEnabled: true };
+    let value: unknown = [];
+    if (path === '/api/auth/session') {
+      if (!sessionAvailable) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ detail: { code: 'SERVICE_UNAVAILABLE' } }) });
+      value = account;
+    } else if (path === '/api/auth/login') { signedIn = true; value = { ...account, user: { id: 'admin', name: '管理员', email: 'admin@example.test', role: 'admin', enabled: true } }; }
+    else if (path === '/api/admin/users') value = [adminUserDetail().user];
+    else if (path === '/api/admin/settings') value = { registrationEnabled: true, freePages: 50, modelCalls: 1000, tencentCalls: 50, activeTasks: 1 };
+    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(value) });
+  });
+  await page.goto('/admin');
+  const error = page.getByRole('alert');
+  await expect(error).toContainText('请求未完成，请核对状态后再决定是否重试。');
+  await expect(error.locator('details')).not.toHaveAttribute('open', '');
+  await expect(page.locator('.account-card')).toContainText('诊断详情');
+  expect(writes).toEqual([]);
+  await page.screenshot({ path: testInfo.outputPath('admin-session-error-light.png'), fullPage: true });
+  sessionAvailable = true;
+  await page.getByRole('button', { name: '重新读取登录状态', exact: true }).click();
+  const email = page.getByLabel('登录邮箱', { exact: true });
+  await expect(email).toBeVisible(); await expect(error).toHaveCount(0);
+  const geometry = (element: HTMLElement) => { const style = getComputedStyle(element); return { height: element.getBoundingClientRect().height, radius: style.borderRadius, font: style.fontFamily, size: style.fontSize }; };
+  const loginInput = await email.evaluate(geometry);
+  const loginButton = await page.getByRole('button', { name: '登录', exact: true }).evaluate(geometry);
+  await email.fill('admin@example.test'); await page.getByLabel('密码', { exact: true }).fill('synthetic-password');
+  await page.getByRole('button', { name: '登录', exact: true }).click();
+  const filters = page.getByLabel('搜索邮箱、昵称或用户编号');
+  await expect(filters).toBeVisible();
+  expect(await filters.evaluate(geometry)).toEqual(loginInput);
+  expect(await page.getByRole('button', { name: '应用筛选', exact: true }).evaluate(geometry)).toEqual(loginButton);
+  expect(await page.getByRole('button', { name: '选择', exact: true }).evaluate(geometry)).toEqual(loginButton);
+  await page.getByRole('navigation', { name: '管理导航' }).getByRole('button', { name: '账户与安全', exact: true }).click();
+  expect(await page.getByLabel('昵称', { exact: true }).evaluate(geometry)).toEqual(loginInput);
+  expect(await page.getByRole('button', { name: '保存账户信息', exact: true }).evaluate(geometry)).toEqual(loginButton);
+  for (const [width, theme] of [[1440, 'light'], [1024, 'dark'], [800, 'dark']] as const) {
+    await page.setViewportSize({ width, height: 1040 });
+    await page.evaluate(theme => document.documentElement.classList.toggle('dark', theme === 'dark'), theme);
+    await expect(page.getByRole('heading', { name: '账户与安全', exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`consistent-account-${width}-${theme}.png`), fullPage: true });
+  }
+  expect(writes).toEqual(['/api/auth/login']);
+});

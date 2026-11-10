@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { AdministrationSettings, AdministrationFilter, AdministrationTaskList, AccountLimits, DocumentTaskDetail, DocumentTaskReview } from "./contracts.generated";
 import { accountRequest as request } from "../../shared/cloud/accountClient";
-import { Field, Form, Records, errorMessage } from "../../shared/cloud/accountUI";
+import { AccountError, Field, Form, Records, errorMessage } from "../../shared/cloud/accountUI";
 import { Client } from "../../shared/cloud/api";
 import { ImportSettingsPanel } from "../../shared/cloud/ImportSettingsPanel";
 import { Button } from "./components/ui/button";
@@ -21,7 +21,7 @@ export function AdminSettings() {
   return (
     <>
       <h1>注册与默认额度</h1>
-      {error && <p role="alert">{error}</p>}
+      {error && <AccountError error={error} />}
       {value && (
         <section className="settings-panel mb-8">
           <Form
@@ -97,7 +97,7 @@ export function AdminUsers({ initial = {}, initialId = "", navigate }: { initial
     <>
       <h1>用户管理</h1>
       <FilterBar kind="users" initial={initial} apply={value => { setFilters(value); setOffset(0); setId(""); setEditing(false); setPassword(""); setLink(null); }} />
-      {defaultsError && <p role="alert">{defaultsError}</p>}
+      {defaultsError && <AccountError error={defaultsError} />}
       {!defaults && !defaultsError && <p role="status">正在读取默认额度…</p>}
       <Records path={`/api/admin/users?${query(filters, offset)}`} refresh={revision} onSelect={defaults ? row => {
         setEditing(true); setReason(""); setBaselineFree((row.limits as Partial<AccountLimits>).freePages ?? defaults.freePages);
@@ -316,7 +316,9 @@ export function AdminTasks({ initial = {}, initialId = "", navigate }: { initial
           />
         </label>
       </Form>
-      {error && <p role="alert">{error}</p>}
+      {error && <AccountError error={error} />}
+      {!tasks && !error && <p role="status">正在读取任务…</p>}
+      {tasks && !tasks.items.length && !error && <p role="status">{query(filters) === "offset=0" ? "暂无导入任务。任务创建后将在这里显示。" : "没有匹配的任务，请调整或清除上方筛选。"}</p>}
       {tasks?.items.map((task) => (
         <div className="account-bank" key={task.threadId}>
           <span>

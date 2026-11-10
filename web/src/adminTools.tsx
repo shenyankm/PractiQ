@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { accountRequest } from "../../shared/cloud/accountClient";
-import { errorMessage } from "../../shared/cloud/accountUI";
+import { AccountError, errorMessage } from "../../shared/cloud/accountUI";
 import type { AdministrationFilter } from "./contracts.generated";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
@@ -25,7 +25,7 @@ export function useAdminRead<T>(path: string) {
   return { data, error, loading, reload: () => setRevision(value => value + 1) };
 }
 export function ReadState({ loading, error, retry }: { loading: boolean; error: string; retry: () => void }) {
-  return <>{loading && <p role="status">正在读取…</p>}{error && <p role="alert" className="error-banner">{error} <Button variant="outline" onClick={retry}>重试读取</Button></p>}</>;
+  return <>{loading && <p role="status">正在读取…</p>}{error && <AccountError error={error} retry={retry} />}</>;
 }
 export function Pagination({ offset, size, more, change }: { offset: number; size: number; more: boolean; change: (value: number) => void }) {
   return <nav className="admin-pagination" aria-label="记录分页"><Button variant="outline" disabled={!offset} onClick={() => change(Math.max(0, offset - size))}>上一页</Button><span>第 {Math.floor(offset / size) + 1} 页</span><Button variant="outline" disabled={!more} onClick={() => change(offset + size)}>下一页</Button></nav>;

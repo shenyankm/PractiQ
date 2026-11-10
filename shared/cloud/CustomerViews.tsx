@@ -2,7 +2,7 @@ import { t, useCloudLocale } from "./i18n";
 import { useEffect, useState } from "react";
 import type { AccountUser, AccountUsage, DocumentTaskList } from "./contracts.generated";
 import { accountRequest as request } from "./accountClient";
-import { Field, Form, Records, errorMessage } from "./accountUI";
+import { AccountError, Field, Form, Records, errorMessage } from "./accountUI";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 export function AccountSettings({ user, onNameSaved }: { user: AccountUser; onNameSaved: (name: string) => void }) {
@@ -150,11 +150,12 @@ export function AccountSettings({ user, onNameSaved }: { user: AccountUser; onNa
 }
 export function Usage() {
   useCloudLocale();
-  const [offset, setOffset] = useState(0);
+  const [offset, setOffset] = useState(0), [revision, setRevision] = useState(0);
   const [data, setData] = useState<AccountUsage | null>(null),
     [error, setError] = useState("");
   useEffect(() => {
     const controller = new AbortController();
+    setError("");
     void request<typeof data>(
       `/api/me/usage?offset=${offset}`,
       "GET",
@@ -166,12 +167,12 @@ export function Usage() {
         if (!controller.signal.aborted) setError(errorMessage(e));
       });
     return () => controller.abort();
-  }, [offset]);
+  }, [offset, revision]);
   return (
     <>
       <h1>{t("个人用量")}</h1>
       <p>{t("新账户默认共有 50 页免费识别额度，累计使用，不按日恢复。未知结果仍保留预留页数；读取已保存结果不重复扣减。")}</p>
-      {error && <p role="alert">{error}</p>}
+      {error && <AccountError error={error} retry={() => setRevision(v => v + 1)} />}
       {data && (
         <>
           <p role="status">{t("可用识别额度：")}{data.remainingPages}{t(" 页，累计已使用或预留 ")}{data.usedPages}{t(" 页。")}</p>
@@ -211,11 +212,13 @@ export function Usage() {
 }
 export function Banks({ open }: { open: (id: string) => void }) {
   useCloudLocale();
+  const [revision, setRevision] = useState(0);
   const [data, setData] = useState<DocumentTaskList | null>(null),
     [offset, setOffset] = useState(0),
     [error, setError] = useState("");
   useEffect(() => {
     const controller = new AbortController();
+    setError("");
     void request<DocumentTaskList>(
       `/api/me/banks?offset=${offset}`,
       "GET",
@@ -227,12 +230,12 @@ export function Banks({ open }: { open: (id: string) => void }) {
         if (!controller.signal.aborted) setError(errorMessage(e));
       });
     return () => controller.abort();
-  }, [offset]);
+  }, [offset, revision]);
   return (
     <>
       <h1>{t("导入结果")}</h1>
       <p>{t("查看保存的解析结果、复核内容并下载题库 ZIP。下载不启动模型。")}</p>
-      {error && <p role="alert">{error}</p>}
+      {error && <AccountError error={error} retry={() => setRevision(v => v + 1)} />}
       {data?.items.length === 0 && <p>{t("尚无已保存结果，请先导入文档。")}</p>}
       {data?.items.map((task) => (
         <section className="account-bank" key={task.threadId}>

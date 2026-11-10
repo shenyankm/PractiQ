@@ -47,7 +47,7 @@ Situation & Job: 持有试卷、讲义、笔记、PPT、教材等非结构化或
 
 - **产品命名**：PractiQ
 - **视觉符号**：章鱼（Octopus）品牌图标资产（`app/src-tauri/icons/icon.png`）。
-- **色彩与基调**：沉静、专注、专业、高质感。采用章鱼紫（Octopus Purple）与浅底暖调灰白（`#f7f4f1`）配色体系，搭配经过深思熟虑的暗黑模式适配。
+- **Color and tone:** Calm, focused, and professional. Use Academic Cobalt (light `#1d4ed8`, dark `#60a5fa`) on cool paper (`#f8fafc`) or dark ink (`#090d16`), retaining the octopus mark. App and administrator Web share `shared/theme.css`; `DESIGN.md` defines typography and component rules.
 - **图标与组件规范**：全局统一使用 `lucide-react`，界面控件使用 shadcn/ui 桌面风格组件，保持高度一致的桌面端排版与无障碍设计。
 - **多语言适配**：原生支持简体中文、繁体中文、英文三语实时切换。
 
