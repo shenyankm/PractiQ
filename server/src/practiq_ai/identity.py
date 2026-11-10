@@ -23,6 +23,7 @@ _operator_evaluation: ContextVar[bool] = ContextVar('operator_evaluation', defau
 PASSWORDS = PasswordHasher()
 HASH_SLOTS = asyncio.Semaphore(2)
 COOKIE = 'practiq_session'
+RATE_WINDOWS = (900, 3600)
 
 
 @contextmanager
@@ -105,8 +106,16 @@ async def audit(action: str, target: str, detail: dict | None = None, *, conn=No
 
 
 async def rate(key: str, maximum: int, seconds: int):
-    bucket = int(datetime.now(UTC).timestamp()) // seconds
+    if seconds not in RATE_WINDOWS:
+        raise ValueError('Unsupported rate-limit window')
+    timestamp = int(datetime.now(UTC).timestamp())
+    bucket = timestamp // seconds
     async with db().transaction() as conn:
+        # Bucket numbers have different units; retain every supported active window.
+        await conn.execute(
+            'DELETE FROM auth_limits WHERE (key,bucket) IN '
+            '(SELECT key,bucket FROM auth_limits WHERE bucket<>ALL(%s) LIMIT 1000)',
+            ([timestamp // window for window in RATE_WINDOWS],))
         row = await (await conn.execute('INSERT INTO auth_limits VALUES(%s,%s,1) ON CONFLICT(key,bucket) DO UPDATE SET count=auth_limits.count+1 RETURNING count', (digest(key), bucket))).fetchone()
     assert row is not None
     if row['count'] > maximum:

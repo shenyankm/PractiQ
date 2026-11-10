@@ -35,11 +35,28 @@ pub(crate) fn file_digest(path: &Path) -> Result<(u64, String)> {
 }
 impl Store {
     pub fn backup(&self, destination: &Path) -> Result<Value> {
-        if destination.starts_with(self.dir.join("assets"))
-            || destination == self.db_path()
-            || destination == self.service_settings_path()
-            || destination == self.learning_path()
-            || destination == self.dir.join("account-service-v1.json")
+        let parent = destination
+            .parent()
+            .ok_or(crate::language::error(
+                "LOCAL_BACKUP_PATH_INVALID",
+                json!({}),
+            ))?
+            .canonicalize()
+            .map_err(err)?;
+        let target = parent.join(destination.file_name().ok_or(crate::language::error(
+            "LOCAL_BACKUP_PATH_INVALID",
+            json!({}),
+        ))?);
+        let directory = self.dir.canonicalize().map_err(err)?;
+        if target.starts_with(directory.join("assets"))
+            || [
+                "practiq.sqlite",
+                "service-settings-v1.sqlite",
+                "learning-v1.sqlite",
+                "account-service-v1.json",
+            ]
+            .iter()
+            .any(|name| target == directory.join(name))
         {
             return Err(crate::language::error(
                 "LOCAL_BACKUP_OVERWRITE",
@@ -82,11 +99,7 @@ impl Store {
                 serde_json::json!({}),
             ));
         }
-        let parent = destination.parent().ok_or(crate::language::error(
-            "LOCAL_BACKUP_PATH_INVALID",
-            serde_json::json!({}),
-        ))?;
-        let mut output = tempfile::NamedTempFile::new_in(parent).map_err(err)?;
+        let mut output = tempfile::NamedTempFile::new_in(&parent).map_err(err)?;
         {
             let mut zip = ZipWriter::new(output.as_file_mut());
             let options = SimpleFileOptions::default()
@@ -141,7 +154,7 @@ impl Store {
             }
             zip.finish().map_err(err)?;
         }
-        crate::filesystem::persist(output, destination, true).map_err(err)?;
+        crate::filesystem::persist(output, &target, true).map_err(err)?;
         Ok(json!({"path":destination.display().to_string()}))
     }
     pub fn restore(&mut self, source: &Path) -> Result<Value> {
@@ -955,6 +968,60 @@ mod fault_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn backup_rejects_aliased_live_files_and_preserves_external_overwrite() {
+        let root = tempfile::tempdir().unwrap();
+        let store = Store::new(root.path().join("live")).unwrap();
+        let alias = root.path().join("alias");
+        std::os::unix::fs::symlink(&store.dir, &alias).unwrap();
+        let asset = store.dir.join("assets").join("protected");
+        fs::create_dir_all(asset.parent().unwrap()).unwrap();
+        fs::write(&asset, b"preserve resource").unwrap();
+        for relative in [
+            "practiq.sqlite",
+            "service-settings-v1.sqlite",
+            "learning-v1.sqlite",
+            "account-service-v1.json",
+            "assets/protected",
+        ] {
+            let path = store.dir.join(relative);
+            if !path.exists() {
+                fs::write(&path, b"preserve existing metadata").unwrap();
+            }
+            let original = fs::read(&path).unwrap();
+            for target in [
+                alias.join(relative),
+                store.dir.join("../live").join(relative),
+            ] {
+                assert_eq!(
+                    store.backup(&target).unwrap_err().code,
+                    "LOCAL_BACKUP_OVERWRITE"
+                );
+                assert_eq!(fs::read(store.dir.join(relative)).unwrap(), original);
+            }
+        }
+        // A directory alias is also safe when it is the Store's own spelling.
+        let aliased_store = Store {
+            dir: alias.clone(),
+            ..Default::default()
+        };
+        assert_eq!(
+            aliased_store.backup(&store.db_path()).unwrap_err().code,
+            "LOCAL_BACKUP_OVERWRITE"
+        );
+        // Remove synthetic sidecars before exercising a valid backup.
+        for path in [store.service_settings_path(), store.learning_path()] {
+            fs::remove_file(path).unwrap();
+        }
+        let external = root.path().join("external");
+        fs::create_dir(&external).unwrap();
+        let external_alias = root.path().join("external-alias");
+        std::os::unix::fs::symlink(&external, &external_alias).unwrap();
+        let target = external_alias.join("backup.zip");
+        fs::write(&target, b"old backup").unwrap();
+        store.backup(&target).unwrap();
+        assert!(ZipArchive::new(fs::File::open(&target).unwrap()).is_ok());
+    }
     #[test]
     fn cloud_account_settings_are_not_exported_or_replaced_by_practice_backup() {
         let dir = tempfile::tempdir().unwrap();

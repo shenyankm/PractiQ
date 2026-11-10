@@ -170,3 +170,14 @@ uses the trusted absolute `AI_OPERATIONS_STATUS_FILE`; no missing observation is
 reported as a successful backup or delivered alert. No deployment or migration is
 performed by opening the console. Keep the matching executable for unfinished
 checkpoints when upgrading.
+
+## Authentication rate-limit retention
+
+Login/reset limits use 15-minute windows; registration, token creation and payment
+limits use one-hour windows. Each rate-limited request removes up to 1,000 counter
+rows outside both currently active buckets, inside the existing serialized
+transaction. Active counters and rejected-attempt counts are retained. Existing
+schema-8 counters remain compatible; no schema upgrade or account/receipt cleanup
+is performed. The supported window list is explicit so a new caller cannot silently
+make another window's active counters eligible for cleanup. Idle services need no
+cleanup loop: they create no new counters until another request arrives.
