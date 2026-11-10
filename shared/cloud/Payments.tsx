@@ -5,6 +5,7 @@ import { accountRequest, storageKey } from "./accountClient";
 import { nativeBridge } from "./transport";
 import type { AccountPlan, PaymentCreate, PaymentOrder } from "./contracts.generated";
 import { Button } from "./components/ui/button";
+import { AccountError } from "./accountUI";
 
 type ProductId = NonNullable<PaymentCreate["productId"]>;
 type Recovery = { requestId: string; productId: ProductId };
@@ -98,7 +99,7 @@ export function Payments({ view = "plans", onNavigate }: { view?: "plans" | "ord
   return <section className="plans-page">
     <header className="plans-heading"><div><h1>{view === "plans" ? t("套餐与额度") : t("订单与付款")}</h1><p>{view === "plans" ? t("按需整理文档，安心离线练习。") : t("付款由支付宝完成，到账以服务端查单或验签通知为准。")}</p></div><Button variant="outline" disabled={busy || loading} onClick={() => void act(async () => {})}><RefreshCw size={16} aria-hidden="true" />{view === "plans" ? t("刷新额度") : t("刷新订单")}</Button></header>
     {loading && <p role="status">{t("正在读取套餐与订单…")}</p>}
-    {error && <p className="notice" role="alert">{error}</p>}
+    {error && <AccountError error={error} />}
     {notice && <p className="notice" role="status">{notice}</p>}
     {data && !data.checkoutEnabled && <p className="notice" role="status">{t("支付当前未开通。可以查看套餐与现有权益，暂时无法购买；离线练习照常使用。")}</p>}
     {data?.environment === "sandbox" && <p className="notice" role="status">{t("沙箱测试：收银台测试金额为 ¥")}{data.sandboxAmount}{t("，下列价格为正式售价。测试订单不会发放正式套餐或页数。")}</p>}

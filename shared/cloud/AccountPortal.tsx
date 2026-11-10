@@ -3,7 +3,7 @@ import { nativeBridge } from "./transport";
 import { lazy, Suspense, useState } from "react";
 import { accountRequest } from "./accountClient";
 import { useAccount } from "./useAccount";
-import { Field, Form } from "./accountUI";
+import { AccountError, Field, Form } from "./accountUI";
 import { AccountSettings, Banks, Usage } from "./CustomerViews";
 import { Payments } from "./Payments";
 import type { AccountSession, AccountUser } from "./contracts.generated";
@@ -26,9 +26,10 @@ export default function AccountPortal({ embedded = false, initialPage = "workspa
       {!embedded && <a href="#"><img src={logo} alt="" />PractiQ</a>}
       {user && <><span>{user.name || user.email}</span><Button variant="outline" onClick={() => { if (document.dispatchEvent(new Event("practiq-cloud-before-leave", {cancelable:true}))) void auth.logout(); }}>{t("退出登录")}</Button></>}
     </header>}
-    {auth.error && <p role="alert">{auth.error}</p>}
+    {user && auth.error && <div className="account-notice"><AccountError error={auth.error} /></div>}
     {auth.loading ? <p role="status">{t("正在读取登录状态…")}</p> : !user ? <section className="account-card">
       <h1>{mode === "reset" ? t("重置密码") : mode === "register" ? t("注册 PractiQ") : t("登录 PractiQ")}</h1>
+      {auth.error && <AccountError error={auth.error} />}
       {mode === "register" && !auth.account?.registrationEnabled && <p role="status">{t("公开注册暂未开放，请联系管理员。")}</p>}
       {auth.account && (mode !== "register" || auth.account.registrationEnabled) && <Form label={mode === "reset" ? t("设置新密码") : mode === "register" ? t("注册并登录") : t("登录")} submit={async () => {
         if (mode === "reset") { await accountRequest("/api/auth/reset-password", "POST", { token, password }); changeMode("login"); auth.reload(); }

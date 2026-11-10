@@ -803,5 +803,8 @@
   "未找到该用户，请重新搜索并选择用户。": "User not found. Search and select the user again.",
   "更改云端服务地址": "Change cloud service address",
   "清除本机登录状态": "Forget local login",
-  "导入结果": "Import results"
+  "导入结果": "Import results",
+  "请求未完成，请核对状态后再决定是否重试。": "The request did not complete. Check its status before deciding whether to retry.",
+  "诊断详情": "Diagnostic details",
+  "重试读取": "Retry reading"
 }

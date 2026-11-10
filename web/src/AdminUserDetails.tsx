@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { accountRequest as request } from "../../shared/cloud/accountClient";
-import { Field, Form, errorMessage } from "../../shared/cloud/accountUI";
+import { AccountError, Field, Form, errorMessage } from "../../shared/cloud/accountUI";
 import type { AccountSessionInfo, AccountTokenInfo, AdministrationUserDetail } from "./contracts.generated";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
@@ -22,7 +22,7 @@ function Credentials({ userId, kind, changed }: { userId: string; kind: "session
   }
   return <section className="admin-section" aria-label={kind === "sessions" ? "用户登录会话" : "用户评分令牌"}>
     <h3>{kind === "sessions" ? "有效登录会话" : "有效评分令牌"}</h3>
-    <ReadState {...read} retry={read.reload} />{error && <p role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
+    <ReadState {...read} retry={read.reload} />{error && <AccountError error={error} />}{notice && <p role="status">{notice}</p>}
     <fieldset disabled={busy} className="admin-credential-controls"><legend>撤销凭证需要验证身份并说明原因</legend><Field name={`${kind}-password`} label="管理员当前密码" type="password" value={password} onChange={setPassword} /><label className="account-field">撤销原因<Input required maxLength={200} value={reason} onChange={event => setReason(event.target.value)} /></label>{kind === "sessions" && <Button variant="outline" disabled={busy || !password || !reason.trim()} onClick={() => void revoke()}>撤销全部登录会话</Button>}</fieldset>
     {read.data && !read.data.length && <p>没有有效{kind === "sessions" ? "会话" : "令牌"}。</p>}
     {!!read.data?.length && <div className="account-table"><table><thead><tr><th>凭证</th><th>创建时间</th><th>最近活动 / 到期</th><th>操作</th></tr></thead><tbody>{read.data.map(row => <tr key={row.id}><td>{"name" in row ? row.name : "登录会话"}<small>{row.id}</small></td><td>{dateText("createdAt" in row ? row.createdAt : row.created_at)}</td><td>{"lastSeen" in row ? <>最近活动 {dateText(row.lastSeen)}<small>到期 {dateText(row.expiresAt)}</small></> : dateText(row.expires_at)}</td><td><Button variant="outline" disabled={busy || !password || !reason.trim()} onClick={() => void revoke(row.id)}>撤销此凭证</Button></td></tr>)}</tbody></table></div>}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { accountRequest as request, storageKey } from "../../shared/cloud/accountClient";
-import { errorMessage, Field } from "../../shared/cloud/accountUI";
+import { AccountError, errorMessage, Field } from "../../shared/cloud/accountUI";
 import type { AdministrationFilter, AdministrationPaymentOrder, PaymentRefund } from "./contracts.generated";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
@@ -85,7 +85,7 @@ export function AdminPayments({ initial = {}, initialId = "", navigate }: { init
     <h1>订单与退款</h1>
     <FilterBar kind="payments" initial={initial} apply={value => { selection.current++; setFilters(value); setOffset(0); setOrder(null); setPassword(""); }} />
     <p>查询和查看订单不会付款或调用模型。退款需要管理员当前密码；未知结果保留原请求，只查询或显式重试原退款。</p>
-    {error && <p role="alert" className="error-banner">{error}</p>}{notice && <p role="status">{notice}</p>}
+    {error && <AccountError error={error} />}{notice && <p role="status">{notice}</p>}
     <form className="account-form" onSubmit={e => { e.preventDefault(); void act(async () => { selection.current++; const value = await request<AdministrationPaymentOrder>(`/api/admin/payments/${id}`); setOrder(value); setAmount(value.amount); }); }}>
       <label className="account-field">订单编号<Input required pattern="[a-f0-9]{32}" value={id} onChange={e => setId(e.target.value)} disabled={busy} /></label>
       <Button variant="outline" disabled={busy}>读取原订单</Button>

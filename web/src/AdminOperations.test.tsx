@@ -63,3 +63,20 @@ it("does not treat missing monitoring evidence as healthy and exposes exception 
 it("applies filters explicitly and clears them with one action", async () => {
   const apply = vi.fn(); render(<FilterBar kind="users" apply={apply} />); const user = userEvent.setup(); await user.type(screen.getByLabelText("搜索邮箱、昵称或用户编号"), "alice"); expect(apply).not.toHaveBeenCalled(); await user.selectOptions(screen.getByLabelText("账户状态"), "false"); await user.click(screen.getByRole("button", { name: "应用筛选" })); expect(apply).toHaveBeenCalledWith(expect.objectContaining({ q: "alice", enabled: false, offset: 0 })); await user.click(screen.getByRole("button", { name: "清除筛选" })); expect(apply).toHaveBeenLastCalledWith({});
 });
+
+it("distinguishes loading, no tasks and filtered empty results without starting work", async () => {
+  const { AdminTasks } = await import("./AdminViews");
+  let finish!: (value: Response) => void;
+  const first = new Promise<Response>(resolve => { finish = resolve; });
+  const fetcher = vi.fn(async (_path: string, _init?: RequestInit) => fetcher.mock.calls.length === 1 ? first : response({ items: [], hasMore: false }));
+  vi.stubGlobal("fetch", fetcher); render(<AdminTasks navigate={vi.fn()} />); const user = userEvent.setup();
+  expect(screen.getByText("正在读取任务…")).toBeTruthy(); expect(screen.queryByText(/暂无导入任务/)).toBeNull();
+  finish(response({ items: [], hasMore: false })); await screen.findByText("暂无导入任务。任务创建后将在这里显示。");
+  await user.type(screen.getByLabelText("搜索邮箱、文件名或任务编号"), "missing");
+  await user.click(screen.getByRole("button", { name: "应用筛选" }));
+  await screen.findByText("没有匹配的任务，请调整或清除上方筛选。");
+  await user.click(screen.getByRole("button", { name: "清除筛选" }));
+  await screen.findByText("暂无导入任务。任务创建后将在这里显示。");
+  expect(fetcher.mock.calls).toHaveLength(3);
+  expect(fetcher.mock.calls.every(([, init]) => (init as RequestInit).method === "GET")).toBe(true);
+});

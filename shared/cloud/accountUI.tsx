@@ -3,7 +3,11 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { accountRequest as request } from "./accountClient";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
+import { CircleAlert } from "lucide-react";
 const messages: Record<string, string> = {
+  "Failed to fetch": "无法连接服务。请检查服务状态，再手动重试读取。",
+  "Load failed": "无法连接服务。请检查服务状态，再手动重试读取。",
+  "Network request failed": "无法连接服务。请检查服务状态，再手动重试读取。",
   ALLOWANCE_CHANGED: "额度已被其他操作更新，请重新选择用户以读取最新额度，再决定是否调整。",
   ALLOWANCE_REASON_REQUIRED: "修改免费总额度需要填写调整原因。",
   CREDENTIAL_NOT_FOUND: "该凭证已失效或不属于所选用户，请重新读取凭证列表。",
@@ -23,6 +27,17 @@ export const errorMessage = (e: unknown) =>
   e instanceof Error
     ? (t(messages[e.message] ?? e.message))
     : t("操作失败，请刷新核对状态后再决定是否重试。");
+export function AccountError({ error, retry }: { error: string; retry?: () => void }) {
+  useCloudLocale();
+  const diagnostic = /^[A-Z][A-Z0-9_]+$/.test(error) || /^(请求失败|請求失敗|Request failed) \(\d+\)$/.test(error);
+  return <div role="alert" className="error-banner account-error">
+    <CircleAlert size={18} className="shrink-0" aria-hidden="true" />
+    <div><p>{diagnostic ? t("请求未完成，请核对状态后再决定是否重试。") : error}</p>
+      {diagnostic && <details><summary>{t("诊断详情")}</summary><pre>{error}</pre></details>}
+    </div>
+    {retry && <Button type="button" variant="outline" onClick={retry}>{t("重试读取")}</Button>}
+  </div>;
+}
 export function Field({
   name,
   label,
@@ -105,18 +120,14 @@ export function Form({
         {children}
         <Button type="submit">{busy ? t("正在处理…") : label}</Button>
       </fieldset>
-      {error && (
-        <p role="alert" className="error-banner">
-          {error}
-        </p>
-      )}
+      {error && <AccountError error={error} />}
       {saved && <p role="status">{t("操作已完成。")}</p>}
     </form>
   );
 }
 export function Records({ path, refresh = 0, onSelect, paginated = false }: { path: string; refresh?: number; onSelect?: (row: Record<string, unknown>) => void; paginated?: boolean }) {
   useCloudLocale();
-  const [offset, setOffset] = useState(0);
+  const [offset, setOffset] = useState(0), [revision, setRevision] = useState(0);
   const [rows, setRows] = useState<Record<string, unknown>[]>([]),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true);
@@ -137,10 +148,10 @@ export function Records({ path, refresh = 0, onSelect, paginated = false }: { pa
       })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [path, refresh, paginated, offset]);
+  }, [path, refresh, paginated, offset, revision]);
   return (
     <>
-      {error && <p role="alert">{error}</p>}
+      {error && <AccountError error={error} retry={() => setRevision(v => v + 1)} />}
       {loading && <p role="status">{t("正在读取记录…")}</p>}
       {!loading && !rows.length && !error && <p>{t("暂无记录。")}</p>}
       {!!rows.length && (

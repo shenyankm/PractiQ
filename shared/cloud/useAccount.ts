@@ -6,16 +6,17 @@ import type { AccountSession } from "./contracts.generated";
 
 export function useAccount() {
   const [account, updateAccount] = useState<AccountSession | null>(null), [loading, setLoading] = useState(true), [error, setError] = useState("");
+  const [readError, setReadError] = useState("");
   const [revision, setRevision] = useState(0);
   const live = useRef(false), latest = useRef<AccountSession | null>(null);
   useEffect(() => { live.current = true; return () => { live.current = false; latest.current = null; }; }, []);
   const reload = useCallback(() => setRevision(v => v + 1), []);
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true); setAccount(null); updateAccount(null); latest.current = null;
+    setLoading(true); setReadError(""); setAccount(null); updateAccount(null); latest.current = null;
     void accountRequest<AccountSession>("/api/auth/session", "GET", undefined, controller.signal)
       .then(value => { if (!controller.signal.aborted) { latest.current = value; setAccount(value); updateAccount(value); } })
-      .catch(e => { if (!controller.signal.aborted) setError(errorMessage(e)); })
+      .catch(e => { if (!controller.signal.aborted) setReadError(errorMessage(e)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => { controller.abort(); setAccount(null); };
   }, [revision]);
@@ -28,7 +29,7 @@ export function useAccount() {
   function signedIn(value: AccountSession) {
     if (!live.current) return;
     latest.current = value;
-    setAccount(value); updateAccount(value); setError("");
+    setAccount(value); updateAccount(value); setError(""); setReadError("");
     const channel = new BroadcastChannel("practiq-account"); channel.postMessage("changed"); channel.close();
   }
   function updateName(id: string, name: string) {
@@ -41,5 +42,5 @@ export function useAccount() {
     catch (e) { if (live.current) setError(errorMessage(e)); }
     finally { if (live.current) { latest.current = null; setAccount(null); updateAccount(null); reload(); const channel = new BroadcastChannel("practiq-account"); channel.postMessage("changed"); channel.close(); } }
   }
-  return { account, user: account?.user ?? null, loading, error, setError, signedIn, logout, reload, updateName };
+  return { account, user: account?.user ?? null, loading, error: readError || error, setError, signedIn, logout, reload, updateName };
 }
