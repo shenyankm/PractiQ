@@ -19,11 +19,14 @@ export function AccountSettings({ user, onNameSaved }: { user: AccountUser; onNa
   return (
     <>
       <h1>{t("账户与安全")}</h1>
-      <section aria-label={t("个人信息")} className="mb-6">
+      <div className="account-settings">
+      <section aria-label={t("个人信息")} className="account-settings-overview">
         <dl className="grid gap-4 sm:grid-cols-2">
           {[[t("昵称"), user.name || t("未设置昵称")], [t("登录邮箱"), user.email], [t("账户角色"), user.role === "admin" ? t("管理员") : t("普通用户")], [t("账户状态"), user.enabled ? t("正常") : t("已停用")], [t("账户 ID"), user.id]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 break-all font-medium">{value}</dd></div>)}
         </dl>
       </section>
+      <section className="account-settings-profile" aria-label={t("修改账户信息")}>
+      <h2>{t("修改账户信息")}</h2>
       <p>{t("登录邮箱仅作为账户标识，无需接收验证邮件。如需重置密码，请联系管理员协助处理。")}</p>
       <Form
         label={t("保存账户信息")}
@@ -68,6 +71,8 @@ export function AccountSettings({ user, onNameSaved }: { user: AccountUser; onNa
           />
         </label>
       </Form>
+      </section>
+      <section className="account-settings-tokens" aria-label={t("App 评分连接")}>
       <h2>{t("App 评分连接")}</h2>
       <p>{t("个人评分令牌专用于连接健康检查与主观题 AI 评分，有效期 90 天。请复制后填入本应用「设置 → AI 服务」中，凭证将安全保存在本机 Keychain。")}</p>
       <Form
@@ -125,6 +130,8 @@ export function AccountSettings({ user, onNameSaved }: { user: AccountUser; onNa
           onChange={setRevokeToken}
         />
       </Form>
+      </section>
+      <section className="account-settings-sessions" aria-label={t("登录会话")}>
       <h2>{t("登录会话")}</h2>
       <Records path="/api/me/sessions" refresh={revision} onSelect={row => setRevokeSession(String(row.id))} />
       <Form
@@ -145,6 +152,8 @@ export function AccountSettings({ user, onNameSaved }: { user: AccountUser; onNa
           onChange={setRevokeSession}
         />
       </Form>
+      </section>
+      </div>
     </>
   );
 }

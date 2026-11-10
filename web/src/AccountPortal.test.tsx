@@ -55,6 +55,7 @@ it('does not show a reset link for a different selected user when a response is 
   await user.click(within((await screen.findByText('one@example.test')).closest('tr')!).getByRole('button',{name:'选择'}));
   await user.type(screen.getByLabelText('管理员当前密码',{selector:'#reset-admin-password'}),'synthetic-password');
   await user.click(screen.getByRole('button',{name:'生成一次性重置码'}));
+  await user.click(within(screen.getByRole('dialog')).getByRole('button',{name:'关闭'}));
   await user.click(within(screen.getByText('two@example.test').closest('tr')!).getByRole('button',{name:'选择'}));
   await act(async()=>{finish(response({path:'/reset-password#one-only'}));await pending;});
   expect(screen.getByLabelText('用户编号',{selector:'#user-id'})).toHaveProperty('value','two');

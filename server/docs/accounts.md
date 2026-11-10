@@ -70,6 +70,11 @@ cannot be disabled or demoted. Disabling an account revokes credentials and bloc
 new paid admissions; already admitted requests may still finish and save receipts.
 Re-enabling an account does not resume its tasks automatically.
 
+Administrator audit responses retain the stored actor identifier and include
+`actorEmail` with the matching account's current email, or null for system and
+unmapped historical actors. Email searches use the same administrator-only
+endpoint. Display names and emails never determine authorization or ownership.
+
 ## Quotas and receipts
 
 New accounts receive **50 free recognition pages in total**, not 50 pages per

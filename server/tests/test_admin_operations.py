@@ -46,6 +46,26 @@ async def add_call(db, key, user='alice', kind='modelCalls', record=None, scope=
         await conn.execute("INSERT INTO auth_calls(call_key,user_id,scope,kind,day,record,created_at) VALUES(%s,%s,%s,%s,'2026-11-09',%s,'2026-11-09T00:00:00Z')", (key, user, scope, kind, Jsonb(record or {'status': 'completed', 'usageStatus': 'known', 'inputTokens': 5, 'outputTokens': 3, 'modelId': 'test-model'})))
 
 
+async def test_audit_actor_email_is_admin_only_searchable_and_preserves_unmapped_actors(admin_service):
+    db, client = admin_service
+    async with db.transaction() as conn:
+        for actor in ('admin', 'alice', 'operator', 'monitoring', 'historical-actor'):
+            await conn.execute("INSERT INTO auth_audit(actor,action,target) VALUES(%s,'email_test','sample')", (actor,))
+    assert (await client.get('/api/admin/audit')).status_code == 401
+    await sign_in(client, 'alice@example.test')
+    assert (await client.get('/api/admin/audit')).status_code == 403
+    await client.post('/api/auth/logout')
+    await sign_in(client)
+    response = await client.get('/api/admin/audit?action=email_test')
+    assert response.status_code == 200, response.text
+    emails = {row['actor']: row['actorEmail'] for row in response.json()}
+    assert emails == {'admin': 'admin@example.test', 'alice': 'alice@example.test', 'operator': None, 'monitoring': None, 'historical-actor': None}
+    filtered = await client.get('/api/admin/audit', params={'action': 'email_test', 'q': 'ALICE@EXAMPLE.TEST'})
+    assert [row['actor'] for row in filtered.json()] == ['alice']
+    assert (await client.get('/api/admin/audit', params={'q': "alice@example.test' OR true--"})).json() == []
+    assert PASSWORD not in response.text and 'secret-never-returned' not in response.text
+
+
 async def test_allowance_conflicts_audit_and_receipt_preservation(admin_service):
     db, client = admin_service
     await add_call(db, 'unknown', kind='tencentCalls', record={'status': 'SUBMITTING', 'quotaPages': 7, 'admissionState': 'dispatched'})

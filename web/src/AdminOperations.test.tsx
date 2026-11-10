@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { setAccount } from "../../shared/cloud/accountClient";
 import { AdminUserDetails } from "./AdminUserDetails";
@@ -54,11 +54,14 @@ it("renders usage totals and associates a call with its task without writing", a
 });
 it("shows audit before/after values and searches the same object", async () => {
   const fetcher = vi.fn(async () => response([{ id: 1, actor: "admin", action: "allowance_update", target: "alice", created_at: "2026-11-09T00:00:00Z", detail: { reason: "Support adjustment", before: { freePages: 50 }, after: { freePages: 75 } } }])); vi.stubGlobal("fetch", fetcher);
-  render(<AdminAudit navigate={vi.fn()} />); const user = userEvent.setup(); await user.click(await screen.findByText("查看变更前后")); expect(screen.getByText("50")).toBeTruthy(); expect(screen.getByText("75")).toBeTruthy(); await user.click(screen.getByRole("button", { name: "同一对象记录" })); await waitFor(() => expect(fetcher).toHaveBeenLastCalledWith(expect.stringContaining("target=alice"), expect.anything()));
+  render(<AdminAudit navigate={vi.fn()} />); const user = userEvent.setup(); await user.click(await screen.findByRole("button", { name: "查看详情" }));
+  const dialog = await screen.findByRole("dialog", { name: "审计详情" }); expect(within(dialog).getByText("50")).toBeTruthy(); expect(within(dialog).getByText("75")).toBeTruthy();
+  await user.click(within(dialog).getByRole("button", { name: "关闭" })); expect(screen.queryByRole("dialog")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "查看详情" })); await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "查看此对象的记录" })); await waitFor(() => expect(fetcher).toHaveBeenLastCalledWith(expect.stringContaining("target=alice"), expect.anything()));
 });
-it("does not treat missing monitoring evidence as healthy and exposes exception links", async () => {
+it("shows service facts without removed monitoring copy and exposes exception links", async () => {
   vi.stubGlobal("fetch", async () => response({ observedAt: "2026-11-09T00:00:00Z", codeVersion: "test", schemaVersion: 8, maintenance: false, readOnly: false, accepting: true, broker: { publisher: true, consumer: false }, runs: { pending: 2, running: 1 }, outboxPending: 2, oldestPendingSeconds: 12, queueCapacity: 300, workersAvailable: 7, storageHealthy: null, storageFreeBytes: null, modelId: "test-model", parserConfigured: true, costCurrency: "CNY", dailyCostLimitMicros: null, dailyReservedMicros: 0, taskCostLimitMicros: null, monitoringState: "not_configured", monitoring: null })); const navigate = vi.fn(); render(<AdminOperations navigate={navigate} />); const user = userEvent.setup();
-  await screen.findByText("未接入外部状态"); expect(screen.getByText(/缺少证据时不视为健康/)).toBeTruthy(); await user.click(screen.getByRole("button", { name: "退款未确认或权益冻结" })); expect(navigate).toHaveBeenCalledWith("payments", { issue: "refund" });
+  await screen.findByText("未取得状态 / 未知"); expect(screen.queryByRole("heading", { name: "备份与告警" })).toBeNull(); await user.click(screen.getByRole("button", { name: "退款未确认或权益冻结" })); expect(navigate).toHaveBeenCalledWith("payments", { issue: "refund" });
 });
 it("applies filters explicitly and clears them with one action", async () => {
   const apply = vi.fn(); render(<FilterBar kind="users" apply={apply} />); const user = userEvent.setup(); await user.type(screen.getByLabelText("搜索邮箱、昵称或用户编号"), "alice"); expect(apply).not.toHaveBeenCalled(); await user.selectOptions(screen.getByLabelText("账户状态"), "false"); await user.click(screen.getByRole("button", { name: "应用筛选" })); expect(apply).toHaveBeenCalledWith(expect.objectContaining({ q: "alice", enabled: false, offset: 0 })); await user.click(screen.getByRole("button", { name: "清除筛选" })); expect(apply).toHaveBeenLastCalledWith({});

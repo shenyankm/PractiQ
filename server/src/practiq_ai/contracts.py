@@ -1281,6 +1281,7 @@ class AccountUsage(StrictModel):
 class AdministrationAudit(StrictModel):
     id: int
     actor: str
+    actorEmail: str | None = Field(default=None, max_length=254)
     action: str
     target: str
     created_at: datetime
