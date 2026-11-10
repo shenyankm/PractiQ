@@ -305,9 +305,9 @@ async def audit_log(filters: Annotated[AdministrationFilter, Query()]):
           OR EXISTS (SELECT 1 FROM grades g WHERE g.owner_id=%s AND g.id=auth_audit.target))"""
         args += [filters.userId] * 7
     if filters.q:
-        where += ' AND (strpos(lower(actor),lower(%s))>0 OR strpos(lower(target),lower(%s))>0 OR strpos(lower(action),lower(%s))>0)'
-        args += [filters.q] * 3
-    return await auth.db().rows(f'SELECT * FROM auth_audit WHERE true {where} ORDER BY id DESC LIMIT 100 OFFSET %s', (*args, filters.offset))
+        where += ' AND (strpos(lower(actor),lower(%s))>0 OR strpos(lower(target),lower(%s))>0 OR strpos(lower(action),lower(%s))>0 OR EXISTS (SELECT 1 FROM auth_users WHERE auth_users.id=auth_audit.actor AND strpos(lower(email),lower(%s))>0))'
+        args += [filters.q] * 4
+    return await auth.db().rows(f'SELECT auth_audit.*,(SELECT email FROM auth_users WHERE auth_users.id=auth_audit.actor) AS "actorEmail" FROM auth_audit WHERE true {where} ORDER BY id DESC LIMIT 100 OFFSET %s', (*args, filters.offset))
 
 
 @router.get('/api/admin/usage', response_model=list[AccountCall])

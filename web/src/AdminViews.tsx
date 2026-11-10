@@ -6,8 +6,10 @@ import { Client } from "../../shared/cloud/api";
 import { ImportSettingsPanel } from "../../shared/cloud/ImportSettingsPanel";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
-import { FilterBar, query, type AdminNavigate } from "./adminTools";
+import { FilterBar, Pagination, query, type AdminNavigate } from "./adminTools";
+import { Dialog } from "radix-ui";
 import { AdminUserDetails } from "./AdminUserDetails";
+import { Select, SelectOption } from "./components/ui/select";
 const Review = lazy(() => import("../../shared/cloud/ResultReview"));
 export function AdminSettings() {
   const [executionClient] = useState(() => new Client(true));
@@ -20,10 +22,12 @@ export function AdminSettings() {
   }, []);
   return (
     <>
-      <h1>注册与默认额度</h1>
+      <h1>系统设置</h1>
+      <div className="admin-system-settings">
       {error && <AccountError error={error} />}
       {value && (
-        <section className="settings-panel mb-8">
+        <section className="admin-registration" aria-labelledby="registration-settings-heading">
+          <h2 id="registration-settings-heading">注册与默认额度</h2>
           <Form
             label="保存系统设置"
             submit={async () => {
@@ -64,10 +68,12 @@ export function AdminSettings() {
         </section>
       )}
       <ImportSettingsPanel client={executionClient} />
+      </div>
     </>
   );
 }
 export function AdminUsers({ initial = {}, initialId = "", navigate }: { initial?: AdministrationFilter; initialId?: string; navigate: AdminNavigate }) {
+  const dialogTrigger = useRef<HTMLElement | null>(null);
   const [filters, setFilters] = useState<AdministrationFilter>(initial);
   const [reason, setReason] = useState(""), [baselineFree, setBaselineFree] = useState(50), [editing, setEditing] = useState(false);
   const [defaults, setDefaults] = useState<AccountLimits | null>(null),
@@ -92,32 +98,25 @@ export function AdminUsers({ initial = {}, initialId = "", navigate }: { initial
     [override, setOverride] = useState(false),
     [link, setLink] = useState<{userId:string;url:string} | null>(null),
     [revision, setRevision] = useState(0),
-    [offset, setOffset] = useState(0);
+    [offset, setOffset] = useState(0), [rowCount, setRowCount] = useState(0);
   return (
     <>
       <h1>用户管理</h1>
       <FilterBar kind="users" initial={initial} apply={value => { setFilters(value); setOffset(0); setId(""); setEditing(false); setPassword(""); setLink(null); }} />
       {defaultsError && <AccountError error={defaultsError} />}
       {!defaults && !defaultsError && <p role="status">正在读取默认额度…</p>}
-      <Records path={`/api/admin/users?${query(filters, offset)}`} refresh={revision} onSelect={defaults ? row => {
+      <Records path={`/api/admin/users?${query(filters, offset)}`} refresh={revision} onCountChange={setRowCount} onDetails={row => { dialogTrigger.current = document.activeElement as HTMLElement; setEditing(false); setId(String(row.id)); setPassword(""); setLink(null); }} onSelect={defaults ? row => {
+        dialogTrigger.current = document.activeElement as HTMLElement;
         setEditing(true); setReason(""); setBaselineFree((row.limits as Partial<AccountLimits>).freePages ?? defaults.freePages);
         setId(String(row.id)); setEnabled(row.enabled === true); setRole(row.role === 'admin' ? 'admin' : 'user');
         setPassword(""); setLink(null);
         const saved = row.limits as Partial<AccountLimits>; setOverride(Object.keys(saved).length > 0);
         setLimits({ freePages: saved.freePages ?? defaults.freePages, modelCalls: saved.modelCalls ?? defaults.modelCalls, tencentCalls: saved.tencentCalls ?? defaults.tencentCalls, activeTasks: saved.activeTasks ?? defaults.activeTasks });
       } : undefined} />
-      <div className="admin-pagination">
-        <Button
-          variant="outline"
-          disabled={!offset}
-          onClick={() => setOffset((v) => Math.max(0, v - 50))}
-        >
-          上一页
-        </Button>
-        <Button variant="outline" onClick={() => setOffset((v) => v + 50)}>
-          下一页
-        </Button>
-      </div>
+      <Pagination offset={offset} size={50} more={rowCount >= 50} change={setOffset} />
+      <Dialog.Root open={!!id} onOpenChange={open => { if (!open) { setId(""); setEditing(false); setPassword(""); setLink(null); } }}><Dialog.Portal><Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" /><Dialog.Content onCloseAutoFocus={event => { if (dialogTrigger.current?.isConnected) { event.preventDefault(); dialogTrigger.current.focus(); } }} data-slot="dialog-content" className="admin-user-dialog fixed left-1/2 top-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-6xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto bg-popover p-6 text-popover-foreground outline-none">
+      <div className="flex items-start justify-between gap-4"><div><Dialog.Title className="text-xl font-semibold">用户信息</Dialog.Title><Dialog.Description className="mt-2 text-sm text-muted-foreground">查看账户、额度和安全信息。</Dialog.Description></div><Dialog.Close asChild><Button variant="outline">关闭</Button></Dialog.Close></div>
+      <div className="cloud-portal admin-user-content">
       {id && <AdminUserDetails key={id} id={id} navigate={navigate} changed={() => setRevision(value => value + 1)} />}
       {id && editing && <section className="settings-panel mt-8">
       <h2>编辑选中的用户</h2>
@@ -154,15 +153,15 @@ export function AdminUsers({ initial = {}, initialId = "", navigate }: { initial
           />
           启用账户
         </label>
-        <label>
+        <label className="account-field">
           角色
-          <select
+          <Select aria-label="角色" className="w-full"
             value={role}
-            onChange={(e) => setRole(e.target.value as "user" | "admin")}
+            onValueChange={(value) => setRole(value as "user" | "admin")}
           >
-            <option value="user">普通用户</option>
-            <option value="admin">管理员</option>
-          </select>
+            <SelectOption value="user">普通用户</SelectOption>
+            <SelectOption value="admin">管理员</SelectOption>
+          </Select>
         </label>
         <label>
           <input
@@ -232,6 +231,7 @@ export function AdminUsers({ initial = {}, initialId = "", navigate }: { initial
         )}
       </div>
       </section>}
+      </div></Dialog.Content></Dialog.Portal></Dialog.Root>
     </>
   );
 }
@@ -318,7 +318,7 @@ export function AdminTasks({ initial = {}, initialId = "", navigate }: { initial
       </Form>
       {error && <AccountError error={error} />}
       {!tasks && !error && <p role="status">正在读取任务…</p>}
-      {tasks && !tasks.items.length && !error && <p role="status">{query(filters) === "offset=0" ? "暂无导入任务。任务创建后将在这里显示。" : "没有匹配的任务，请调整或清除上方筛选。"}</p>}
+      {tasks && !tasks.items.length && !error && <p role="status" className="account-empty-state">{query(filters) === "offset=0" ? "暂无导入任务。任务创建后将在这里显示。" : "没有匹配的任务，请调整或清除上方筛选。"}</p>}
       {tasks?.items.map((task) => (
         <div className="account-bank" key={task.threadId}>
           <span>
@@ -336,22 +336,7 @@ export function AdminTasks({ initial = {}, initialId = "", navigate }: { initial
           </Button>
         </div>
       ))}
-      <div className="admin-pagination">
-        <Button
-          variant="outline"
-          disabled={!offset}
-          onClick={() => { void readPage(Math.max(0, offset - 20)).catch(error => setError(errorMessage(error))); }}
-        >
-          上一页
-        </Button>
-        <Button
-          variant="outline"
-          disabled={!tasks?.hasMore}
-          onClick={() => { void readPage(offset + 20).catch(error => setError(errorMessage(error))); }}
-        >
-          下一页
-        </Button>
-      </div>
+      <Pagination offset={offset} size={20} more={tasks?.hasMore ?? false} change={next => { void readPage(next).catch(error => setError(errorMessage(error))); }} />
       {detail && (
         <section className="settings-panel mt-8">
           <h2>{detail.fileName}</h2>

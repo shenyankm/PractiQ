@@ -299,6 +299,12 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 .account-form fieldset { display: grid; gap: 1.15rem; border: 0; padding: 0; margin: 0; }
 .account-field { display: grid; gap: 0.45rem; font-size: 13px; font-weight: 500; color: var(--foreground); }
 .account-field input[type="number"] { max-width: 240px; }
+.account-limits { display: grid; gap: .35rem; font-variant-numeric: tabular-nums; }
+.account-input-with-icon { position: relative; display: block; }
+.account-input-icon { position: absolute; inset-inline-start: 12px; top: 50%; transform: translateY(-50%); color: var(--muted-foreground); pointer-events: none; }
+.account-input-icon svg { display: block; width: 18px; height: 18px; }
+.account-input-with-icon input { display: block; padding-inline-start: 40px; }
+.account-input-with-icon:focus-within .account-input-icon { color: var(--primary); }
 .account-form label:has(input[type="checkbox"]) { display: inline-flex; align-items: center; gap: 0.55rem; font-size: 13.5px; font-weight: 500; color: var(--foreground); cursor: pointer; user-select: none; }
 .account-form label:has(select) { display: grid; gap: 0.45rem; font-size: 13px; font-weight: 500; color: var(--foreground); }
 .account-form input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--primary); border-radius: 4px; cursor: pointer; margin: 0; vertical-align: middle; }

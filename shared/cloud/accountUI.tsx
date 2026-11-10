@@ -48,6 +48,7 @@ export function Field({
   max,
   readOnly = false,
   autoComplete,
+  icon,
 }: {
   name: string;
   label: string;
@@ -58,12 +59,10 @@ export function Field({
   max?: number;
   readOnly?: boolean;
   autoComplete?: string;
+  icon?: ReactNode;
 }) {
   useCloudLocale();
-  return (
-    <label className="account-field" htmlFor={name}>
-      {label}
-      <Input
+  const input = <Input
         id={name}
         name={name}
         type={type}
@@ -82,7 +81,11 @@ export function Field({
               : "off")
         }
         onChange={(e) => onChange(e.target.value)}
-      />
+      />;
+  return (
+    <label className="account-field" htmlFor={name}>
+      {label}
+      {icon ? <span className="account-input-with-icon"><span className="account-input-icon" aria-hidden="true">{icon}</span>{input}</span> : input}
     </label>
   );
 }
@@ -125,7 +128,7 @@ export function Form({
     </form>
   );
 }
-export function Records({ path, refresh = 0, onSelect, paginated = false }: { path: string; refresh?: number; onSelect?: (row: Record<string, unknown>) => void; paginated?: boolean }) {
+export function Records({ path, refresh = 0, onSelect, onDetails, paginated = false, onCountChange }: { path: string; refresh?: number; onSelect?: (row: Record<string, unknown>) => void; onDetails?: (row: Record<string, unknown>) => void; paginated?: boolean; onCountChange?: (count: number) => void }) {
   useCloudLocale();
   const [offset, setOffset] = useState(0), [revision, setRevision] = useState(0);
   const [rows, setRows] = useState<Record<string, unknown>[]>([]),
@@ -136,24 +139,25 @@ export function Records({ path, refresh = 0, onSelect, paginated = false }: { pa
     setError("");
     setRows([]);
     setLoading(true);
+    onCountChange?.(0);
     void request<Record<string, unknown>[]>(
       paginated ? `${path}${path.includes("?") ? "&" : "?"}offset=${offset}` : path,
       "GET",
       undefined,
       controller.signal,
     )
-      .then(value => { if (!controller.signal.aborted) setRows(value); })
+      .then(value => { if (!controller.signal.aborted) { setRows(value); onCountChange?.(value.length); } })
       .catch((e) => {
         if (!controller.signal.aborted) setError(errorMessage(e));
       })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
-  }, [path, refresh, paginated, offset, revision]);
+  }, [path, refresh, paginated, offset, revision, onCountChange]);
   return (
     <>
       {error && <AccountError error={error} retry={() => setRevision(v => v + 1)} />}
       {loading && <p role="status">{t("正在读取记录…")}</p>}
-      {!loading && !rows.length && !error && <p>{t("暂无记录。")}</p>}
+      {!loading && !rows.length && !error && <p className="account-empty-state">{t("暂无记录。")}</p>}
       {!!rows.length && (
         <div className="account-table">
           <table>
@@ -189,6 +193,7 @@ export function Records({ path, refresh = 0, onSelect, paginated = false }: { pa
                     )[key] ?? key}
                   </th>
                 ))}
+                {onDetails && <th>{t("详情")}</th>}
               </tr>
             </thead>
             <tbody>
@@ -197,7 +202,9 @@ export function Records({ path, refresh = 0, onSelect, paginated = false }: { pa
                   {onSelect && <td><Button variant="outline" onClick={() => onSelect(row)}>{t("选择")}</Button></td>}
                   {Object.entries(row).map(([key, value]) => (
                     <td key={key}>
-                      {value !== null && typeof value === "object" ? (
+                      {key === "limits" && value !== null && typeof value === "object" ? (
+                        <div className="account-limits">{Object.keys(value).length === 0 ? "—" : Object.entries(value).map(([limit, amount]) => <span key={limit}>{limit === "freePages" ? `${String(amount)} ${t("页")}` : `${t(({ modelCalls: "每日模型调用数", tencentCalls: "每日腾讯提交数", activeTasks: "进行中任务数" } as Record<string, string>)[limit] ?? limit)}：${String(amount)}`}</span>)}</div>
+                      ) : value !== null && typeof value === "object" ? (
                         <details>
                           <summary>{t("查看详情")}</summary>
                           <pre>{JSON.stringify(value, null, 2)}</pre>
@@ -207,13 +214,14 @@ export function Records({ path, refresh = 0, onSelect, paginated = false }: { pa
                       )}
                     </td>
                   ))}
+                  {onDetails && <td><Button variant="link" onClick={() => onDetails(row)}>{t("查看详情")}</Button></td>}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-      {paginated && <nav aria-label={t("记录分页")}><Button variant="outline" disabled={!offset} onClick={() => setOffset(v => Math.max(0, v - 100))}>{t("上一页")}</Button><Button variant="outline" disabled={rows.length < 100} onClick={() => setOffset(v => v + 100)}>{t("下一页")}</Button></nav>}
+      {paginated && !loading && (offset > 0 || rows.length >= 100) && <nav aria-label={t("记录分页")}><Button variant="outline" disabled={!offset} onClick={() => setOffset(v => Math.max(0, v - 100))}>{t("上一页")}</Button><Button variant="outline" disabled={rows.length < 100} onClick={() => setOffset(v => v + 100)}>{t("下一页")}</Button></nav>}
     </>
   );
 }
