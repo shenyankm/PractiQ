@@ -463,3 +463,16 @@ def test_wire_requires_material_containers_without_changing_public_contract():
     assert {'stem', 'answerMode', 'answerPayload', 'sourceText', 'passage', 'contentBlocks'} <= set(wire['required'])
     assert 'sourceScore' not in wire['required']
     assert wire['properties']['passage']['type'] == wire['properties']['contentBlocks']['type'] == 'array'
+
+
+async def test_insufficient_provider_balance_is_actionable_and_never_automatically_retried():
+    from openai import APIStatusError
+
+    from tests.support import FakeModel
+    error = APIStatusError('private provider details', response=httpx2.Response(402, request=httpx2.Request('POST', 'https://example.invalid')), body=None)
+    model = FakeModel(responses=[error, {'value': 2}])
+    records = []
+    result, usage, code = await llm.structured_call(model, [HumanMessage(content='source')], Result, 'test', call_records=records)
+    assert result is None and usage == [] and code == 'AI_PROVIDER_BALANCE_REQUIRED'
+    assert len(model.calls) == len(records) == 1
+    assert records[0]['error'] == code and records[0]['usageStatus'] == 'unknown'

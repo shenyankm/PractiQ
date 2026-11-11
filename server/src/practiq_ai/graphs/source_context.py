@@ -7,8 +7,8 @@ from typing import Any
 from practiq_ai.tencent_bundle import evidence_text
 
 MAX_CONTEXT_PAGES = 8
-NUMBER = re.compile(r"(?mi)^\s*(?:q(?:uestion)?\s*)?(\d{1,4})\s*[.、)．:：](?!\d)")
-ANSWER_HEADING = re.compile(r"(?mi)^\s*(?:参考答案|标准答案|答案(?:与解析)?|answer\s*key|answers|solutions)\s*[:：]?\s*$")
+NUMBER = re.compile(r"(?mi)^\s*(?:#{1,6}\s*)?(?:q(?:uestion)?\s*|第\s*)?(\d{1,4})\s*(?:[.、)．:：](?!\d)|题)")
+ANSWER_HEADING = re.compile(r"(?mi)^\s*(?:#{1,6}\s*)?(?:(?:参考答案|标准答案|答案)(?:与(?:解析|评分细则|评分标准))?|answer\s*key|answers|solutions)\s*[:：]?\s*$")
 PAGE_REFERENCE = re.compile(r"(?i)(?:see|refer\s+to)\s+pages?\s*(\d{1,3})(?:\s*[-–]\s*(\d{1,3}))?|(?:参见|参考|见)第\s*(\d{1,3})(?:\s*[-–至到]\s*(\d{1,3}))?\s*页")
 
 

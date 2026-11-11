@@ -71,3 +71,11 @@ async def test_text_formats_use_unified_model(monkeypatch, kind):
     assert result['status'] == 'SUCCEEDED'
     assert result['result']['questions'][0]['stem'] == 'Question?'
     assert len(model.calls) == 1
+
+
+def test_deepseek_disables_thinking_for_forced_function_outputs():
+    from practiq_ai.llm import build_model
+    model = build_model("deepseek", "synthetic-key", "deepseek-flash")
+    assert model.use_responses_api is True
+    assert model.reasoning == {"effort":"none"}
+    assert model.store is False
