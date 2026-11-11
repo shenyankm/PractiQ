@@ -49,7 +49,7 @@ fn read_entry(archive: &mut ZipArchive<fs::File>, name: &str, limit: usize) -> R
     }
     Ok(bytes)
 }
-fn references(root: &Value) -> Result<BTreeMap<String, Value>> {
+pub(crate) fn references(root: &Value) -> Result<BTreeMap<String, Value>> {
     let mut refs = BTreeMap::new();
     for reference in contract::resource_refs(contract::result(root)) {
         let key = text(reference, "objectKey");
@@ -70,7 +70,7 @@ fn references(root: &Value) -> Result<BTreeMap<String, Value>> {
     }
     Ok(refs)
 }
-fn verify_resource(reference: &Value, bytes: &[u8]) -> Result<Option<f64>> {
+pub(crate) fn verify_resource(reference: &Value, bytes: &[u8]) -> Result<Option<f64>> {
     let invalid = || {
         error(format!(
             "Invalid or missing resource: {}",

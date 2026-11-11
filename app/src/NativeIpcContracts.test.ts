@@ -3,9 +3,9 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import { ai } from "./ai-api";
 import {
-  api, missingServiceSettings,
+  api,
   type Attempt, type BankPage, type GradingResponse, type Question, type QuestionPage,
-  type Session, type SessionPage, type SettingsResult,
+  type Session, type SessionPage,
 } from "./api";
 import fixture from "../fixtures/native-ipc.json";
 import historicalErrors from "../fixtures/legacy-grading-errors.json";
@@ -16,16 +16,6 @@ beforeEach(async () => {
   vi.mocked(invoke).mockReset().mockResolvedValueOnce(null);
   await api({ type: "restore" });
   vi.mocked(invoke).mockClear();
-});
-
-it.each(Object.entries(fixture.settings))("reads the native %s settings without credential work", async (name, payload) => {
-  const native: SettingsResult = payload;
-  vi.mocked(invoke).mockResolvedValueOnce(native);
-  const result = await api({ type: "settings" });
-  expect(result).toEqual(native);
-  expect(missingServiceSettings(result)).toHaveLength(name === "defaults" ? 1 : 0);
-  expect(vi.mocked(invoke)).toHaveBeenCalledTimes(1);
-  expect(vi.mocked(invoke)).toHaveBeenCalledWith("request", expect.objectContaining({ request: { type: "settings" } }));
 });
 
 it.each([fixture.pages.emptyBanks, fixture.pages.banks, fixture.pages.nextBanks])("reads native bank pagination at offset $offset", async payload => {

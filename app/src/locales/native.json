@@ -1218,5 +1218,10 @@
     "zh-CN": "模型 API Key 格式无效。",
     "en": "The model API key format is invalid.",
     "zh-TW": "模型 API Key 格式無效。"
+  },
+  "AI_PROVIDER_BALANCE_REQUIRED": {
+    "zh-CN": "模型供应商余额不足，请充值或更换后端模型配置后再手动重试。",
+    "en": "The model provider balance is insufficient. Top up or update the backend model configuration, then retry explicitly.",
+    "zh-TW": "模型供應商餘額不足，請儲值或更換後端模型設定後再手動重試。"
   }
 }

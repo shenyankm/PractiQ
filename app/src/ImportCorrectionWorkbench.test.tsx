@@ -2,7 +2,8 @@
 import "./import-test-setup";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { expect, it, vi } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
+import { setNativeBridge } from "../../shared/cloud/transport";
 import ResultReview from "../../shared/cloud/ResultReview";
 import { ApiError, Client } from "../../shared/cloud/api";
 import type { DocumentCorrections } from "./contracts.generated";
@@ -20,17 +21,43 @@ async function open() {
   return user;
 }
 
-it("locates saved source, saves human edits, reopens revisions and exports explicit revision", async () => {
+afterEach(() => setNativeBridge(null));
+
+it.each([false, true])("transfers a revision once while pending and permits explicit retry after failure (native=%s)", async native => {
+  if (native) setNativeBridge({ origin: "http://127.0.0.1:8090", confirm: vi.fn(), fetch: vi.fn(), pickSources: vi.fn(), upload: vi.fn(), importBank: vi.fn(), download: vi.fn(), save: vi.fn() });
+  const transferLabel = native ? "导入修订版题库" : "下载修订版 ZIP";
+  const corrections: DocumentCorrections = { checkpointId: detail.checkpointId!, edits: [{ requestId: "22222222-2222-4222-8222-222222222222", questionIndex: 0, question: original, savedAt: "2026-11-06T00:00:00Z" }] };
+  vi.spyOn(Client.prototype, "evidence").mockResolvedValue({ text: async () => "Original question" } as Blob);
+  let fail!: (error: Error) => void;
+  const exported = vi.spyOn(Client.prototype, "exportBank").mockImplementation(() => new Promise((_resolve, reject) => { fail = reject; }));
+  render(<ResultReview task={detail} preview={{ ...metadata, corrections }} client={new Client()} />);
+  const user = await open();
+  const transfer = screen.getByRole("button", { name: transferLabel });
+  await user.dblClick(transfer);
+  expect(exported).toHaveBeenCalledTimes(1);
+  expect(transfer).toHaveProperty("disabled", true);
+  expect(screen.getByRole("button", { name: "人工校对" })).toHaveProperty("disabled", true);
+  await act(async () => { fail(Error("Transfer failed")); });
+  expect(await screen.findByText("Transfer failed")).toBeTruthy();
+  expect(transfer).toHaveProperty("disabled", false);
+  await user.click(transfer);
+  expect(exported).toHaveBeenCalledTimes(2);
+  await act(async () => { fail(Error("Transfer failed again")); });
+});
+
+it.each([false, true])("saves human edits, reopens and transfers the explicit revision (native=%s)", async native => {
+  if (native) setNativeBridge({ origin: "http://127.0.0.1:8090", confirm: vi.fn(), fetch: vi.fn(), pickSources: vi.fn(), upload: vi.fn(), importBank: vi.fn(), download: vi.fn(), save: vi.fn() });
+  const transferLabel = native ? "导入修订版题库" : "下载修订版 ZIP";
   vi.spyOn(Client.prototype, "evidence").mockResolvedValue({ text: async () => "Original question" } as Blob);
   const save = vi.spyOn(Client.prototype, "saveCorrection").mockImplementation(async (_id, value) => ({ checkpointId: value.checkpointId, edits: [{ requestId: value.requestId, questionIndex: value.questionIndex, question: value.question, savedAt: "2026-11-06T00:00:00Z" }] }));
-  const exported = vi.spyOn(Client.prototype, "exportBank").mockResolvedValue({ blob: new Blob(["zip"]), name: "revised.zip" });
+  const exported = vi.spyOn(Client.prototype, "exportBank").mockResolvedValue(native ? { blob: null, name: "" } : { blob: new Blob(["zip"]), name: "revised.zip" });
   vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:revised");
   vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
   const before = JSON.stringify([detail, metadata]);
   const view = render(<ResultReview task={detail} preview={metadata} client={new Client()} />);
   const user = await open();
   expect((await screen.findByText("Original question", { selector: "mark" })).tagName).toBe("MARK");
-  expect(screen.getByRole("button", { name: "下载修订版 ZIP" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: transferLabel }).hasAttribute("disabled")).toBe(true);
   await user.click(screen.getByRole("button", { name: "人工校对" }));
   await user.clear(screen.getByRole("textbox", { name: "题干" }));
   await user.type(screen.getByRole("textbox", { name: "题干" }), "Corrected question");
@@ -38,7 +65,7 @@ it("locates saved source, saves human edits, reopens revisions and exports expli
   await user.click(screen.getByRole("button", { name: "保存修订" }));
   expect(await screen.findByText(/修订已保存/)).toBeTruthy();
   expect(save).toHaveBeenCalledWith(task.threadId, expect.objectContaining({ questionIndex: 0, expectedRevision: null, question: expect.objectContaining({ stem: "Corrected question", sourceText: "Original question", needsReview: true }) }));
-  await user.click(screen.getByRole("button", { name: "下载修订版 ZIP" }));
+  await user.click(screen.getByRole("button", { name: transferLabel }));
   expect(exported).toHaveBeenCalledWith(detail, expect.any(String));
   await user.click(screen.getByRole("button", { name: "返回题目列表" }));
   expect(screen.getByText("Corrected question", { selector: "summary span" })).toBeTruthy();

@@ -44,3 +44,10 @@ def test_retry_selection_rejects_invalid_requests_without_changes(failure, code)
     with pytest.raises(DocumentProcessingError) as raised:
         selected_retry_units(state, request)
     assert raised.value.code == code and state == before
+
+
+def test_provider_balance_can_be_retried_only_by_explicit_failed_unit_selection():
+    state = {'failures':[{'stage':'vision_parse','index':0,'code':'AI_PROVIDER_BALANCE_REQUIRED'}]}
+    before = deepcopy(state)
+    assert selected_retry_units(state, RetryUnits(requestId=uuid4())) == {('vision_parse',0)}
+    assert unit_failures(state)[0]['retriesRemaining'] == 2 and state == before

@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 use std::time::Instant;
 
 #[test]
-#[ignore = "explicit workflow ZIPs; temporary databases and release binary required"]
+#[ignore = "explicit workflow JSON/resources; temporary databases and release binary required"]
 fn workflow_practice() {
     fn timed<T>(phases: &mut Value, name: &str, operation: impl FnOnce() -> T) -> T {
         let start = Instant::now();
@@ -42,23 +42,33 @@ fn workflow_practice() {
         if single.as_ref().is_some_and(|selected| selected != name) {
             continue;
         }
-        let file = directory.join("exports").join(format!("{name}.zip"));
+        let file = directory.join("exports").join(format!("{name}.json"));
         for repetition in 0..if single.is_some() { 1 } else { 8 } {
             let dir = tempfile::tempdir().unwrap();
             let restore_dir = tempfile::tempdir().unwrap();
             let mut phases = json!({});
             let start = Instant::now();
-            let mut store = timed(&mut phases, "initialize", || {
+            let store = timed(&mut phases, "initialize", || {
                 Store::new(dir.path().into()).unwrap()
             });
-            let preview = timed(&mut phases, "previewZip", || {
-                store.preview_bank_zip(&file).unwrap()
+            let pending =
+                timed(&mut phases, "validateResult", || {
+                    crate::cloud_import::pending(
+                        serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap(),
+                        |reference| {
+                            Ok(std::fs::read(
+                                directory.join("exports").join(text(reference, "sha256")),
+                            )
+                            .unwrap())
+                        },
+                    )
+                    .unwrap()
+                });
+            assert!(pending.missing.is_empty());
+            let imported = timed(&mut phases, "importResult", || {
+                store.import_pending(&pending, None, name).unwrap()
             });
-            assert_eq!(preview["count"], expected_count);
-            assert_eq!(preview["missingAssets"], json!([]));
-            let imported = timed(&mut phases, "importZip", || {
-                store.import(text(&preview, "ticket"), None, name).unwrap()
-            });
+            assert_eq!(imported["count"], expected_count);
             let bank = text(&imported, "bankId").to_owned();
             let list_page = timed(&mut phases, "firstPage", || {
                 store
@@ -169,7 +179,7 @@ fn workflow_practice() {
                 11
             );
             samples.push(json!({"name":name,"repetition":repetition,"firstRun":repetition==0,
-                "phasesMs":phases,"totalMs":total,"zipSha256":crate::store::hash(&std::fs::read(&file).unwrap()),
+                "phasesMs":phases,"totalMs":total,"inputSha256":crate::store::hash(&std::fs::read(&file).unwrap()),
                 "questions":expected_count,"correct":expected_count,"earnedCents":expected_count as i64 * 100,"reopen":true,"backupRestore":true}));
         }
     }

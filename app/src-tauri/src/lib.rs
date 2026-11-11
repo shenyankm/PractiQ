@@ -6,15 +6,14 @@ mod backup;
 mod bank_zip;
 mod cloud;
 mod cloud_files;
+mod cloud_import;
 mod contract;
-mod credentials;
 mod exams;
 mod filesystem;
 mod import_diagnostics;
 mod import_duplicates;
 mod language;
 mod learning;
-mod model_grading;
 mod paper;
 #[cfg(test)]
 mod performance;
@@ -223,15 +222,6 @@ enum Request {
     SaveLanguage {
         locale: language::Locale,
     },
-    Settings,
-    TestSettings {
-        config: settings::ServiceSettings,
-        api_key: Option<String>,
-    },
-    SaveSettings {
-        config: settings::ServiceSettings,
-        api_key: Option<String>,
-    },
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppError {
@@ -326,21 +316,6 @@ async fn request(
             };
             return Ok(json!(audio_import::qr_links(&bytes)?));
         }
-        if matches!(&request, Request::Settings) {
-            return settings::settings(&shared);
-        }
-        if let Request::TestSettings { config, api_key } = request {
-            if let Some(model) = &config.model {
-                let (model, key) = settings::model_input(model, api_key, &app)?;
-                return ai::test_model_connection(&model, key);
-            }
-            if api_key.is_some() { return Err("Select direct model access before saving an API key".into()); }
-            return settings::test_connection(config);
-        }
-        if let Request::SaveSettings { config, api_key } = request {
-            if config.model.is_none() && api_key.is_some() { return Err("Credential does not match the selected grading connection".into()); }
-            return ai::save_settings(&app, &shared, config, api_key);
-        }
         let work = app.state::<ai::GradingState>();
         let _restore = if matches!(&request, Request::Restore {..}) { Some(work.restore()?) } else { None };
         let mut store=shared.lock().map_err(|_|language::error("LOCAL_DATABASE_RESTART", json!({})))?;
@@ -395,7 +370,6 @@ async fn request(
             },
             Request::Language=>Ok(json!(store.language()?)),
             Request::SaveLanguage{locale}=>store.save_language(locale),
-            Request::TestSettings{..}|Request::Settings|Request::SaveSettings{..}=>unreachable!(),
             Request::Info=>Ok(json!({"dataDirectory":store.dir.display().to_string(),"version":env!("CARGO_PKG_VERSION")})),
         }?;
         Ok(result)

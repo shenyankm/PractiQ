@@ -6,10 +6,10 @@ import { CloudPage } from "./CloudPage";
 import { invoke } from "./transport";
 import { setNativeBridge } from "../../shared/cloud/transport";
 import { setCloudLocale } from "../../shared/cloud/i18n";
-import { capabilities, task, preview, taskId, runId } from "../../shared/cloud/test-fixtures";
+import { capabilities, task, preview, summary, taskId, runId } from "../../shared/cloud/test-fixtures";
 
 vi.mock("./transport", () => ({ invoke: vi.fn() }));
-function fixture(options: { origin?: string | null; unavailableOrigin?: string } = {}) {
+function fixture(options: { origin?: string | null; unavailableOrigin?: string; emptyResult?: boolean } = {}) {
   let origin = options.origin === undefined ? "http://127.0.0.1:8090" : options.origin;
   let generation = 1;
   const calls: Record<string, unknown>[] = [];
@@ -29,9 +29,9 @@ function fixture(options: { origin?: string | null; unavailableOrigin?: string }
         if (path === "/api/import-capabilities") data = capabilities;
         else if (path === "/api/import-settings") data = { revision: taskId, settings: { tencentConcurrency: 5, readRetryCount: 2, retryBaseSeconds: 1, deduplicateQuestions: false, generateAnswers: false } };
         else if (path === "/api/document-tasks" && request.method === "POST") data = { threadId: taskId, runId, requestId: body.requestId, accepted: true };
-        else if (path === `/api/document-tasks/${taskId}`) data = task;
-        else if (path === `/api/document-tasks/${taskId}/head`) data = task;
-        else if (path === `/api/document-tasks/${taskId}/preview`) data = preview;
+        else if (path === `/api/document-tasks/${taskId}` || path === `/api/document-tasks/${taskId}/head`) data = options.emptyResult ? { ...task, result: { ...task.result, questions: [] } } : task;
+        else if (path === `/api/document-tasks/${taskId}/preview`) data = options.emptyResult ? { ...preview, units: [] } : preview;
+        else if (path === "/api/document-tasks" && options.emptyResult) data = { items: [{ ...summary, questionCount: 0 }], hasMore: false };
         else data = { items: [], hasMore: false };
         value = { status, mediaType: "application/json", bytes: Buffer.from(JSON.stringify(data)).toString("base64") };
       } else if (request.type === "pick_sources") value = [{ nativeTicket: "opaque-native-file-ticket", name: "native-upload.txt", size: 4 }];
@@ -51,7 +51,17 @@ it("localizes the import workspace tabs", async () => {
   render(<CloudPage />);
   expect(await screen.findByRole("link", { name: "Start import" })).toBeTruthy();
   expect(screen.getByRole("link", { name: "Import history" })).toBeTruthy();
-  expect(screen.getByRole("link", { name: "Settings" })).toBeTruthy();
+  expect(screen.queryByRole("link", { name: "Settings" })).toBeNull();
+});
+
+it("disables native bank import when a completed task has no questions", async () => {
+  const { calls } = fixture({ emptyResult: true });
+  history.replaceState(null, "", "/#records");
+  render(<CloudPage />);
+  await userEvent.setup().click(await screen.findByRole("button", { name: "sample.docx" }));
+  await screen.findByRole("heading", { name: "sample.docx" });
+  await waitFor(() => expect(screen.getByRole("button", { name: "导入题库" })).toHaveProperty("disabled", true));
+  expect(calls.some(call => call.type === "import_bank")).toBe(false);
 });
 
 it("opens the workspace directly and keeps the backend address in import settings", async () => {
@@ -59,42 +69,42 @@ it("opens the workspace directly and keeps the backend address in import setting
   expect(await screen.findByRole("link", { name: "开始导入" })).toBeTruthy();
   expect(screen.queryByRole("heading", { name: "连接云端服务" })).toBeNull();
   expect(calls.every(call => call.type === "status" || call.method === "GET")).toBe(true);
-  await userEvent.click(screen.getByRole("link", { name: "设置" }));
-  expect((screen.getByLabelText("导入服务地址") as HTMLInputElement).value).toBe("http://127.0.0.1:8090");
+  expect(screen.queryByLabelText("AI 服务地址")).toBeNull();
+  expect(screen.queryByLabelText("腾讯识别并发上限")).toBeNull();
 });
 
 it("lets a user correct an unreachable saved backend in settings", async () => {
-  const { calls } = fixture({ unavailableOrigin: "http://127.0.0.1:8090" }); render(<CloudPage />);
+  const { calls } = fixture({ unavailableOrigin: "http://127.0.0.1:8090" }); render(<CloudPage settingsOnly />);
   const events = userEvent.setup();
-  await events.click(await screen.findByRole("link", { name: "设置" }));
-  const address = screen.getByLabelText("导入服务地址") as HTMLInputElement;
+  await screen.findByLabelText("AI 服务地址");
+  const address = screen.getByLabelText("AI 服务地址") as HTMLInputElement;
   await events.clear(address);
   await events.type(address, "https://cloud.example.test");
   await events.click(screen.getByRole("button", { name: "保存服务地址" }));
   await waitFor(() => expect(calls.some(call => call.type === "configure" && call.origin === "https://cloud.example.test")).toBe(true));
-  expect(await screen.findByRole("link", { name: "开始导入" })).toBeTruthy();
+  expect(await screen.findByLabelText("AI 服务地址")).toBeTruthy();
   expect(calls.some(call => call.method === "POST")).toBe(false);
 });
 
 it("cancels an address draft without unmounting the import workspace", async () => {
-  const { calls } = fixture(); const view = render(<CloudPage />);
+  const { calls } = fixture(); const view = render(<CloudPage settingsOnly />);
   const events = userEvent.setup();
-  await events.click(await screen.findByRole("link", { name: "设置" }));
+  await screen.findByLabelText("AI 服务地址");
   const workspace = view.container.querySelector(".web-shell");
-  await events.clear(screen.getByLabelText("导入服务地址"));
-  await events.type(screen.getByLabelText("导入服务地址"), "https://other.example.test");
+  await events.clear(screen.getByLabelText("AI 服务地址"));
+  await events.type(screen.getByLabelText("AI 服务地址"), "https://other.example.test");
   await events.click(screen.getByRole("button", { name: "取消" }));
   expect(view.container.querySelector(".web-shell")).toBe(workspace);
-  expect((screen.getByLabelText("导入服务地址") as HTMLInputElement).value).toBe("http://127.0.0.1:8090");
+  expect((screen.getByLabelText("AI 服务地址") as HTMLInputElement).value).toBe("http://127.0.0.1:8090");
   expect(calls.some(call => call.type === "configure")).toBe(false);
 });
 
 it("honors submission and correction leave guards before changing the backend", async () => {
-  const { calls } = fixture(); const view = render(<CloudPage />);
+  const { calls } = fixture(); const view = render(<CloudPage settingsOnly />);
   const events = userEvent.setup();
-  await events.click(await screen.findByRole("link", { name: "设置" }));
+  await screen.findByLabelText("AI 服务地址");
   const workspace = view.container.querySelector(".web-shell");
-  const address = screen.getByLabelText("导入服务地址");
+  const address = screen.getByLabelText("AI 服务地址");
   await events.clear(address); await events.type(address, "https://other.example.test");
   const guard = vi.fn((event: Event) => event.preventDefault());
   document.addEventListener("practiq-cloud-before-leave", guard);

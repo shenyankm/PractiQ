@@ -7,7 +7,7 @@ from .contracts import RetryUnits
 from .errors import DocumentProcessingError
 
 MAX_UNIT_RETRIES = 2
-RETRYABLE_CODES = {"OUTPUT_INVALID", "OUTPUT_STALLED", "AI_PROVIDER_UNAVAILABLE", "AI_PROVIDER_AUTH_ERROR"}
+RETRYABLE_CODES = {"OUTPUT_INVALID", "OUTPUT_STALLED", "AI_PROVIDER_UNAVAILABLE", "AI_PROVIDER_AUTH_ERROR", "AI_PROVIDER_BALANCE_REQUIRED"}
 
 
 def unit_failures(state: Mapping[str, Any]) -> list[dict[str, Any]]:

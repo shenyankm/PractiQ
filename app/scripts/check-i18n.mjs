@@ -222,7 +222,7 @@ test('trilingual sidebar preserves alignment, keyboard navigation and language p
   await expect(page.locator('#app-sidebar')).toHaveCSS('width','208px');
   assert.deepEqual(await sidebarPositions(),expandedPositions,'Sidebar rows and icons stay aligned after expanding');
   await expectNoOverflow(page,names.locale+' expanded');
-  await expect(page.locator('main').getByRole('button',{name:names.locale==='en'?'Configure':names.locale==='zh-TW'?'設定':'配置',exact:true})).toHaveCount(1);
+  await expect(page.locator('main').getByRole('button',{name:names.locale==='en'?'Configure':names.locale==='zh-TW'?'設定':'配置',exact:true})).toHaveCount(0);
   await expect(page.getByLabel(names.locale==='en'?'AI service URL':names.locale==='zh-TW'?'AI 服務位址':'AI 服务地址',{exact:true})).toHaveCount(0);
  }
  await page.getByRole('button',{name:'語言',exact:true}).click();
@@ -265,9 +265,11 @@ test('offline ZIP entry and personal grading settings never submit documents or 
  await expect(page.locator('aside').getByRole('button',{name:'Import',exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Start import',exact:true})).toHaveCount(0);
  expect(observedCalls.filter(c=>c.request.type==='pick_import')).toHaveLength(0);
- await page.getByRole('button',{name:'Import',exact:true}).click();
+ await page.getByRole('button',{name:'Settings',exact:true}).click();
+ await page.getByRole('button',{name:'Import and restore',exact:true}).click();
+ await page.getByRole('menuitem',{name:'Import bank ZIP',exact:true}).click();
  await expect.poll(()=>observedCalls.filter(c=>c.request.type==='pick_import').length).toBe(1);
- await expect(page.getByRole('heading',{name:'My banks',exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Settings',exact:true})).toBeVisible();
  await expect(page.getByRole('menu')).toHaveCount(0);
  if (await page.getByRole('dialog').count()) { await page.keyboard.press('Escape'); await expect(page.getByRole('dialog')).toBeHidden(); }
 
@@ -278,7 +280,7 @@ test('offline ZIP entry and personal grading settings never submit documents or 
  await page.keyboard.press('Escape');
  await expect(page.getByRole('menu')).toBeHidden();
 
- await expect(page.getByRole('button',{name:'Configure',exact:true})).toHaveCount(1);
+ await expect(page.getByRole('button',{name:'Configure',exact:true})).toHaveCount(0);
  await expect(page.getByLabel('AI service URL',{exact:true})).toHaveCount(0);
  await expect(page.getByLabel('API Key',{exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'View allowance',exact:true})).toHaveCount(0);

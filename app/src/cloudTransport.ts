@@ -36,6 +36,7 @@ export function nativeCloudBridge(origin: string, generation = 0): NativeBridge 
     },
     pickSources: () => call<SourceFile[]>({ type: "pick_sources" }),
     upload: ticket => call<DocumentReference>({ type: "upload", ticket }),
+    importBank: path => call<{bankId:string;count:number}>({ type: "import_bank", path }),
     download: (path, name) => call<boolean>({ type: "download", path, name }),
     save: (bytes, name) => call<boolean>({ type: "save", bytes: encode(bytes), name }),
   };

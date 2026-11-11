@@ -17,7 +17,7 @@ Turn documents into question banks, then practise and take mock exams offline on
 PractiQ works in English, Simplified Chinese and Traditional Chinese, with light and dark themes, seven basic question types and English listening, reading, cloze, translation and writing. Practice records stay on your device, with no account and no cloud sync. AI import sends documents to your self-hosted service, Tencent Cloud and your configured model provider; optional AI grading sends grading content to the selected endpoint.
 
 
-You can also use **Document import** in the App: connect your self-hosted personal service, select a document, and explicitly start import. No registration or administrator setup is needed. Grading connections remain separate in **Settings → AI service**.
+You can also use **Document import** in the App: connect your self-hosted personal service, select a document, and explicitly start import. No registration or administrator setup is needed. Document import and grading share the backend address in **Settings → AI service**.
 
 
 ## Screenshots
@@ -46,22 +46,21 @@ Export a bank from its card menu to share its questions without your answers or 
 
 Import documents inside the macOS App using the independent Python backend:
 
-1. [Start the service](#self-host-the-import-service) and open **Document import** in the App. It defaults to `http://127.0.0.1:8090`; change the address under import **Settings** if needed. No login is required.
+1. [Start the service](#self-host-the-import-service) and open **Document import** in the App. It defaults to `http://127.0.0.1:8090`; change the address under global **Settings → AI service** if needed. No login is required.
 2. Choose up to 10 files and select **Start import**. Choosing files does not upload or parse them.
-3. Review the questions, images and anything flagged for review, then download a question-bank ZIP.
-4. In the desktop app, open **Settings → Import and restore → Import bank ZIP**.
+3. Review the questions, images and anything flagged for review, then choose **Import bank**. The App adds the saved result and verified images directly to the local bank, without a ZIP step.
 
 The service reads **PDF, TXT, Markdown, PNG/JPEG, DOC, DOCX, PPT, PPTX, XLS and XLSX** with Tencent Cloud's [asynchronous multimodal document parsing](https://cloud.tencent.com/document/api/866/139312). New CSV imports are not supported. Tencent's [billing guide](https://cloud.tencent.com/document/product/866/17619) lists a one-time **1,000-page free allowance**, valid for one year; check eligibility and remaining quota in your Tencent account. Parsing and model calls are billed separately.
 
-By default, import extracts supplied answers and explanations. To fill missing answers or explanations, enable **AI 生成答案与解析** in the import settings, wait for it to save, then explicitly select **Start import**. Existing answers are preserved; generated content is marked for review and shares the task's model-call budget.
+By default, import extracts supplied answers and explanations. To fill missing answers or explanations, enable **AI 生成答案与解析** in global Settings, wait for it to save, then explicitly select **Start import**. Existing answers are preserved; generated content is marked for review and shares the task's model-call budget.
 
 Reading and downloading results never calls a model. Resuming, retrying or parsing again may cost money at your model provider. Download what you want to keep within **180 days**; a task expiring never affects banks you already imported. See the [import task guide](docs/guides/import-tasks.md).
 
 ## Grade short answers with AI
 
-Open **Settings → AI service**, choose **Direct model API** and enter an OpenAI-compatible Chat Completions API address (including the `/v1` or other base path your provider requires), model ID and your own API key. Offline practice and local scoring need none of this.
+Open **Settings → AI service** and set the independent Python backend address (default `http://127.0.0.1:8090`). Document import and AI grading share this backend; configure model IDs, provider addresses and keys only on the backend. Offline practice and local scoring need no service.
 
-Grading needs a reference answer or rubric, may cost money, and sends the current question, materials, images and your answer to the provider you chose. Each action makes at most one request, and an unknown result is never resent automatically. Keys stay in the system credential store and out of backups. See the [practice guide](docs/guides/practice-guide.md) for limits and retry rules.
+Grading needs a reference answer or rubric, may cost money, and sends the current question, materials, images and your answer to the provider you chose. Each action makes at most one request, and an unknown result is never resent automatically. Provider keys stay in the backend environment and out of App backups. See the [practice guide](docs/guides/practice-guide.md) for limits and retry rules.
 
 Ordinary practice supports explicit grading after submitting the current short answer; tests and exams still require paper submission. New results show individual scoring points and verified reference/answer quotations. Practice uses a 100-point scale if no source maximum was supplied. Independent human-labelled grading-quality acceptance remains pending.
 

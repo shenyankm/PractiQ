@@ -429,9 +429,12 @@ export class Client {
     }
     if (!this.active) throw new DOMException("Disconnected", "AbortError");
     if (this.native) {
-      const saved = await this.native.download(`/api/document-tasks/${encodeURIComponent(task.threadId)}/export?${query}`, `practiq-bank-${task.threadId}.zip`);
-      if (!saved) throw new ApiError(t("已取消保存题库。"), "DOWNLOAD_CANCELLED");
-      return { blob: null, name: `practiq-bank-${task.threadId}.zip` };
+      if (!this.native.importBank) throw new ApiError(t("服务响应格式无效。"), "INVALID_RESPONSE");
+      const imported = await this.native.importBank(`/api/document-tasks/${encodeURIComponent(task.threadId)}/bank?${query}`);
+      if (!imported || !uuid.test(imported.bankId) || !Number.isSafeInteger(imported.count) || imported.count < 0 || imported.count > 1000) throw new ApiError(t("服务响应格式无效。"), "INVALID_RESPONSE");
+      if (!this.active) throw new DOMException("Disconnected", "AbortError");
+      window.dispatchEvent(new CustomEvent("practiq-bank-imported", {detail:imported}));
+      return { blob: null, name: "" };
     }
     return this.request(`/api/document-tasks/${encodeURIComponent(task.threadId)}/export?${query}`, {}, async (response, signal) => {
       if (response.headers.get("content-type")?.split(";")[0] !== "application/zip") throw new ApiError(t("服务未返回题库 ZIP。"), "INVALID_RESPONSE");

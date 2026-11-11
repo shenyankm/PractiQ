@@ -213,10 +213,12 @@ test('development preview pages stay offline',async ({page},testInfo)=>{
  await expect(page.locator('aside').getByRole('button',{name:'导入题库',exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'我的题库',exact:true}).click();
  await expect(page.getByRole('dialog',{name:'导入题库',exact:true})).toHaveCount(0);
- await page.getByRole('button',{name:'导入',exact:true}).click();
+ await page.getByRole('button',{name:'设置',exact:true}).click();
+ await page.getByRole('button',{name:'导入与恢复',exact:true}).click();
+ await page.getByRole('menuitem',{name:'导入题库 ZIP',exact:true}).click();
  await expect(page.getByRole('dialog',{name:'导入题库',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'取消',exact:true}).click();
- await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'设置',exact:true})).toBeVisible();
  await page.getByRole('button',{name:'我的题库',exact:true}).click();
  const bank=page.locator('[data-slot=card]').filter({has:page.getByText('基础知识 · 全题型',{exact:true})});
  await bank.getByRole('button',{name:'查看题目',exact:true}).click();
@@ -693,11 +695,8 @@ for(const scenario of ['empty','many','unconfigured','missing','slow','error']) 
   await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
   if(scenario==='empty') {
    await expect(page.getByText('从第一个题库开始',{exact:true})).toBeVisible();
-   await page.getByRole('button',{name:'导入题库 ZIP',exact:true}).click();
-   await expect(page.getByRole('dialog',{name:'导入题库',exact:true})).toBeVisible();
-   await expect(page.getByRole('combobox',{name:'导入到',exact:true})).toHaveAttribute('data-value', 'new');
-   await page.getByRole('button',{name:'取消',exact:true}).click();
-   await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
+   await expect(page.getByRole('button',{name:'导入文档',exact:true})).toBeVisible();
+   await expect(page.getByRole('button',{name:'导入题库 ZIP',exact:true})).toHaveCount(0);
   }
   else if(scenario==='error') await expect(page.getByRole('alert').filter({hasText:'演示请求失败'}).first()).toBeVisible();
   else await expect(page.getByText('基础知识 · 全题型',{exact:true}).first()).toBeVisible();
@@ -723,7 +722,7 @@ for(const scenario of ['empty','many','unconfigured','missing','slow','error']) 
   await expect(page.getByRole('heading',{name:'设置',exact:true})).toBeVisible();
   if(scenario==='error') await expect(page.getByRole('alert').filter({hasText:'演示请求失败'}).first()).toBeVisible();
   else await expect(page.getByRole('button',{name:'导出备份',exact:true})).toBeVisible();
-  await expect(page.getByRole('button',{name:'配置',exact:true})).toHaveCount(1);
+  await expect(page.getByRole('button',{name:'配置',exact:true})).toHaveCount(0);
  });
 }
 
@@ -1162,8 +1161,8 @@ test('unconfigured import opens the workspace with a local backend default', asy
  await sidebar.getByRole('button',{name:'文档导入',exact:true}).click();
  await expect(page.getByRole('link',{name:'开始导入',exact:true})).toBeVisible();
  await expect(page.getByRole('heading',{name:'连接云端服务',exact:true})).toHaveCount(0);
- await page.getByRole('link',{name:'设置',exact:true}).click();
- await expect(page.getByLabel('导入服务地址',{exact:true})).toHaveValue('http://127.0.0.1:8090');
+ await page.getByRole('button',{name:'设置',exact:true}).click();
+ await expect(page.getByLabel('AI 服务地址',{exact:true})).toHaveValue('http://127.0.0.1:8090');
  await sidebar.getByRole('button',{name:'我的题库',exact:true}).click();
  await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
 });

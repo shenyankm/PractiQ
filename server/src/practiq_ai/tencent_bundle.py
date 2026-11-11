@@ -187,6 +187,7 @@ def decode_bundle(payload: bytes | zipfile.ZipFile, config: Config, *, page_coun
             if result_type != 9:
                 raise ValueError("Unexpected result format")
             image_members = _image_members(archive, seen)
+            image_paths = {(page, member) for (page, _identifier), member in image_members.items()}
             page_images: dict[int, list[dict[str, Any]]] | None = None
             tables = None
             for entry in entries:
@@ -248,10 +249,17 @@ def decode_bundle(payload: bytes | zipfile.ZipFile, config: Config, *, page_coun
                         if type(identifier) is not int or identifier < 0 or identifier in figure_ids:
                             raise ValueError("Invalid or duplicate figure identity")
                         figure_ids.add(identifier)
+                        member = image_members.get((page, identifier))
+                        figure_info = element.get("figure_info", {})
+                        if "path" in figure_info:
+                            # XML paragraph IDs are global; JSON figure indexes are page-local.
+                            member = figure_info["path"]
+                            if not isinstance(member, str) or (page, member) not in image_paths:
+                                raise ValueError("Figure path must match an XML image on the same page")
                         figures.append({"elementIndex": identifier,
                                         "bbox": _bbox(element, width, height),
                                         "kind": "table" if "table_info" in element else "image",
-                                        "imageMember": image_members.get((page, identifier))})
+                                        "imageMember": member})
                         if "figure_info" in element and (crop := _label_crop_bbox(element, elements, width, height)):
                             figures[-1]["cropBbox"] = crop
                 # Keep nested table cells, formulas and reading order in source evidence.

@@ -97,8 +97,8 @@ The service listens on `127.0.0.1:8090`, keeps tasks in PostgreSQL, delivers wor
 ### Confirm the service works
 
 1. Open `http://127.0.0.1:8090/ok` and `http://127.0.0.1:8090/ready`; both should return a success response (for example with `curl`).
-2. Open **Document import** in the App. It defaults to `http://127.0.0.1:8090`; change the backend under the import **Settings** tab if needed. The backend root has no frontend.
-3. Import one small PDF or TXT file and download the resulting question-bank ZIP.
+2. Open **Document import** in the App. It defaults to `http://127.0.0.1:8090`; change the backend under global **Settings → AI service** if needed. The backend root has no frontend.
+3. Import one small PDF or TXT file, then select **Import bank** to add its saved result directly to local practice.
 
 The last step calls Tencent and your model provider, and may cost money. Skip it if credentials are not configured.
 

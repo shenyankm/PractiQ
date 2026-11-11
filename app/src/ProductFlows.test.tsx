@@ -66,8 +66,8 @@ it("keeps desktop navigation focused on offline practice without AI import reque
   expect(screen.queryByRole("button", { name: "从文档解析题目" })).toBeNull();
   await userEvent.click(screen.getByRole("button", { name: "设置" }));
   await screen.findByRole("heading", { name: "学习数据备份" });
-  expect(screen.getByRole("button", { name: "配置" })).toBeTruthy();
-  expect(screen.getByText("AI 服务", { exact: true })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "配置" })).toBeNull();
+  expect(screen.queryByRole("textbox", { name: "模型 API 地址" })).toBeNull();
   expect(screen.queryByLabelText("模型 ID")).toBeNull();
   expect(vi.mocked(api).mock.calls.some(([request]) => ["save_settings", "test_settings"].includes(request.type))).toBe(false);
   const { invoke } = await import("@tauri-apps/api/core");
@@ -122,7 +122,6 @@ function setup(question = row, failReview = false) {
       case "info": return { version: "test", dataDirectory: "/tmp/test" } as never;
       case "backup_status": return {lastBackupAt:null,newAttempts:0,changedNotes:0,due:false} as never;
       case "import_duplicates": return {groups:[],check:"test-comparison"} as never;
-      case "settings": return { config: { service_url: null } } as never;
       case "pick_import": return null as never;
       case "question_stats": return { count: 0, types: {}, feasibleCounts: [] } as never;
       default: throw new Error(`Unexpected request: ${request.type}`);
@@ -130,14 +129,12 @@ function setup(question = row, failReview = false) {
   });
 }
 
-it("opens the ZIP picker directly from the bank header", async () => {
+it("opens document import from the bank header without a ZIP picker", async () => {
   setup(); render(<App/>);
   await screen.findByText("English");
-  expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
-  await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "导入" }));
-  await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "pick_import" }));
-  expect(screen.queryByRole("menuitem", { name: "恢复学习数据备份" })).toBeNull();
-  expect(screen.getByRole("heading", { level: 1, hidden: true }).textContent).toBe("我的题库");
+  await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "导入文档" }));
+  expect(await screen.findByRole("heading",{name:"文档导入",level:1})).toBeTruthy();
+  expect(api).not.toHaveBeenCalledWith({type:"pick_import"});
 });
 
 it("opens the existing offline ZIP entry with an explicit append/replace distinction", async () => {
@@ -152,26 +149,6 @@ it("opens the existing offline ZIP entry with an explicit append/replace distinc
   await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "pick_import" }));
 });
 
-it.each([false, true])("opens the ZIP picker directly from the banks page (existing bank=%s)", async existing => {
-  setup();
-  const original = vi.mocked(api).getMockImplementation()!;
-  vi.mocked(api).mockImplementation(async request => {
-    const banks = existing ? [{ id: "bank", title: "Empty bank", count: 0, description: "" }] : [];
-    if (request.type === "banks") return banks as never;
-    if (request.type === "banks_page") return { items: banks, total: banks.length, offset: 0 } as never;
-    if (request.type === "unfinished_session") return null as never;
-    if (request.type === "pick_import") return { ticket: "zip", title: "Imported", count: 1, reviewCount: 0, assetCount: 0, missingAssets: [], warnings: [] } as never;
-    return original(request);
-  });
-  render(<App />);
-  const importButton = await screen.findByRole("button", { name: existing ? "导入" : "导入题库 ZIP" });
-  await waitFor(() => expect(importButton.hasAttribute("disabled")).toBe(false));
-  await userEvent.click(importButton);
-  await waitFor(() => expect(api).toHaveBeenCalledWith({ type: "pick_import" }));
-  const target = await screen.findByRole("combobox", { name: "导入到" });
-  expect((target as HTMLSelectElement).value).toBe("new");
-  expect(screen.getByRole("heading", { level: 1, hidden: true }).textContent).toBe("我的题库");
-});
 
 it("offers cloud parsing from the empty bank list without replacing offline import", async () => {
   setup();
@@ -389,7 +366,9 @@ it("appends an untitled import using the selected bank title without prompting f
     return original(request);
   });
   render(<App/>); await screen.findByText("English");
-  await user.click(screen.getByRole("button",{name:"导入"}));
+  await user.click(screen.getByRole("button",{name:"设置"}));
+  await user.click(await screen.findByRole("button",{name:"导入与恢复"}));
+  await user.click(screen.getByRole("menuitem",{name:"导入题库 ZIP"}));
   const dialog=await screen.findByRole("dialog",{name:"导入题库"});
   expect(within(dialog).getByRole("button",{name:"确认导入"}).hasAttribute("disabled")).toBe(true);
   await user.selectOptions(within(dialog).getByLabelText("导入到"),"bank");

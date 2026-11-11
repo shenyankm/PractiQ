@@ -1,5 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import { canInteract, type Bank, type PaperPreview, type Question, type QuestionPage as SummaryPage, type QuestionRow, type Request, type Session, type SessionPage, type SettingsResult } from "./api";
+import { canInteract, type Bank, type PaperPreview, type Question, type QuestionPage as SummaryPage, type QuestionRow, type Request, type Session, type SessionPage } from "./api";
 import composite from "../fixtures/composite.json";
 import sample from "../fixtures/sample.json";
 import type { PreviewScenario } from "../scripts/fixtures/scenario";
@@ -348,21 +348,6 @@ it("submits preview practice separately from self-assessment and preserves the a
  expect(submitted.attempts[4].submittedAt).toBeGreaterThan(0);
  const assessed=await call<Session>({type:"self_assess",id:submitted.id,ordinal:4,result:false});
  expect(assessed.attempts[4]).toEqual({...submitted.attempts[4],result:false,gradeKind:"self"});
-});
-it("supports empty state creation and settings recovery",async()=>{
- mode.value="empty";
- expect(await call({type:"banks"})).toEqual([]);
- await call({type:"save_bank",id:null,title:"新题库",description:""});
- expect(await call<Bank[]>({type:"banks"})).toHaveLength(1);
- await call({type:"add_example_bank"});
- expect((await call<QuestionPage>({type:"questions_page",bank_ids:[],search:"",mode:"",filter:"",offset:0,limit:20})).total).toBe(9);
- vi.resetModules();mode.value="unconfigured";
- expect(await call<SettingsResult>({type:"settings"})).toEqual({config:{service_url:null}});
- for(const service_url of ["https://example.invalid", "https://other.example.invalid"]) {
-  await call({type:"save_settings",config:{service_url}});
-  expect(await call<SettingsResult>({type:"settings"})).toEqual({config:{service_url}});
- }
-
 });
 it("paginates large data and exposes failure and loading scenarios without native fallback",async()=>{
  mode.value="many";

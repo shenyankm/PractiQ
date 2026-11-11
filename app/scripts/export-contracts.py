@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'server/src'))
 from practiq_ai.contracts import (
-    AnswerMode, BankImportDiagnostic, COMPOSITE_MODES, QUESTION_KIND_MODES, DocumentParseResult, DocumentProcessing,
+    AnswerMode, DocumentBankImport, BankImportDiagnostic, COMPOSITE_MODES, QUESTION_KIND_MODES, DocumentParseResult, DocumentProcessing,
     DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
     DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentTaskSummary, DocumentUploadRequest,
     DocumentCorrectionSave, DocumentCorrections, DocumentAnswerMatches, DocumentAnswerProposal,
@@ -28,7 +28,7 @@ def write_changed(target: Path, value: str, message: str) -> None:
 content = json.dumps({name: model.model_json_schema(mode='serialization') for name, model in {
     'result': DocumentParseResult, 'processing': DocumentProcessing, 'bankImportDiagnostic': BankImportDiagnostic,
     'taskSummary': DocumentTaskSummary, 'taskReview': DocumentTaskReview, 'taskDetail': DocumentTaskDetail,
-    'gradeResult': GradeResult,
+    'gradeResult': GradeResult, 'bankImport': DocumentBankImport,
 }.items()}, ensure_ascii=False, indent=2) + '\n'
 write_changed(path, content, 'AI contract changed: run app/scripts/export-contracts.py and review the desktop importer.')
 
@@ -61,7 +61,7 @@ def ts_type(node):
     raise ValueError(f'Unsupported schema type: {node}')
 
 schema = DocumentParseResult.model_json_schema(mode='serialization')
-wire_models = (BankImportDiagnostic, DocumentTaskSummary, DocumentTaskReview, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
+wire_models = (DocumentBankImport, BankImportDiagnostic, DocumentTaskSummary, DocumentTaskReview, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
                DocumentTaskCreate, DocumentTaskControl, DocumentTaskReparse, DocumentTaskReceipt,
                DocumentUploadRequest, DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot, GradeResult, DocumentCorrectionSave, DocumentCorrections, DocumentAnswerMatches, DocumentAnswerProposal)
 definitions = {}

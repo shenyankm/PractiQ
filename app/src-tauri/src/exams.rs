@@ -718,24 +718,7 @@ impl Store {
         .map_err(err)?;
         Ok(payload)
     }
-    pub(crate) fn cached_model_grade(
-        &self,
-        sid: &str,
-        ordinal: usize,
-        locale: crate::language::Locale,
-        target: &Value,
-        snapshot_key: Option<&str>,
-    ) -> Result<Option<Value>> {
-        let cached: bool = self.connect()?.query_row(
-            "SELECT EXISTS(SELECT 1 FROM grade_requests WHERE id=(SELECT id FROM grade_requests WHERE session_id=?1 AND ordinal=?2 ORDER BY created_at DESC,rowid DESC LIMIT 1) AND response IS NOT NULL)",
-            params![sid, ordinal], |r| r.get(0),
-        ).map_err(err)?;
-        if !cached {
-            return Ok(None);
-        }
-        self.prepare_grade_target(sid, ordinal, false, locale, Some(target))?;
-        self.session_data(sid, snapshot_key).map(Some)
-    }
+    #[cfg(test)]
     pub(crate) fn claim_model_grade(&self, rid: &str) -> Result<Option<Value>> {
         let mut db = self.connect()?;
         let tx = db

@@ -39,6 +39,23 @@ def test_context_never_crosses_failed_pages_or_exceeds_its_bound():
     assert all(index > 5 for index in plan[10]) and 10 in incomplete
 
 
+def test_chinese_markdown_question_labels_link_only_unique_distant_answer_pages():
+    from practiq_ai.graphs.source_context import source_context
+
+    def page(text):
+        return {"elements": [{"text_info": {"content": text}}]}
+
+    pages: list[dict[str, Any]] = [page('## 第1题 单项选择题\n求积分。'), page('第2章 背景材料'),
+             page('其他材料'), page('其他材料'), page('# 参考答案与评分细则\n第 1 题解析：积分为1。')]
+    plan, incomplete = source_context(pages)
+    assert 4 in plan[0] and not incomplete
+    pages[2] = page('## 第 1 题 判断题\n另一个问题。')
+    assert 4 not in source_context(pages)[0][0]
+    pages[2] = {'failed': True}
+    plan, incomplete = source_context(pages)
+    assert 4 not in plan[0] and 0 in incomplete
+
+
 def test_trajectory_requires_source_link_evidence_for_distant_context():
     from scripts.evaluate import score_trajectory
 
