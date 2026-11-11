@@ -2,7 +2,7 @@ import sample from "../../fixtures/sample.json";
 import { previewCloud } from "./cloud-preview";
 import english from "../../fixtures/english.json";
 import composite from "../../fixtures/composite.json";
-import type { Answer, Bank, Question, QuestionRow, Request, Session, SettingsResult, Preview, QuestionNote, LearningCounts, LearningOverview } from "../../src/api";
+import type { Answer, Bank, Question, QuestionRow, Request, Session, Preview, QuestionNote, LearningCounts, LearningOverview } from "../../src/api";
 import type { Request as AiRequest } from "../../src/ai-api";
 import type { PreviewScenario } from "./scenario";
 import { COMPOSITE_MODES } from "../../src/contracts.generated";
@@ -86,7 +86,6 @@ Object.assign(gradingSession.attempts[2],{gradeKind:"ai",earnedCents:600,result:
 Object.assign(gradingSession.attempts[3],{gradeKind:"manual",earnedCents:800,result:false,grading:{manual:{reason:"演示人工复核",scoreCents:800}}});
 gradingSession.attempts[4].snapshot.question.answerPayload=null;
 sessions.push(gradingSession);
-let settings:SettingsResult={config:{service_url:"https://service.example.invalid"}};
 const notes = new Map<string,QuestionNote>();
 let lastBackupAt: number | null = null;
 function previewCounts(): LearningCounts { return {submitted:0,skipped:0,ungraded:0,auto:{graded:0,correct:0},selfAssessed:{graded:0,correct:0},ai:{graded:0,correct:0},manual:{graded:0,correct:0}}; }
@@ -192,12 +191,6 @@ function request(r:Request,scenario:PreviewScenario):unknown {
     case "sessions_page": return page(empty ? []:sessions.filter(s=>!r.filter || r.filter==="all" || (r.filter==="active" ? !s.finishedAt && !s.submittedAt:r.filter==="review" ? !s.finishedAt && !!s.submittedAt:!!s.finishedAt)).map(summary),r.offset,r.limit);
     case "unfinished_session": return empty || !sessions.some(s=>!s.finishedAt && !s.submittedAt) ? null:summary(sessions.find(s=>!s.finishedAt && !s.submittedAt)!);
     case "session": return {...getSession(r.id),clockNow:Date.now()};
-    case "settings": return settings;
-    case "save_settings": {
-      const hasApiKey=r.api_key == null ? (r.config.model?.base_url===settings.config.model?.base_url ? settings.hasApiKey:null):!!r.api_key.trim();
-      settings={config:r.config,...(r.config.model ? {hasApiKey} : {})};return settings;
-    }
-    case "test_settings": return null;
     case "save_bank": {const b=banks.find(b=>b.id===r.id);if(b)Object.assign(b,{title:r.title,description:r.description});else banks.push({id:crypto.randomUUID(),title:r.title,description:r.description,count:0,createdAt:Date.now()});return b?.id || banks.at(-1)!.id;}
     case "delete_bank": {const i=banks.findIndex(b=>b.id===r.id);if(i>=0)banks.splice(i,1);rows=rows.filter(q=>q.bankId!==r.id);return null;}
     case "delete_question": {const row=rows.find(q=>q.id===r.id);rows=rows.filter(q=>q.id!==r.id && !(row && q.bankId===row.bankId && q.question.parentId===row.question.id));return null;}
@@ -258,7 +251,6 @@ function initialize(scenario: PreviewScenario) {
   if (initialized) return;
   initialized = true;
   if (scenario === "empty") { banks.length=0; rows=[]; sessions.length=0; }
-  if (scenario === "unconfigured") settings={config:{service_url:null}};
   if (scenario === "many") {
     for (let i=1;i<=40;i++) {
       addBank(`综合复习 · 第 ${i} 单元`);

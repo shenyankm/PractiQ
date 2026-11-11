@@ -60,10 +60,23 @@ try {
             expect(response.status()).toBe(201); const prepared=await response.json();
             if(prepared.upload) {const put=await api.put(prepared.upload.url,{data:payload,headers:prepared.upload.headers,maxRedirects:0});expect(put.ok()).toBe(true);}
             value=prepared.document;
-          } else if(r.type==='download') {
-            expect(r.path).toMatch(/^\/api\/document-tasks\/[a-f0-9-]+\/export\?/);
+          } else if(r.type==='import_bank') {
             const response=await forward(r.path);expect(response.ok()).toBe(true);
-            await writeFile(path.join(output,'exports',`${name}.zip`),await response.body()); value=true;
+            const bank=await response.json(), refs=new Map();
+            function collect(value) {
+              if (!value || typeof value!=='object') return;
+              if (typeof value.objectKey==='string' && typeof value.sha256==='string') refs.set(value.sha256,value);
+              else Object.values(value).forEach(collect);
+            }
+            collect(bank.result.visualElements);collect(bank.result.questions.map(question=>question.audioRef));
+            for (const [sha,ref] of refs) {
+              expect(sha).toMatch(/^[a-f0-9]{64}$/);
+              const resource=await forward('/api/artifacts/read?thread_id='+sample.threadId,'POST',ref);
+              expect(resource.ok()).toBe(true);
+              await writeFile(path.join(output,'exports',sha),await resource.body());
+            }
+            await writeFile(path.join(output,'exports',name+'.json'),JSON.stringify(bank));
+            value={bankId:'11111111-1111-4111-8111-111111111111',count:bank.result.questions.length};
           } else if(r.type==='confirm') value=true;
           else throw Error(`Unexpected cloud action ${r.type}`);
         }
@@ -95,9 +108,9 @@ try {
       expect(saved.edits).toHaveLength(1);expect(saved.edits[0].question.answerPayload).toEqual(original.result.questions[0].answerPayload);
       await writeFile(path.join(output,`${name}-corrections.json`),JSON.stringify(saved,null,2)+'\n');
       sample.correctionSaved=true;
-      await page.getByRole('button',{name:'下载修订版 ZIP',exact:true}).click();
-      await expect.poll(async()=>{try{return (await readFile(path.join(output,'exports',`${name}.zip`))).length;}catch{return 0;}}).toBeGreaterThan(0);
-      expect(uploads).toBe(1);expect(creates).toBe(1);sample.phasesMs.startToDownloaded=performance.now()-started;
+      await page.getByRole('button',{name:'导入修订版题库',exact:true}).click();
+      await expect.poll(async()=>{try{return (await readFile(path.join(output,'exports',`${name}.json`))).length;}catch{return 0;}}).toBeGreaterThan(0);
+      expect(uploads).toBe(1);expect(creates).toBe(1);sample.phasesMs.startToImported=performance.now()-started;
       await writeFile(path.join(output,`${name}-detail.json`),JSON.stringify(detail,null,2)+'\n');
       await page.screenshot({path:path.join(output,`${name}-result.png`),fullPage:true});
       await current.context.close();current=await open();page=current.page;

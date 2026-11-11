@@ -15,7 +15,7 @@
 | --- | --- | --- | --- | --- | --- |
 | macOS | macOS 14+, Apple Silicon | `PractiQ_@VERSION@_macos_arm64.dmg` | Record evidence | Unsigned / not notarized | Pending |
 
-These are offline practice clients. They contain no Python AI service or LibreOffice runtime. Document selection/upload, task progress, review and bank ZIP download are embedded in the App; normalization and parsing run in the independent Python backend. Explicit AI grading calls a user-configured OpenAI-compatible model directly, or the separately deployed service in service mode.
+These are offline practice clients. They contain no Python AI service or LibreOffice runtime. Document selection/upload, task progress, review and direct local-bank import are embedded in the App; normalization and parsing run in the independent Python backend. All AI, including explicit grading, uses that same backend. The shared backend address and recognition/recovery preferences are in global Settings.
 
 Linux is an independent AI-service deployment and CI host, not an application target. GitHub Source code attachments are source, not installers. Record the actual tested OS versions and installation steps.
 
@@ -29,7 +29,7 @@ both native fields and the exact full version. No automatic updater is shipped.
 - Desktop directory `v4/`, SQLite schema 11; full backup container version 4, schema 11.
 - Bank ZIP version 2, AI JSON schema 3. Bank import appends content; full restoration requires replacement confirmation.
 - Old directories remain untouched. Older databases and full backups are rejected without migration. Keep backups before upgrading; downgrade compatibility is not promised.
-- Practice-client service tokens and direct-grading model API keys stay in the macOS Keychain. Document-import provider keys belong to the independent service. Full backups exclude credentials and AI task state; optional version-1 grading connection settings are included without secrets.
+- All provider keys belong to the independent service. Legacy App Keychain entries remain untouched. Full backups exclude credentials and AI task state; optional version-1 grading connection settings are included without secrets.
 - Existing provider settings, key namespaces and legacy task files are preserved but are not automatically used as service connections or migrated to the independent service.
 <!-- Update these values from tagged source whenever formats change. -->
 
@@ -37,7 +37,7 @@ both native fields and the exact full version. No automatic updater is shipped.
 
 <!-- List concrete failed or untested flows. Do not infer interactive acceptance from CI. -->
 
-Offline practice needs no account or service. Parsing and AI grading require explicit user actions and may incur provider charges. Parsing sends documents to the independent service and its configured providers; direct grading sends grading content to the user-configured model endpoint, while service-mode grading uses the independent service. Grading requires a reference answer or rubric; missing evidence, failed calls and unknown outcomes remain ungraded. It is a personal-practice aid.
+Offline practice needs no account or service. Parsing and AI grading require explicit user actions and may incur provider charges. Parsing sends documents to the independent service and its configured providers; grading sends the frozen question and answer to the same independent service. Grading requires a reference answer or rubric; missing evidence, failed calls and unknown outcomes remain ungraded. It is a personal-practice aid.
 
 The independent service accepts PDF, TXT, Markdown, PNG/JPEG, Word (.doc/.docx), PowerPoint (.ppt/.pptx) and Excel (.xls/.xlsx). Every new import uses Tencent Cloud multimodal document parsing before question structuring; new CSV imports are rejected. Oversized Office files additionally require the isolated LibreOffice PDF adapter. Tencent/provider configuration, conversion fidelity, live-model quality and deployment are separate from these client packages.
 

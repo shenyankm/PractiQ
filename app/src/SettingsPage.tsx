@@ -1,21 +1,20 @@
-import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { Download, ArchiveRestore } from "lucide-react";
 import { api, type BackupStatus } from "./api";
 import { date, message, t } from "./i18n";
 import { ErrorNotice } from "./OperationFeedback";
 import { toast } from "./notifications";
-import { ConnectionSettingsPanel } from "./ConnectionSettings";
+import { CloudPage } from "./CloudPage";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-export function SettingsPage({ busy, run, flushRef, revision, version, onConfigure, onPickImport, onRestore, restoreOpen, onRestoreOpenChange }: {
+export function SettingsPage({ busy, run, flushRef, revision, version, onPickImport, onRestore, restoreOpen, onRestoreOpenChange }: {
   busy: boolean;
   run: (job: () => Promise<void>) => void;
-  flushRef: ComponentProps<typeof ConnectionSettingsPanel>["flushRef"];
+  flushRef: MutableRefObject<() => Promise<void>>;
   revision: number;
   version: string | undefined;
-  onConfigure: () => void;
   onPickImport: () => Promise<void>;
   onRestore: (recoverAssets: boolean, trigger: HTMLButtonElement | null) => void;
   restoreOpen: boolean;
@@ -28,8 +27,8 @@ export function SettingsPage({ busy, run, flushRef, revision, version, onConfigu
     void api({type:"backup_status"}).then(status=>{if(active){setBackup(status);setBackupError(null);}}).catch(error=>{if(active)setBackupError(error);});
     return ()=>{active=false;};
   },[revision,backupRevision]);
-  return <div className="mx-auto max-w-3xl space-y-6">
-    <ConnectionSettingsPanel key={revision} busy={busy} run={run} onConfigure={onConfigure} flushRef={flushRef} />
+  return <div className="mx-auto flex max-w-3xl flex-col gap-6">
+    <CloudPage key={revision} settingsOnly flushRef={flushRef} />
     <Card>
       <CardHeader>
         <CardTitle><h2>{t("学习数据备份")}</h2></CardTitle>

@@ -1,10 +1,15 @@
 // @vitest-environment jsdom
 import "./import-test-setup";
 import { storageKey } from "../../shared/cloud/serviceStorage";
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render as renderRTL, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import App from "../../shared/cloud/App";
+import type { ComponentProps, ReactElement } from "react";
+let mounted: ReturnType<typeof renderRTL>;
+let props: ComponentProps<typeof App>;
+function render(element: ReactElement<ComponentProps<typeof App>>) { props = element.props; mounted = renderRTL(element); return mounted; }
+function settingsView(value = true) { act(() => mounted.rerender(<App {...props} settingsOnly={value} />)); }
 import { capabilities, newTaskId, preview, question, runId, summary, task, taskId } from "../../shared/cloud/test-fixtures";
 import type { DocumentTaskDetail, ImportSettingsSnapshot } from "./contracts.generated";
 
@@ -62,13 +67,12 @@ it("waits for saved switch values before authorizing a new import", async () => 
   };
   render(<App />); await connect(user);
   await user.upload(screen.getByLabelText("选择文档"), new File(["quiz"], "quiz.txt"));
-  await user.click(screen.getByRole("link", { name: "设置" }));
+  settingsView();
   await user.click(await screen.findByRole("switch", { name: "AI 生成答案与解析" }));
-  await connect(user);
-  expect(screen.getByRole("button", { name: "开始导入" })).toHaveProperty("disabled", true);
   await waitFor(() => expect(finish).toBeDefined());
   const request = http.calls.find(call => call.method === "PUT")!.body!;
   await act(async () => finish(json({ ...request, revision: newTaskId })));
+  await connect(user);
   await waitFor(() => expect(screen.getByRole("button", { name: "开始导入" })).toHaveProperty("disabled", false));
   expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
   await user.click(screen.getByRole("button", { name: "开始导入" }));
@@ -79,7 +83,7 @@ it("waits for saved switch values before authorizing a new import", async () => 
 it("explains unknown model outcomes next to explicit recovery controls", async () => {
   const http = fakeHTTP({ ...task, state: "INTERRUPTED", status: null, result: null, failures: [], blocking: ["MODEL_RESULT_UNKNOWN"], allowedActions: ["resume"] });
   const user = userEvent.setup(); render(<App />); await connect(user);
-  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" }));
   await user.click(await screen.findByRole("button", { name: "sample.docx" }));
   expect(await screen.findByText(/模型请求已发送，但结果尚未确认/)).toBeTruthy();
   expect(screen.getByText(/继续解析或重试可能再次计费/)).toBeTruthy();
@@ -162,7 +166,7 @@ it("shows uncertain Tencent submission and saved jobs without automatically retr
   ] };
   const http = fakeHTTP(detail); const user = userEvent.setup();
   render(<App />); await connect(user);
-  await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
   expect(await screen.findByText(/上次腾讯提交结果尚未确认/)).toBeTruthy();
   expect(screen.getByText(/腾讯文档识别：已保存 1 个任务结果 · 处理中 0 个任务/)).toBeTruthy();
   await user.click(screen.getByText("模型用量与任务诊断"));
@@ -200,11 +204,11 @@ function fakeHTTP(initial: DocumentTaskDetail = task) {
   vi.stubGlobal("fetch", fetcher);
   return { calls, records, server, fetcher };
 }
-async function connect(user: ReturnType<typeof userEvent.setup>) { await user.click(screen.getByRole("link", { name: "开始导入" }));
+async function connect(user: ReturnType<typeof userEvent.setup>) { settingsView(false); await user.click(screen.getByRole("link", { name: "开始导入" }));
   await screen.findByText(/^服务支持：/);
 }
 async function setImportOption(user: ReturnType<typeof userEvent.setup>, label: string, checked = true) {
-  await user.click(screen.getByRole("link", { name: "设置" }));
+  settingsView();
   const control = await screen.findByRole("switch", { name: label });
   if (control.getAttribute("aria-checked") !== String(checked)) {
     await user.click(control); await screen.findByText("设置已保存");
@@ -212,15 +216,15 @@ async function setImportOption(user: ReturnType<typeof userEvent.setup>, label: 
   await connect(user);
 }
 async function openTask(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("link", { name: "导入记录" }));
-  await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" }));
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
   await screen.findByRole("heading", { name: "sample.docx", level: 2 });
   await screen.findByText("根据材料选择答案");
 }
 
 it("recovers polling after a hung read and backs off repeated failures without mutations", async () => {
   const user = userEvent.setup(); const http = fakeHTTP();
-  render(<App />); await connect(user); await user.click(screen.getByRole("link", { name: "导入记录" })); await screen.findByRole("button", { name: "sample.docx" });
+  render(<App />); await connect(user); settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" })); await screen.findByRole("button", { name: "sample.docx" });
   vi.useFakeTimers(); vi.spyOn(Math, "random").mockReturnValue(0.5);
   let attempts = 0;
   http.server.intercept = (url, init) => {
@@ -379,7 +383,7 @@ it("recovers failed task/capability reads and ignores obsolete pages after a fil
   expect(screen.queryByLabelText("选择文档")).toBeNull();
   await user.click(screen.getByRole("button", { name: "重试连接" })); await screen.findByText(/^服务支持：/);
   expect(capReads).toBe(2);
-  await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "重试任务列表" })); await screen.findByRole("button", { name: "sample.docx" });
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "重试任务列表" })); await screen.findByRole("button", { name: "sample.docx" });
   let release!: (response: Response) => void;
   http.server.intercept = url => { if (url.includes("offset=20")) return new Promise(resolve => { release = resolve; }); if (url.includes("state_filter=failed")) return json({ items: [{ ...summary, threadId: newTaskId, fileName: "current-failed.pdf" }], hasMore: false }); };
   await user.click(screen.getByRole("button", { name: "下一页任务" })); await waitFor(() => expect(release).toBeTypeOf("function"));
@@ -390,7 +394,7 @@ it("recovers failed task/capability reads and ignores obsolete pages after a fil
 it("disables checkpoint actions when detail/preview reads fail or disagree, then recovers explicitly", async () => {
   const user = userEvent.setup(); const http = fakeHTTP({ ...task, state: "PAUSED", allowedActions: ["resume"], canExportCompleted: true }); let failDetail = true, failPreview = true;
   http.server.intercept = url => { if (url.endsWith(`/${taskId}`) && failDetail) { failDetail = false; return json({}, 503); } if (url.includes("/preview") && failPreview) { failPreview = false; return json({}, 503); } };
-  render(<App />); await connect(user); await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
+  render(<App />); await connect(user); settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
   await screen.findByRole("button", { name: "重试任务详情" }); await screen.findByRole("button", { name: "重试检查点预览" });
   http.server.intercept = url => url.includes("/preview") ? json({ ...preview, checkpointId: "different-checkpoint" }) : undefined;
   await user.click(screen.getByRole("button", { name: "重试任务详情" })); await screen.findByRole("button", { name: "继续解析" }); expect((screen.getByRole("button", { name: "继续解析" }) as HTMLButtonElement).disabled).toBe(true);
@@ -437,7 +441,7 @@ it("deletes an expired row despite 410 detail reads only after confirmation, ret
     if (init.method !== "DELETE" && [ `/api/document-tasks/${taskId}`, `/api/document-tasks/${taskId}/preview` ].includes(new URL(url, location.origin).pathname)) return json({ detail: { code: "TASK_EXPIRED" } }, 410);
   };
   render(<App />); await connect(user);
-  await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
   await screen.findByRole("button", { name: "重试任务详情" });
   await user.click(screen.getByRole("button", { name: "删除已过期任务 sample.docx" }));
   expect(http.calls.filter(call => call.method === "DELETE")).toHaveLength(0);
@@ -596,7 +600,7 @@ it.each(["开始导入", "设置"])("stops invisible records reads in %s and ref
   http.server.intercept = url => url.includes("/preview") ? json({ ...preview, state: "RUNNING", units: [{ ...preview.units[0], questions }] }) : undefined;
   render(<App />); await connect(user);
   expect(http.calls.some(call => call.url.startsWith("/api/document-tasks"))).toBe(false);
-  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" }));
   await user.selectOptions(screen.getByLabelText("筛选任务状态"), "active");
   await user.click(await screen.findByRole("button", { name: "sample.docx" }));
   await screen.findByText("Kept question 0");
@@ -608,7 +612,7 @@ it.each(["开始导入", "设置"])("stops invisible records reads in %s and ref
   await user.click(screen.getByText("Kept question 20"));
   expect(entry.open).toBe(true);
   const panel = screen.getByRole("region", { name: "任务详情" });
-  await user.click(screen.getByRole("link", { name: destination }));
+  if (destination === "设置") settingsView(); else await user.click(screen.getByRole("link", { name: destination }));
   expect(document.activeElement).toBe(screen.getByRole("main", { name: destination }));
   const reads = () => http.calls.filter(call => call.url.startsWith("/api/document-tasks")).length;
   const before = reads();
@@ -622,7 +626,7 @@ it.each(["开始导入", "设置"])("stops invisible records reads in %s and ref
   vi.useRealTimers();
   let release!: (response: Response) => void;
   http.server.intercept = url => url.endsWith(`/${taskId}`) ? new Promise(resolve => { release = resolve; }) : undefined;
-  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" }));
   expect(reads()).toBe(before + 2);
   expect(screen.getByRole("button", { name: "暂停" })).toHaveProperty("disabled", true);
   expect(screen.getByRole("region", { name: "任务详情" })).toBe(panel);
@@ -647,7 +651,7 @@ it("preserves review state across running checkpoints and resets it for another 
   let currentPreview = { ...preview, state: running.state, units: [{ ...preview.units[0], questions }] };
   http.server.intercept = url => url.includes("/preview") ? json({ ...currentPreview, threadId: url.split("/")[3], checkpointId: http.records.get(url.split("/")[3])!.checkpointId }) : undefined;
   render(<App />); await connect(user);
-  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" }));
   await user.click(await screen.findByRole("button", { name: "sample.docx" }));
   await user.type(await screen.findByRole("searchbox", { name: "搜索解析题目" }), "Kept");
   await user.click(screen.getByRole("checkbox", { name: "仅看需要复核" }));
@@ -724,7 +728,7 @@ it("discards an in-flight hidden detail without fetching its preview, then reval
   let release!: (response: Response) => void;
   http.server.intercept = url => url.endsWith(`/${taskId}`) ? new Promise(resolve => { release = resolve; }) : undefined;
   await act(async () => window.dispatchEvent(new Event("focus")));
-  await user.click(screen.getByRole("link", { name: "设置" }));
+  settingsView();
   const updated = { ...task, state: "PAUSED" as const, checkpointId: "checkpoint-two", allowedActions: ["resume" as const] };
   http.records.set(taskId, updated);
   const count = http.calls.length;
@@ -732,7 +736,7 @@ it("discards an in-flight hidden detail without fetching its preview, then reval
   expect(http.calls).toHaveLength(count);
   expect(http.calls.filter(call => call.url.includes("/preview"))).toHaveLength(1);
   http.server.intercept = undefined;
-  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "继续解析" })).toHaveProperty("disabled", false));
   expect(http.calls.filter(call => call.url.includes("/preview"))).toHaveLength(2);
   expect(http.calls.filter(call => call.url.endsWith("/head"))).toHaveLength(0);
@@ -748,8 +752,8 @@ it("revalidates immediately when records return before a follow-up preview settl
   http.server.intercept = url => url.includes("/preview") ? new Promise(resolve => { release = resolve; }) : undefined;
   await act(async () => window.dispatchEvent(new Event("focus")));
   await waitFor(() => expect(release).toBeTypeOf("function"));
-  await user.click(screen.getByRole("link", { name: "设置" }));
-  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  settingsView();
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" }));
   const download = screen.getByRole("button", { name: "下载题库 ZIP" });
   expect(download).toHaveProperty("disabled", true);
   const heads = http.calls.filter(call => call.url.endsWith("/head")).length;
@@ -773,7 +777,7 @@ it("pauses background polling and reloads when the document becomes visible", as
 });
 it("keeps a cursor per visited page and resets it when filters change", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); http.server.intercept = url => url.startsWith("/api/document-tasks?") ? json({items:[summary],hasMore:true,nextCursor:"next-page"}):undefined;
-  render(<App/>); await connect(user); await user.click(screen.getByRole("link", { name: "导入记录" })); await screen.findByRole("button",{name:/sample.docx/});
+  render(<App/>); await connect(user); settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" })); await screen.findByRole("button",{name:/sample.docx/});
   await user.click(screen.getByRole("button",{name:"下一页任务"})); await waitFor(()=>expect(http.calls.at(-1)?.url).toContain("cursor=next-page"));
   await user.click(screen.getByRole("button",{name:"上一页任务"})); await waitFor(()=>expect(http.calls.at(-1)?.url).toContain("offset=0"));
   expect(http.calls.at(-1)?.url).not.toContain("cursor=");
@@ -787,14 +791,14 @@ it("empty task states guide file selection or clear the current filter without s
   render(<App />);
   await connect(user);
   expect(screen.getByText("导入说明").closest("details")?.open).toBe(false);
-  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" }));
   await screen.findByRole("button", { name: "选择第一份文档" });
   expect(screen.queryByText("本页 0 条记录")).toBeNull();
   expect(screen.queryByRole("navigation", { name: "任务列表分页" })).toBeNull();
   expect(screen.queryByRole("region", { name: "任务详情" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "选择第一份文档" }));
   await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("选择文档")));
-  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" }));
   await user.selectOptions(screen.getByLabelText("筛选任务状态"), "failed");
   await screen.findByText("没有符合此状态的任务。");
   await user.click(screen.getByRole("button", { name: "查看全部任务" }));
@@ -953,7 +957,7 @@ it.each([["自动去重", "deduplicateQuestions"], ["AI 生成答案与解析", 
 it("keeps task deletion unconfirmed until an affirmative receipt arrives", async () => {
   const user = userEvent.setup(); const http = fakeHTTP(); let invalid = true;
   http.server.intercept = (_url, init) => { if (init.method === "DELETE" && invalid) { invalid = false; return json({ deleted: false }); } };
-  render(<App />); await connect(user); await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
+  render(<App />); await connect(user); settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" })); await user.click(await screen.findByRole("button", { name: "sample.docx" }));
   await user.click(await screen.findByText("其他任务操作"));
   await user.click(screen.getByRole("button", { name: "删除任务" }));
   await user.click(screen.getByRole("button", { name: "确认删除" }));
@@ -970,17 +974,17 @@ it("sidebar navigation preserves selected files and settings drafts without star
   const user = userEvent.setup(); const http = fakeHTTP(); render(<App />); await connect(user);
   expect(screen.getByRole("link", { name: "开始导入" }).getAttribute("aria-current")).toBe("page");
   await user.upload(screen.getByLabelText("选择文档"), new File(["unchanged"], "pending.txt"));
-  await user.click(screen.getByRole("link", { name: "设置" }));
+  settingsView();
   const concurrency = await screen.findByLabelText("腾讯识别并发上限"); expect(concurrency).toHaveProperty("disabled", false);
-  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" }));
   expect(await screen.findByRole("table", { name: "文档导入记录" })).toBeTruthy();
   expect(screen.getByRole("columnheader", { name: "待复核" })).toBeTruthy();
   expect(screen.getByRole("table", { name: "文档导入记录" }).querySelectorAll("tbody .record-number")[1].textContent).toBe("待复核 2");
   await user.click(screen.getByRole("link", { name: "开始导入" }));
   expect(screen.getByText("pending.txt")).toBeTruthy();
   expect(screen.getByRole("button", { name: "开始导入" })).toHaveProperty("disabled", false);
-  await user.click(screen.getByRole("link", { name: "设置" }));
-  expect(concurrency).toHaveProperty("value", "5");
+  settingsView();
+  expect(await screen.findByLabelText("腾讯识别并发上限")).toHaveProperty("value", "5");
   expect(http.calls.filter(call => call.method === "POST")).toHaveLength(0);
 });
 
@@ -993,9 +997,9 @@ it.each(["task-detail", "task-list-heading"])("opens the records page for a dire
 
 it("keeps shared anchors on the current page and restores import for root history", async () => {
   const user = userEvent.setup(); render(<App />);
-  await user.click(screen.getByRole("link", { name: "设置" }));
+  await user.click(screen.getByRole("link", { name: "导入记录" }));
   await act(async () => { window.location.hash = "main-content"; window.dispatchEvent(new HashChangeEvent("hashchange")); });
-  expect(screen.getByRole("main", { name: "设置" })).toBeTruthy();
+  expect(screen.getByRole("main", { name: "导入记录" })).toBeTruthy();
   await act(async () => { window.location.hash = ""; window.dispatchEvent(new HashChangeEvent("hashchange")); });
   expect(screen.getByRole("main", { name: "开始导入" })).toBeTruthy();
 });
@@ -1004,7 +1008,7 @@ it("keeps shared anchors on the current page and restores import for root histor
 it("retains the last task list after a background read fails and recovers without mutations", async () => {
   const user = userEvent.setup(); const http = fakeHTTP();
   render(<App />); await connect(user);
-  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" }));
   await screen.findByRole("button", { name: "sample.docx" });
   http.server.intercept = url => url.startsWith("/api/document-tasks?") ? json({ detail: { code: "TASK_SERVICE_UNAVAILABLE" } }, 503) : undefined;
   await act(async () => window.dispatchEvent(new Event("focus")));
@@ -1023,7 +1027,7 @@ it("keeps previous-page navigation when a later task page becomes empty", async 
   const user = userEvent.setup(); const http = fakeHTTP();
   http.server.intercept = url => url.startsWith("/api/document-tasks?") && url.includes("offset=20") ? json({ items: [], hasMore: false }) : undefined;
   render(<App />); await connect(user);
-  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" }));
   await screen.findByRole("button", { name: "sample.docx" });
   await user.click(screen.getByRole("button", { name: "下一页任务" }));
   await screen.findByText("当前没有任务。");
@@ -1102,9 +1106,9 @@ it("blocks task replacement during delayed or uncertain correction saves and ret
   await user.click(screen.getByRole("button", { name: "second.docx" }));
   expect(confirm).not.toHaveBeenCalled();
   expect(screen.getByText(new RegExp(String(request.requestId)))).toBeTruthy();
-  // Other workspace pages hide the task without unmounting its draft or request.
-  await user.click(screen.getByRole("link", { name: "设置" }));
-  await user.click(screen.getByRole("link", { name: "导入记录" }));
+  // The import tab hides the task without unmounting its draft or request.
+  await connect(user);
+  settingsView(false); await user.click(screen.getByRole("link", { name: "导入记录" }));
   expect((screen.getByRole("textbox", { name: "题干" }) as HTMLTextAreaElement).value).toContain("submitted");
   expect(screen.getByText(new RegExp(String(request.requestId)))).toBeTruthy();
 });

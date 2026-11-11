@@ -1,4 +1,4 @@
-"""Opt-in App -> real service -> exported ZIP -> native practice acceptance.
+"""Opt-in App -> real service -> direct JSON/resources -> native practice acceptance.
 
 Default providers are substitutes. --live authorizes the selected small imports
 (TXT, Markdown and PNG by default; --case selects one).
@@ -18,7 +18,6 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from zipfile import ZipFile
 
 import httpx
 import pytest
@@ -59,24 +58,24 @@ def check_questions(questions: list[dict[str, Any]]) -> list[str]:
 
 
 
-def read_native_report(path: Path, zip_hashes: dict[str, str], repetitions: int) -> tuple[list[dict[str, Any]], list[str]]:
+def read_native_report(path: Path, input_hashes: dict[str, str], repetitions: int) -> tuple[list[dict[str, Any]], list[str]]:
     try:
         rows = json.loads(path.read_text())
     except (OSError, ValueError):
         return [], ["native report missing or invalid"]
     if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
         return [], ["native report must contain result records"]
-    expected = {(name, repetition) for name in zip_hashes for repetition in range(repetitions)}
+    expected = {(name, repetition) for name in input_hashes for repetition in range(repetitions)}
     observed = []
     errors = []
     for row in rows:
         name, repetition = row.get("name"), row.get("repetition")
-        if not isinstance(name, str) or name not in zip_hashes or type(repetition) is not int:
+        if not isinstance(name, str) or name not in input_hashes or type(repetition) is not int:
             errors.append("native case/repetition mismatch")
             continue
         observed.append((name, repetition))
-        if row.get("zipSha256") != zip_hashes[name]:
-            errors.append("native ZIP checksum mismatch")
+        if row.get("inputSha256") != input_hashes[name]:
+            errors.append("native JSON checksum mismatch")
         if row.get("firstRun") is not (repetition == 0):
             errors.append("native first-run marker mismatch")
         if (row.get("questions"), row.get("correct"), row.get("earnedCents")) != (3, 3, 300):
@@ -256,33 +255,31 @@ async def run(output: Path, live: bool, native_binary: Path, case: str | None = 
             browser_report = json.loads((output / "browser.json").read_text())
             report["samples"] = browser_report["samples"]
             for sample in report["samples"]:
-                path = output / "exports" / f"{sample['name']}.zip"
+                path = output / "exports" / f"{sample['name']}.json"
                 sample["qualityErrors"] = []
                 if not path.exists():
-                    sample["qualityErrors"].append("missing exported ZIP")
+                    sample["qualityErrors"].append("missing imported JSON")
                     continue
-                with ZipFile(path) as archive:
-                    assert archive.testzip() is None
-                    content = json.loads(archive.read("questions.json"))
-                    result = content.get("result", content)
-                    sample["qualityErrors"] = check_questions(result["questions"])
-                    detail = json.loads((output / f"{sample['name']}-detail.json").read_text())
-                    from practiq_ai.contracts import (
-                        DocumentCorrections,
-                        DocumentParseResult,
-                    )
-                    from practiq_ai.corrections import corrected_result
-                    corrections = DocumentCorrections.model_validate_json((output / f"{sample['name']}-corrections.json").read_text())
-                    expected = corrected_result(DocumentParseResult.model_validate(detail["result"]), corrections)
-                    from practiq_ai.bank_export import append_export_warning
-                    append_export_warning(expected, 'Human-corrected revision; original source evidence and review flags are retained.')
-                    if result != expected.model_dump(mode='json'):
-                        sample["qualityErrors"].append("HTTP/revised export result mismatch")
-                    if not all(sample.get(field) is True for field in ('correctionSaved', 'correctionReopen')):
-                        sample["qualityErrors"].append("Personal import/correction workflow evidence incomplete")
-                sample["zipSha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+                content = json.loads(path.read_text())
+                result = content.get("result", content)
+                sample["qualityErrors"] = check_questions(result["questions"])
+                detail = json.loads((output / f"{sample['name']}-detail.json").read_text())
+                from practiq_ai.contracts import (
+                    DocumentCorrections,
+                    DocumentParseResult,
+                )
+                from practiq_ai.corrections import corrected_result
+                corrections = DocumentCorrections.model_validate_json((output / f"{sample['name']}-corrections.json").read_text())
+                expected = corrected_result(DocumentParseResult.model_validate(detail["result"]), corrections)
+                from practiq_ai.bank_export import append_export_warning
+                append_export_warning(expected, 'Human-corrected revision; original source evidence and review flags are retained.')
+                if result != expected.model_dump(mode='json'):
+                    sample["qualityErrors"].append("HTTP/revised export result mismatch")
+                if not all(sample.get(field) is True for field in ('correctionSaved', 'correctionReopen')):
+                    sample["qualityErrors"].append("Personal import/correction workflow evidence incomplete")
+                sample["inputSha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
                 _, sample["nativeErrors"] = read_native_report(
-                    output / f"{sample['name']}-native.json", {sample["name"]: sample["zipSha256"]}, 1)
+                    output / f"{sample['name']}-native.json", {sample["name"]: sample["inputSha256"]}, 1)
             native_env = {**os.environ, "PRACTIQ_WORKFLOW_DIR": str(output), "PRACTIQ_BENCH_OUTPUT": str(output / "native.json")}
             native_env.pop("PRACTIQ_WORKFLOW_CASE", None)
             if case:
@@ -290,8 +287,8 @@ async def run(output: Path, live: bool, native_binary: Path, case: str | None = 
             with (output / "native.log").open("x") as log_native:
                 native_status = await command_result([str(native_binary), "performance::workflow_practice",
                     "--exact", "--ignored", "--nocapture"], native_env, log_native, 120)
-            hashes = {name: hashlib.sha256((output / "exports" / f"{name}.zip").read_bytes()).hexdigest()
-                      if (output / "exports" / f"{name}.zip").exists() else "" for name in cases}
+            hashes = {name: hashlib.sha256((output / "exports" / f"{name}.json").read_bytes()).hexdigest()
+                      if (output / "exports" / f"{name}.json").exists() else "" for name in cases}
             report["native"], report["nativeErrors"] = read_native_report(output / "native.json", hashes, repetitions)
             if native_status or report["nativeErrors"]:
                 report["gateReasons"].append("NATIVE_WORKFLOW_FAILED")

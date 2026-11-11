@@ -37,7 +37,7 @@ it("loads passively, separates scoring and starts a complete recommended group o
 it("filters by cause, changes date range and opens targeted practice",async()=>{
   const user=userEvent.setup();vi.mocked(api).mockResolvedValue(fixture() as never);const props=mount();
   await screen.findByText("Complete material group");await user.selectOptions(screen.getByLabelText("按错因筛选"),"knowledge");
-  expect(screen.queryByText("Complete material group")).toBeNull();expect(screen.getByRole("button",{name:"开始复习 0 题"}).hasAttribute("disabled")).toBe(true);
+  expect(screen.queryByText("Complete material group")).toBeNull();expect(screen.queryByRole("button",{name:"开始复习 0 题"})).toBeNull();
   await user.selectOptions(screen.getByLabelText("统计范围"),"30");
   await waitFor(()=>expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"learning_overview",days:30})));
   const section=screen.getByRole("heading",{name:"按题型"}).parentElement!;

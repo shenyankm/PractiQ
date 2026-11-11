@@ -1052,6 +1052,14 @@ class DocumentTaskDetail(StrictModel):
     parserJobs: list[DocumentParserJob] = Field(default_factory=list, max_length=300)
 
 
+class DocumentBankImport(StrictModel):
+    """A saved snapshot imported by the App without an archive container."""
+    title: str = Field(min_length=1, max_length=255)
+    status: Literal["SUCCEEDED", "PARTIAL"]
+    result: DocumentParseResult
+    processing: DocumentProcessing | None
+
+
 class DocumentTaskSummary(StrictModel):
     threadId: UUID
     fileName: str

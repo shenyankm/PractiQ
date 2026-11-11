@@ -295,3 +295,5 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 .cloud-portal.embedded .sidebar-connection { display: none; }
 
 @keyframes import-spin { to { transform: rotate(360deg); } }
+
+.cloud-portal.embedded-settings .web-main { padding: 0; }

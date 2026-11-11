@@ -233,7 +233,7 @@ pub(crate) fn validate_path(path: &str, method: &Method) -> Result<()> {
                 (parts.len() == 4 && (method == Method::GET || method == Method::DELETE))
                     || (parts.len() == 5
                         && match parts[4] {
-                            "head" | "preview" | "export" | "answer-matches"
+                            "head" | "preview" | "export" | "bank" | "answer-matches"
                             | "answer-proposal" => method == Method::GET,
                             "control" | "reparse" => method == Method::POST,
                             "corrections" => method == Method::GET || method == Method::PUT,
@@ -268,6 +268,9 @@ pub(crate) enum Request {
     PickSources,
     Upload {
         ticket: String,
+    },
+    ImportBank {
+        path: String,
     },
     Download {
         path: String,
@@ -337,7 +340,11 @@ pub(crate) fn request(app: AppHandle, value: Request, context: Option<Context>) 
             let generation = state.lock()?.epoch;
             Ok(json!({"origin": context.map(|value| value.origin), "generation": generation}))
         }
-        Request::Configure { origin } => state.configure(origin),
+        Request::Configure { origin } => {
+            let grading = app.state::<crate::ai::GradingState>();
+            let _configuration = grading.configure()?;
+            state.configure(origin)
+        }
         Request::Fetch { path, method, body } => {
             let method =
                 Method::from_bytes(method.as_bytes()).map_err(|_| error("CLOUD_PATH_INVALID"))?;
@@ -351,6 +358,12 @@ pub(crate) fn request(app: AppHandle, value: Request, context: Option<Context>) 
         }
         Request::PickSources => super::cloud_files::pick(&app, &state, bound()?),
         Request::Upload { ticket } => super::cloud_files::upload(&app, &state, bound()?, &ticket),
+        Request::ImportBank { path } => super::cloud_import::import_bank(
+            &state,
+            &app.state::<crate::Shared>().inner().clone(),
+            bound()?,
+            &path,
+        ),
         Request::Download { path, name } => {
             super::cloud_files::download(&app, &state, bound()?, &path, &name)
         }

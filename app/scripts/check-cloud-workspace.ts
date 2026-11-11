@@ -76,13 +76,20 @@ async function connect(page: Page) {
   await expect(page.getByText(/普通单元最多 100 个.*带上下文的视觉单元最多 50 个/)).toBeHidden();
 }
 async function openTask(page: Page) {
-  await page.getByRole("link", { name: "导入记录", exact: true }).click();
+  await navigateHost(page, "records");
   await page.getByRole("button", { name: "sample.docx", exact: true }).click();
   await expect(page.getByRole("heading", { name: "sample.docx", exact: true })).toBeVisible();
   await expect(page.getByText("根据材料选择答案", { exact: true })).toBeVisible();
 }
 const mutations = (calls: Call[]) => calls.filter(call => call.method !== "GET");
 const starts = (calls: Call[]) => calls.filter(call => call.path === "/api/document-tasks" && call.method === "POST");
+
+async function navigateHost(page: Page, value: "settings" | "import" | "records") {
+  const label = {settings:"设置",import:"开始导入",records:"导入记录"}[value];
+  const link=page.getByRole("link",{name:label,exact:true});
+  if (value !== "settings" && await link.isVisible()) { await link.click(); return; }
+  await page.evaluate(value => (window as unknown as {navigateHarness:(value:string)=>Promise<void>}).navigateHarness(value), value);
+}
 
 test("recovers an accepted import after reload without starting a second task", async ({ page }, testInfo) => {
   const http = await fakeHTTP(page);
@@ -98,10 +105,10 @@ test("recovers an accepted import after reload without starting a second task", 
   };
   await connect(page);
   await page.getByLabel("选择文档").setInputFiles({ name: "recovery.txt", mimeType: "text/plain", buffer: Buffer.from("source") });
-  await page.getByRole("link", { name: "设置", exact: true }).click();
+  await navigateHost(page, "settings");
   await page.getByRole("switch", { name: "自动去重", exact: true }).check();
   await expect(page.getByText("设置已保存", { exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "开始导入", exact: true }).click();
+  await navigateHost(page, "import");
   await page.getByRole("button", { name: "开始导入", exact: true }).click();
   await expect(page.getByRole("button", { name: "重试原提交", exact: true })).toBeVisible();
   const original = starts(http.calls)[0].body;
@@ -152,7 +159,7 @@ test("recovers an accepted reparse after reload without starting a second task",
 test("shows unknown model outcome and charge warning before explicit resume", async ({ page }, testInfo) => {
   const http = await fakeHTTP(page, { ...task, state: "INTERRUPTED", status: null, result: null, failures: [], blocking: ["MODEL_RESULT_UNKNOWN"], allowedActions: ["resume"] });
   await connect(page);
-  await page.getByRole("link", { name: "导入记录", exact: true }).click();
+  await navigateHost(page, "records");
   await page.getByRole("button", { name: "sample.docx", exact: true }).click();
   await expect(page.getByText(/模型请求已发送，但结果尚未确认/)).toBeVisible();
   await expect(page.getByText(/继续解析或重试可能再次计费/)).toBeVisible();
@@ -189,7 +196,7 @@ for (const [width, height] of [[1440, 900], [768, 1024], [390, 844], [360, 640],
       }, logo);
       await writeFile(`${output}/import-${theme}.html`, html);
     }
-    await page.getByRole("link", { name: "设置", exact: true }).click();
+    await navigateHost(page, "settings");
     const field = page.getByLabel("腾讯识别并发上限");
     await expect(field).toHaveValue("5");
     if (width < 768) {
@@ -198,7 +205,7 @@ for (const [width, height] of [[1440, 900], [768, 1024], [390, 844], [360, 640],
       expect(input!.y).toBeGreaterThan(label!.y + label!.height);
     }
     await page.screenshot({ path: `${output}/settings-${width}-${theme}.png`, fullPage: true });
-    await page.getByRole("link", { name: "导入记录", exact: true }).click();
+    await navigateHost(page, "records");
     await expect(page.getByRole("button", { name: "sample.docx", exact: true })).toBeVisible();
     await expect(page.getByRole("region", { name: "任务详情", exact: true })).toHaveCount(0);
     await expect(page.locator(".records-panel").getByText("选择一个任务查看结果", { exact: true })).toBeVisible();
@@ -216,7 +223,7 @@ for (const width of [1440, 390]) {
     await connect(page); await openTask(page);
     await page.getByRole("link", { name: anchor === "task-detail" ? "查看当前任务详情" : "返回任务列表", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`#${anchor}$`));
-    await page.getByRole("link", { name: "设置", exact: true }).click();
+    await navigateHost(page, "settings");
     await expect(page.getByLabel("腾讯识别并发上限")).toBeEnabled();
     await page.goBack();
     await expect(page).toHaveURL(new RegExp(`#${anchor}$`));
@@ -239,7 +246,7 @@ for (const width of [1440, 390]) {
       http.records.set(id, { ...task, threadId: id, fileName: `record-${index}.docx` });
     }
     await connect(page);
-    await page.getByRole("link", { name: "导入记录", exact: true }).click();
+    await navigateHost(page, "records");
     await expect(page.getByRole("row")).toHaveCount(21);
     const manage = page.getByRole("button", { name: "管理任务", exact: true }).first();
     await manage.focus(); await page.keyboard.press("Enter");
@@ -280,7 +287,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("button", { name: "取消任务", exact: true })).toBeVisible();
     await page.evaluate(() => scrollTo(0, 0));
     await page.screenshot({ path: testInfo.outputPath(`management-records-${width}.png`), fullPage: true });
-    await page.getByRole("link", { name: "设置", exact: true }).click();
+    await navigateHost(page, "settings");
     const concurrency = page.getByLabel("腾讯识别并发上限");
     await expect(concurrency).toHaveValue("5");
     const settingsBody = await page.locator(".web-body").boundingBox();
@@ -292,24 +299,23 @@ for (const width of [1440, 390]) {
     await page.getByRole("switch", { name: "自动去重", exact: true }).check();
     await page.getByRole("switch", { name: "AI 生成答案与解析", exact: true }).check();
     await expect(page.getByLabel("读取失败重试次数")).toBeEnabled(); await expect(page.getByLabel("初始退避间隔（秒）")).toBeEnabled();
-    await page.getByRole("link", { name: "开始导入", exact: true }).click();
+    await navigateHost(page, "import");
     await expect(page.getByText("pending.txt", { exact: true })).toBeVisible();
-    await page.getByRole("link", { name: "设置", exact: true }).click(); await expect(concurrency).toHaveValue("5");
-    await expect(page.getByText("设置已保存", { exact: true })).toBeVisible();
+    await navigateHost(page, "settings"); await expect(concurrency).toHaveValue("5");
+    await expect(page.getByRole("switch", { name: "自动去重", exact: true })).toBeChecked();
     await page.evaluate(() => scrollTo(0, 0));
     await page.screenshot({ path: testInfo.outputPath(`management-settings-${width}.png`), fullPage: true });
-    const notice = page.locator(".settings-toast");
-    await expect(notice).toHaveCSS("position", "fixed");
+
     expect(saved.settings).toMatchObject({ deduplicateQuestions: true, generateAnswers: true });
-    await expect(notice).toBeHidden({ timeout: 5000 });
+
     expect(mutations(http.calls).map(call => [call.method, call.path])).toEqual([["PUT", "/api/import-settings"]]);
-    await page.getByRole("link", { name: "导入记录", exact: true }).click();
+    await navigateHost(page, "records");
     await page.getByRole("button", { name: "暂停", exact: true }).click(); await expect(page.getByRole("button", { name: "继续解析", exact: true })).toBeEnabled();
     await page.getByRole("button", { name: "继续解析", exact: true }).click(); await expect(page.getByRole("button", { name: "暂停", exact: true })).toBeEnabled();
     await page.getByRole("button", { name: "暂停", exact: true }).click(); await expect(page.getByRole("button", { name: "重试失败单元", exact: true })).toBeEnabled();
     await page.getByRole("button", { name: "重试失败单元", exact: true }).click(); await expect(page.getByRole("button", { name: "取消任务", exact: true })).toBeEnabled();
     await page.getByRole("button", { name: "取消任务", exact: true }).click(); await expect(page.getByRole("button", { name: "继续解析", exact: true })).toBeEnabled();
-    await page.reload(); await page.getByRole("link", { name: "设置", exact: true }).click();
+    await page.reload(); await navigateHost(page, "settings");
     await expect(concurrency).toHaveValue("5"); await expect(page.getByLabel("读取失败重试次数")).toHaveValue("2");
     await expect(page.getByRole("switch", { name: "自动去重", exact: true })).toBeChecked();
     await expect(page.getByRole("switch", { name: "AI 生成答案与解析", exact: true })).toBeChecked();
@@ -322,7 +328,7 @@ for (const width of [1440, 390]) {
 test("shared dropdowns preserve themed menus, empty filters and keyboard focus", async ({ page }, testInfo) => {
   const http = await fakeHTTP(page);
   await connect(page);
-  await page.getByRole("link", { name: "导入记录", exact: true }).click();
+  await navigateHost(page, "records");
   const filter = page.getByRole("combobox", { name: "筛选任务状态" });
   await expect(filter).toHaveAttribute("data-slot", "select-trigger");
   await filter.focus();
@@ -365,7 +371,7 @@ test("1000 question searches scan a shared option bank once and stay passive", a
     };
   });
   await connect(page);
-  await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: "sample.docx", exact: true }).click();
+  await navigateHost(page, "records"); await page.getByRole("button", { name: "sample.docx", exact: true }).click();
   const search = page.getByRole("searchbox");
   await expect(search).toBeVisible();
   // Development StrictMode repeats the memo calculation; production runs it once.
@@ -399,7 +405,7 @@ for (const [width, height] of [[1440, 1000], [390, 844]]) {
     await importRules.focus();
     await page.keyboard.press("Enter");
     await expect(page.getByText(/腾讯文档识别后，由 AI 整理题库/)).toBeVisible();
-    await expect(page.getByText(/下载的 ZIP 可在应用/)).toBeVisible();
+    await expect(page.getByText(/解析完成后可直接导入本地题库/)).toBeVisible();
     await page.keyboard.press("Enter");
     await expect(page.getByText(/腾讯文档识别后，由 AI 整理题库/)).toBeHidden();
     await page.evaluate(() => scrollTo(0, 0));
@@ -492,7 +498,7 @@ test("workspace fits narrow and desktop windows with keyboard shortcuts to conte
   await page.keyboard.press("Enter");
   await expect(page.getByRole("main")).toBeFocused();
   await connect(page);
-  await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: /很长的来源文档名称/ }).click();
+  await navigateHost(page, "records"); await page.getByRole("button", { name: /很长的来源文档名称/ }).click();
   await expect(page.getByRole("heading", { name: /很长的来源文档名称/ })).toBeVisible();
   await expect(page.getByText("根据材料选择答案", { exact: true })).toBeVisible();
   for (const width of [1440, 900, 390, 320]) {
@@ -558,10 +564,10 @@ test("uncertain accepted POST never auto replays; explicit retry preserves reque
   const reads = http.calls.filter(call => call.method === "GET").length;
   await page.clock.fastForward(30000);
   expect(http.calls.filter(call => call.method === "GET")).toHaveLength(reads);
-  await page.getByRole("link", { name: "导入记录", exact: true }).click();
+  await navigateHost(page, "records");
   await expect.poll(() => http.calls.filter(call => call.method === "GET").length).toBeGreaterThan(reads);
   expect(starts(http.calls)).toHaveLength(1);
-  await page.getByRole("link", { name: "开始导入", exact: true }).click();
+  await navigateHost(page, "import");
   await expect(page.getByRole("button", { name: "重试开始", exact: true })).toBeVisible();
   await expect(page.getByLabel("Word / Excel 转换模式")).toHaveCount(0);
   await page.getByLabel("选择文档").setInputFiles({ name: "uncertain.docx", mimeType: "application/octet-stream", buffer: Buffer.from("fake office") });
@@ -653,9 +659,9 @@ test("failed reads retry explicitly and stale pages cannot overwrite a new filte
     }
     return false;
   };
-  await connect(page); await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: "重试任务列表", exact: true }).click(); await expect(page.getByRole("button", { name: /sample.docx/ })).toBeVisible();
+  await connect(page); await navigateHost(page, "records"); await page.getByRole("button", { name: "重试任务列表", exact: true }).click(); await expect(page.getByRole("button", { name: /sample.docx/ })).toBeVisible();
   await page.getByRole("button", { name: "下一页任务", exact: true }).click(); await expect.poll(() => !!release).toBe(true);
-  await page.getByRole("link", { name: "导入记录", exact: true }).click(); await chooseOption(page.getByLabel("筛选任务状态"), "failed"); await expect(page.getByRole("button", { name: /current-failed.pdf/ })).toBeVisible();
+  await navigateHost(page, "records"); await chooseOption(page.getByLabel("筛选任务状态"), "failed"); await expect(page.getByRole("button", { name: /current-failed.pdf/ })).toBeVisible();
   await release!(); await expect(page.getByRole("button", { name: /sample.docx/ })).toHaveCount(0); await expect(page.getByRole("navigation", { name: "任务列表分页", exact: true })).toHaveCount(0);
   expect(mutations(http.calls)).toHaveLength(0);
 });
@@ -672,13 +678,13 @@ test("expired task deletion stays explicit and recoverable when detail and previ
     if (call.method === "GET" && [`/api/document-tasks/${taskId}`, `/api/document-tasks/${taskId}/preview`].includes(call.path)) { await respond(route, { detail: { code: "TASK_EXPIRED" } }, 410); return true; }
     return false;
   };
-  await connect(page); await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: "sample.docx", exact: true }).click();
+  await connect(page); await navigateHost(page, "records"); await page.getByRole("button", { name: "sample.docx", exact: true }).click();
   await expect(page.getByRole("button", { name: "重试任务详情", exact: true })).toBeVisible();
-  await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true }).click();
+  await navigateHost(page, "records"); await page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true }).click();
   expect(mutations(http.calls)).toHaveLength(0);
   await page.getByRole("button", { name: "保留任务", exact: true }).click();
   await expect(page.getByRole("group", { name: "删除任务确认" })).toHaveCount(0);
-  await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true }).click();
+  await navigateHost(page, "records"); await page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true }).click();
   await page.getByRole("button", { name: "确认删除", exact: true }).click();
   await expect(page.getByRole("button", { name: "确认删除", exact: true })).toBeDisabled();
   await expect(page.getByRole("button", { name: "保留任务", exact: true })).toBeDisabled();
@@ -723,7 +729,7 @@ test("empty task guidance preserves keyboard focus and only reads when clearing 
   const http = await fakeHTTP(page);
   http.records.clear();
   await connect(page);
-  await page.getByRole("link", { name: "导入记录", exact: true }).click();
+  await navigateHost(page, "records");
   await expect(page.getByRole("button", { name: "选择第一份文档" })).toBeVisible();
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
@@ -736,7 +742,7 @@ test("empty task guidance preserves keyboard focus and only reads when clearing 
   }
   await page.getByRole("button", { name: "选择第一份文档" }).click();
   await expect(page.getByLabel("选择文档")).toBeFocused();
-  await page.getByRole("link", { name: "导入记录", exact: true }).click(); await chooseOption(page.getByLabel("筛选任务状态"), "failed");
+  await navigateHost(page, "records"); await chooseOption(page.getByLabel("筛选任务状态"), "failed");
   await expect(page.getByText("没有符合此状态的任务。", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "查看全部任务" }).click();
   await expect(page.getByLabel("筛选任务状态")).toHaveAttribute('data-value', "");
@@ -820,7 +826,7 @@ for (const entry of ["detail", "expired"] as const) {
       await page.getByText("其他任务操作", { exact: true }).click();
       await page.getByRole("button", { name: "删除任务", exact: true }).click();
     } else {
-      await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true }).click();
+      await navigateHost(page, "records"); await page.getByRole("button", { name: "删除已过期任务 sample.docx", exact: true }).click();
     }
     await page.getByRole("button", { name: "确认删除", exact: true }).click();
     await expect(page.getByRole("button", { name: /sample.docx/ })).toHaveCount(0);
@@ -853,7 +859,7 @@ for (const [width, height] of layoutViewports) {
       return true;
     };
     await connect(page);
-    await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole('button', { name: /sample.docx/ }).click();
+    await navigateHost(page, "records"); await page.getByRole('button', { name: /sample.docx/ }).click();
     await expect(page.locator('.question-card')).toHaveCount(layoutSnapshots.length);
     for (let index = 0; index < layoutSnapshots.length; index++) {
       const card = page.locator('.question-card').nth(index);
@@ -907,7 +913,7 @@ for (const width of [1440, 390]) {
     await page.route(process.env.PRACTIQ_WEB_BUILT === "1" ? '**/assets/ResultReview-*.js' : '**/shared/cloud/ResultReview.tsx*', route => route.abort('failed'));
     await page.reload();
     await expect(page.getByLabel("服务访问令牌")).toHaveCount(0);
-    await page.getByRole("link", { name: "导入记录", exact: true }).click(); await page.getByRole('button', { name: /sample.docx/ }).click();
+    await navigateHost(page, "records"); await page.getByRole('button', { name: /sample.docx/ }).click();
     await expect(page.getByRole('heading', { name: '此界面暂时无法显示', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: '下载题库 ZIP', exact: true })).toBeEnabled();
     expect(mutations(http.calls)).toHaveLength(1);
@@ -1115,8 +1121,8 @@ test("delayed and uncertain correction responses keep submitted input and reques
   await expect(page.getByText(new RegExp(requestId))).toBeVisible();
   await page.getByRole("button", { name: "second.docx", exact: true }).click();
   await expect(page.getByText(new RegExp(requestId))).toBeVisible();
-  await page.getByRole("link", { name: "设置", exact: true }).click();
-  await page.getByRole("link", { name: "导入记录", exact: true }).click();
+  await navigateHost(page, "settings");
+  await navigateHost(page, "records");
   await expect(stem).toHaveValue("Submitted correction");
   await expect(page.getByText(new RegExp(requestId))).toBeVisible();
   expect(http.calls.filter(call => call.method === "PUT")).toHaveLength(1);

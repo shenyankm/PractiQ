@@ -219,12 +219,7 @@ export type Request =
   | { type: "flag"; id: string; ordinal: number; value: boolean; snapshot_key?: string }
   | { type: "manual_score"; id: string; ordinal: number; cents: number; reason: string; snapshot_key?: string }
   | { type: "merge_banks"; bank_ids: string[]; title: string }
-  | { type: "settings" }
-  | {
-      type: "save_settings" | "test_settings";
-      config: ServiceConfig;
-      api_key?: string | null;
-    }
+
   | {
       type:
         | "add_example_bank"
@@ -299,14 +294,11 @@ type ResponseMap = {
   save_draft: void;
   save_language: Locale;
   save_question_tree: string;
-  save_settings: SettingsResult;
   self_assess: Session;
   session: Session;
   sessions_page: SessionPage;
-  settings: SettingsResult;
   start_paper: Session;
   submit_paper: Session;
-  test_settings: null;
   unfinished_session: UnfinishedSession | null;
 };
 let lastSession: Session | undefined;
@@ -461,27 +453,6 @@ export function canInteract(q: Question) {
       })
     );
   return true;
-}
-
-export interface ServiceConfig {
-  service_url: string | null;
-  model?: { base_url: string | null; model_id: string | null };
-}
-export interface SettingsResult {
-  config: ServiceConfig;
-  /** null means unchecked; only explicit credential operations inspect the token. */
-  hasApiKey?: boolean | null;
-}
-
-export function missingServiceSettings(settings: SettingsResult): string[] {
-  if (settings.config.model) return [
-    !settings.config.model.base_url?.trim() && t("模型 API 地址"),
-    !settings.config.model.model_id?.trim() && t("模型 ID"),
-    settings.hasApiKey === false && t("模型 API Key"),
-  ].filter((field): field is string => !!field);
-  return [
-    !settings.config.service_url?.trim() && t("AI 服务地址"),
-  ].filter((field): field is string => !!field);
 }
 
 export function fieldName(key: string): string {

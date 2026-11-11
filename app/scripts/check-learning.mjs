@@ -44,11 +44,11 @@ for(const [locale,names] of [
     await chooseOption(page.getByLabel(names.period,{exact:true}),'30');
     await expect.poll(()=>page.evaluate(()=>globalThis.learningCalls.filter(call=>call.request?.type==='learning_overview').at(-1).request.days)).toBe(30);
     await chooseOption(page.getByLabel(names.cause,{exact:true}),'knowledge');
-    await expect(page.getByRole('button',{name:locale==='en'?'Review 0 questions':locale==='zh-TW'?'開始複習 0 題':'开始复习 0 题',exact:true})).toBeDisabled();
+    await expect(page.getByRole('button',{name:locale==='en'?'Review 0 questions':locale==='zh-TW'?'開始複習 0 題':'开始复习 0 题',exact:true})).toBeHidden();
     await page.getByRole('button',{name:names.practice,exact:true}).last().click();
     await expect(page.getByRole('dialog',{name:names.setup,exact:true})).toBeVisible();
     await page.keyboard.press('Escape');
-    expect(await page.evaluate(()=>globalThis.learningCalls.some(call=>call.command!=='request'))).toBe(false);
+    expect(await page.evaluate(()=>globalThis.learningCalls.filter(call=>call.command!=='request').every(call=>call.command==='cloud_request' && (call.request.type==='status' || call.request.type==='fetch' && call.request.method==='GET')))).toBe(true);
     expect(errors).toEqual([]);
   });
 }
@@ -84,7 +84,7 @@ test('review starts explicitly, notes persist after reopening, and duplicate pol
   await page.getByRole('button',{name:'确认导入',exact:true}).click();
   await expect.poll(()=>page.evaluate(()=>globalThis.learningCalls.filter(call=>call.request?.type==='import').length)).toBe(1);
   expect(await page.evaluate(()=>globalThis.learningCalls.find(call=>call.request?.type==='import').request.skip_duplicates)).toBe(true);
-  expect(await page.evaluate(()=>globalThis.learningCalls.some(call=>call.command!=='request'))).toBe(false);
+  expect(await page.evaluate(()=>globalThis.learningCalls.filter(call=>call.command!=='request').every(call=>call.command==='cloud_request' && (call.request.type==='status' || call.request.type==='fetch' && call.request.method==='GET')))).toBe(true);
   expect(errors).toEqual([]);
 });
 

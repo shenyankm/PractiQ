@@ -51,8 +51,6 @@ function setup() {
       case "manual_score": return session as never;
       case "backup_status": return {lastBackupAt:null,newAttempts:0,changedNotes:0,due:false} as never;
       case "import_duplicates": return {groups:[],check:"test-comparison"} as never;
-      case "settings": return { config: { service_url: null } } as never;
-      case "save_settings": return { config: request.config } as never;
       default: throw new Error(`Unexpected request: ${request.type}`);
     }
   });
@@ -115,7 +113,7 @@ it.each(["banks", "info"] as const)("recovers an initial %s read without restart
   await screen.findByRole("button", { name: "重试读取概览" });
   if (type === "banks") {
     expect(screen.getByText("题库概览读取失败")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "导入" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "新建题库" }).hasAttribute("disabled")).toBe(true);
   }
   await user.click(screen.getByRole("button", { name: "重试读取概览" }));
   await waitFor(() => expect(screen.queryByRole("button", { name: "重试读取概览" })).toBeNull());
@@ -151,7 +149,9 @@ it("keeps the import preview retryable when the write itself fails", async () =>
   const original = setup();
   vi.mocked(api).mockImplementation(async request => { if (request.type === "import") throw new Error("Write failed"); return original(request); });
   const user = userEvent.setup(); render(<App />);
-  await user.click(await screen.findByRole("button", { name: "导入" }));
+  await user.click(await screen.findByRole("button", { name: "设置" }));
+  await user.click(await screen.findByRole("button", { name: "导入与恢复" }));
+  await user.click(screen.getByRole("menuitem", { name: "导入题库 ZIP" }));
   await user.click(await screen.findByRole("button", { name: "确认导入" }));
   expect(await screen.findByRole("alert")).toBeTruthy();
   expect(screen.getByRole("dialog", { name: "导入题库" })).toBeTruthy();
@@ -207,7 +207,8 @@ it("returns from AI configuration to the same grading question without automatic
   await user.type(screen.getByRole("textbox", { name: "人工得分" }), "3");
   await user.click(screen.getByRole("button", { name: /AI 评分\/继续/ }));
   await user.click(await screen.findByRole("button", { name: "配置 AI 服务" }));
-  await user.type(await screen.findByRole("textbox", { name: "模型 API 地址" }), "http://127.0.0.1:8000");
+  await screen.findByRole("heading", { name: "设置", level: 1 });
+  expect(screen.queryByRole("textbox", { name: "模型 API 地址" })).toBeNull();
   await user.click(screen.getByRole("button", { name: "返回评分" }));
   await screen.findByRole("heading", { name: "第 2 / 2 题" });
   expect((screen.getByRole("textbox", { name: "人工得分" }) as HTMLInputElement).value).toBe("3");

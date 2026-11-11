@@ -2,6 +2,7 @@ import type { ImportCapabilities } from "../../src/contracts.generated";
 import type { PreviewScenario } from "./scenario";
 
 let initialized = false, generation = 1;
+let settings = {revision:"11111111-1111-4111-8111-111111111111",settings:{tencentConcurrency:1,readRetryCount:2,retryBaseSeconds:1,deduplicateQuestions:false,generateAnswers:false}};
 let origin: string | null = "https://preview.practiq.invalid";
 const capabilities: ImportCapabilities = { sourceTypes: ["pdf", "text", "markdown", "image", "doc", "docx", "ppt", "pptx", "xls", "xlsx"], sourceMaxBytes: 25 * 1024 * 1024, officeAvailable: true, officeModes: [], modelConfigured: false, parserConfigured: false, parserInputMaxBytes: 8 * 1024 * 1024, modelBudget: { limit: 400, unitCalls: 4, contextUnitCalls: 8 } };
 
@@ -21,9 +22,11 @@ export function previewCloud(request: Record<string, unknown>, context: { origin
       if (scenario === "error") { status = 503; data = { detail: { code: "演示服务暂不可用，请切换预览场景。" } }; }
       else if (method === "GET") {
         if (path === "/api/import-capabilities") data = capabilities;
-        else if (path === "/api/import-settings") data = { revision: "preview", settings: { tencentConcurrency: 1, readRetryCount: 2, retryBaseSeconds: 1, deduplicateQuestions: false, generateAnswers: false } };
+        else if (path === "/api/import-settings") data = settings;
         else if (path === "/api/document-tasks") data = { items: [], hasMore: false };
         else { status = 404; data = { detail: { code: "开发预览中没有此记录。" } }; }
+      } else if (path === "/api/import-settings" && method === "PUT") {
+        settings={...request.body as typeof settings,revision:crypto.randomUUID()}; data=settings;
       } else { status = 409; data = { detail: { code: "开发预览不会执行上传或评分。" } }; }
       const bytes = new TextEncoder().encode(JSON.stringify(data));
       value = { status, mediaType: "application/json", bytes: btoa(String.fromCharCode(...bytes)) };

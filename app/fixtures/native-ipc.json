@@ -367,8 +367,7 @@
           "model_id": "fixture-model"
         },
         "service_url": null
-      },
-      "hasApiKey": null
+      }
     },
     "service": {
       "config": {

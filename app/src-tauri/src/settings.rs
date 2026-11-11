@@ -1,12 +1,16 @@
+#[cfg(test)]
+use crate::store::hash;
 use crate::{
     contract::Result,
-    credentials::Credential,
-    store::{err, hash, Store},
+    store::{err, Store},
 };
 use rusqlite::{params, Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::json;
+#[cfg(test)]
+use serde_json::Value;
 
+#[cfg(test)]
 const SERVICE_MARKER: &str = "urn:practiq:ai-service:v1";
 const SERVICE_SETTINGS_FILE: &str = "service-settings-v1.sqlite";
 const SERVICE_SETTINGS_SCHEMA: &str = "CREATE TABLE service_settings(id INTEGER PRIMARY KEY CHECK(id=1),active TEXT NOT NULL,pending TEXT)";
@@ -221,116 +225,9 @@ fn validate_url(value: Option<String>, name: &str) -> Result<Option<String>> {
     }
     Ok(Some(url.to_string().trim_end_matches('/').to_owned()))
 }
-pub(crate) fn validate_api_key(token: &str) -> Result<()> {
-    // Model API keys must fit a bounded HTTP header.
-    if !token.is_ascii() || token.len() > 8192 || token.chars().any(char::is_control) {
-        return Err(crate::language::error("LOCAL_MODEL_KEY_INVALID", json!({})));
-    }
-    Ok(())
-}
-fn required_credential(entry: &impl Credential, missing_code: &str) -> Result<String> {
-    let value = entry
-        .read()?
-        .filter(|s| !s.trim().is_empty())
-        .ok_or(crate::language::error(missing_code, json!({})))?;
-    validate_api_key(&value)?;
-    Ok(value.trim().to_owned())
-}
-fn persist_with_secret(
-    entry: &impl Credential,
-    value: Option<&str>,
-    persist: impl FnOnce() -> Result<()>,
-) -> Result<()> {
-    let previous = entry.read()?;
-    entry.write(value)?;
-    if let Err(error) = persist() {
-        entry
-            .write(previous.as_deref())
-            .map_err(|_| crate::language::error("LOCAL_KEYCHAIN_ROLLBACK", json!({})))?;
-        return Err(error);
-    }
-    Ok(())
-}
-
-fn model_account(config: &ConnectionSettings) -> Result<String> {
-    let url = config.base_url.as_deref().ok_or(crate::language::error(
-        "LOCAL_MODEL_URL_REQUIRED",
-        json!({}),
-    ))?;
-    Ok(format!("ai-model-key-v1-{}", hash(url.as_bytes())))
-}
-
-fn model_key(entry: &impl Credential) -> Result<String> {
-    required_credential(entry, "LOCAL_MODEL_KEY_REQUIRED")
-}
-
-pub fn model_settings(
-    shared: &crate::Shared,
-    config: ServiceSettings,
-    api_key: Option<String>,
-    app: &tauri::AppHandle,
-) -> Result<Value> {
-    snapshot(shared)?.save_model_settings_with(config, api_key, |account| {
-        crate::credentials::entry(app, account)
-    })
-}
-
-pub fn model_input(
-    config: &ConnectionSettings,
-    api_key: Option<String>,
-    app: &tauri::AppHandle,
-) -> Result<(ConnectionSettings, String)> {
-    let config = config.clone().validate()?;
-    let account = model_account(&config)?;
-    if config.model_id.is_none() {
-        return Err(crate::language::error("LOCAL_MODEL_ID_REQUIRED", json!({})));
-    }
-    let key = match api_key {
-        Some(key) if !key.trim().is_empty() => {
-            validate_api_key(&key)?;
-            key.trim().to_owned()
-        }
-        _ => model_key(&crate::credentials::entry(app, &account)?)?,
-    };
-    Ok((config, key))
-}
-pub fn test_connection(config: ServiceSettings) -> Result<Value> {
-    let url = config
-        .validate()?
-        .service_url
-        .ok_or(crate::language::error(
-            "LOCAL_SERVICE_URL_REQUIRED",
-            json!({}),
-        ))?;
-    crate::ai::test_connection(&url)
-}
-/// Copy only the store location while holding the UI database mutex. Keychain
-/// calls below can wait for macOS authorization without blocking offline work.
-pub fn snapshot(shared: &crate::Shared) -> Result<Store> {
-    let store = shared
-        .lock()
-        .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?;
-    Ok(Store {
-        locale: store.locale,
-        dir: store.dir.clone(),
-        ..Default::default()
-    })
-}
-/// Display the service configuration without opening the credential store.
-pub fn settings(shared: &crate::Shared) -> Result<Value> {
-    let config = shared
-        .lock()
-        .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
-        .service_settings()?;
-    let mut result = json!({"config":config});
-    if let Some(model) = &config.model {
-        result["hasApiKey"] = if model.base_url.is_none() {
-            json!(false)
-        } else {
-            Value::Null
-        };
-    }
-    Ok(result)
+#[cfg(test)]
+pub(crate) fn settings(shared: &crate::Shared) -> Result<Value> {
+    Ok(json!({"config":shared.lock().unwrap().service_settings()?}))
 }
 impl Store {
     pub(crate) fn service_settings_path(&self) -> std::path::PathBuf {
@@ -477,12 +374,14 @@ impl Store {
         self.finish_service_settings_restore(published)
     }
     /// Read only the configured service URL; personal services have no credentials.
+    #[cfg(test)]
     pub fn grading_input(&self) -> Result<String> {
         self.service_settings()?
             .validate()?
             .service_url
             .ok_or_else(|| crate::language::error("LOCAL_SERVICE_URL_REQUIRED", json!({})))
     }
+    #[cfg(test)]
     pub fn connection_settings(&self) -> Result<ConnectionSettings> {
         self.connect()?
             .query_row(
@@ -497,6 +396,7 @@ impl Store {
             )
             .map_err(|e| crate::AppError::from(e.to_string()))
     }
+    #[cfg(test)]
     pub fn service_settings(&self) -> Result<ServiceSettings> {
         if let Some(config) = self.service_settings_override()? {
             return Ok(config);
@@ -512,11 +412,13 @@ impl Store {
         }
         .validate()
     }
+    #[cfg(test)]
     pub fn save_settings(&self, config: ServiceSettings) -> Result<Value> {
         let config = config.validate()?;
         self.persist_settings(&config)?;
         Ok(json!({"config": config}))
     }
+    #[cfg(test)]
     fn persist_settings(&self, config: &ServiceSettings) -> Result<()> {
         self.update_sidecar(|mut state| {
             if state.pending.is_some() {
@@ -525,42 +427,6 @@ impl Store {
             state.active = Some(config.clone());
             Ok(state)
         })
-    }
-    fn save_model_settings_with<C: Credential>(
-        &self,
-        config: ServiceSettings,
-        api_key: Option<String>,
-        credential: impl FnOnce(&str) -> Result<C>,
-    ) -> Result<Value> {
-        let config = config.validate()?;
-        let model = config.model.as_ref().ok_or("Missing model configuration")?;
-        if let Some(key) = &api_key {
-            validate_api_key(key)?;
-        }
-        let configured = match (&model.base_url, &api_key) {
-            (Some(_), Some(key)) => Some(!key.trim().is_empty()),
-            (Some(_), None) => None,
-            (None, Some(key)) if !key.trim().is_empty() => {
-                return Err(crate::language::error(
-                    "LOCAL_MODEL_URL_REQUIRED",
-                    json!({}),
-                ))
-            }
-            _ => Some(false),
-        };
-        let persist = || self.persist_settings(&config);
-        if let (Some(_), Some(key)) = (&model.base_url, &api_key) {
-            let entry = credential(&model_account(model)?)?;
-            let key = key.trim();
-            if key.is_empty() && self.service_settings()? == config {
-                entry.write(None)?;
-            } else {
-                persist_with_secret(&entry, (!key.is_empty()).then_some(key), persist)?;
-            }
-        } else {
-            persist()?;
-        }
-        Ok(json!({"config":config,"hasApiKey":configured}))
     }
 }
 
@@ -590,85 +456,6 @@ mod tests {
             model: None,
         }
     }
-    fn direct_config() -> ServiceSettings {
-        ServiceSettings {
-            service_url: Some("https://service.example.com".into()),
-            model: Some(ConnectionSettings {
-                base_url: Some("https://models.example.com/v1".into()),
-                model_id: Some("fixture-model".into()),
-            }),
-        }
-    }
-    #[test]
-    fn direct_model_configuration_is_passive_and_secrets_are_isolated_and_excluded_from_backups() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = Store::new(dir.path().to_owned()).unwrap();
-        let original = std::fs::read(store.db_path()).unwrap();
-        let config = direct_config();
-        let credential = mock_entry(None);
-        let saved = store
-            .save_model_settings_with(config.clone(), Some("dummy-model-key".into()), |account| {
-                assert!(account.starts_with("ai-model-key-v1-"));
-
-                Ok(credential.clone())
-            })
-            .unwrap();
-        assert_eq!(saved["hasApiKey"], true);
-        assert_eq!(store.service_settings().unwrap(), config);
-        assert_eq!(std::fs::read(store.db_path()).unwrap(), original);
-        let backup = dir.path().join("model-backup.zip");
-        store.backup(&backup).unwrap();
-        let restored_dir = tempfile::tempdir().unwrap();
-        let mut restored = Store::new(restored_dir.path().to_owned()).unwrap();
-        restored.restore(&backup).unwrap();
-        assert_eq!(restored.service_settings().unwrap(), config);
-        assert!(!std::fs::read(restored.service_settings_path())
-            .unwrap()
-            .windows(b"dummy-model-key".len())
-            .any(|s| s == b"dummy-model-key"));
-        let shared = std::sync::Arc::new(std::sync::Mutex::new(restored));
-        assert!(settings(&shared).unwrap()["hasApiKey"].is_null());
-        assert_eq!(credential.0.lock().unwrap().reads, 1);
-        store
-            .save_model_settings_with(config, None, |_| -> Result<MockEntry> {
-                panic!("Passive save must not read credentials")
-            })
-            .unwrap();
-    }
-    #[test]
-    fn model_key_changes_roll_back_on_failed_configuration_writes_and_clear_explicitly() {
-        let dir = tempfile::tempdir().unwrap();
-        let store = Store::new(dir.path().to_owned()).unwrap();
-        let config = direct_config();
-        let credential = mock_entry(Some("previous-model-key"));
-        std::fs::write(store.service_settings_path(), b"not a settings database").unwrap();
-        assert!(store
-            .save_model_settings_with(
-                config.clone(),
-                Some("replacement-model-key".into()),
-                |_| Ok(credential.clone())
-            )
-            .is_err());
-        assert_eq!(
-            credential.0.lock().unwrap().value.as_deref(),
-            Some("previous-model-key")
-        );
-        std::fs::remove_file(store.service_settings_path()).unwrap();
-        store
-            .save_model_settings_with(config.clone(), None, |_| -> Result<MockEntry> {
-                panic!("No key access")
-            })
-            .unwrap();
-        let result = store
-            .save_model_settings_with(config, Some(String::new()), |_| Ok(credential.clone()))
-            .unwrap();
-        assert_eq!(result["hasApiKey"], false);
-        assert!(credential.0.lock().unwrap().value.is_none());
-        assert_eq!(
-            model_key(&credential).unwrap_err().code,
-            "LOCAL_MODEL_KEY_REQUIRED"
-        );
-    }
     #[test]
     fn model_backups_reject_unknown_fields_invalid_urls_and_secret_fields() {
         for model in [
@@ -681,52 +468,6 @@ mod tests {
                 .and_then(|b| b.validate().map_err(serde::de::Error::custom))
                 .is_err());
         }
-    }
-    #[derive(Clone)]
-    struct MockEntry(Arc<Mutex<MockState>>);
-    #[derive(Default)]
-    struct MockState {
-        value: Option<String>,
-        read_error: bool,
-        write_error: bool,
-        reads: usize,
-        writes: Vec<Option<String>>,
-    }
-    impl Credential for MockEntry {
-        fn read(&self) -> Result<Option<String>> {
-            let mut state = self.0.lock().unwrap();
-            state.reads += 1;
-            if state.read_error {
-                Err(crate::language::error("LOCAL_KEYCHAIN_READ", json!({})))
-            } else {
-                Ok(state.value.clone())
-            }
-        }
-        fn write(&self, value: Option<&str>) -> Result<()> {
-            let mut state = self.0.lock().unwrap();
-            state.writes.push(value.map(str::to_owned));
-            if state.write_error {
-                return Err(crate::language::error(
-                    if value.is_some() {
-                        "LOCAL_KEYCHAIN_WRITE"
-                    } else {
-                        "LOCAL_KEYCHAIN_DELETE"
-                    },
-                    json!({}),
-                ));
-            }
-            state.value = value.map(str::to_owned);
-            if value.is_none() {
-                state.read_error = false;
-            }
-            Ok(())
-        }
-    }
-    fn mock_entry(value: Option<&str>) -> MockEntry {
-        MockEntry(Arc::new(Mutex::new(MockState {
-            value: value.map(str::to_owned),
-            ..Default::default()
-        })))
     }
     fn seed_legacy(store: &Store) {
         store.connect().unwrap().execute(
@@ -1297,17 +1038,6 @@ mod tests {
                 Some("legacy-model")
             );
         }
-    }
-    #[test]
-    fn failed_credential_rollback_reports_a_safe_error() {
-        let credential = mock_entry(Some("dummy-old-token"));
-        let error = persist_with_secret(&credential, Some("dummy-new-token"), || {
-            credential.0.lock().unwrap().write_error = true;
-            Err("database-write-failed".into())
-        })
-        .unwrap_err();
-        assert_eq!(error.code, "LOCAL_KEYCHAIN_ROLLBACK");
-        assert!(!serde_json::to_string(&error).unwrap().contains("dummy-"));
     }
     #[test]
     fn legacy_and_service_marker_backups_restore_without_schema_migration() {

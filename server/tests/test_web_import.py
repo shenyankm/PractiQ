@@ -75,6 +75,14 @@ async def test_http_bank_export_requires_current_completed_checkpoint_and_preser
             questions = json.loads(archive.read("questions.json"))
         assert set(manifest) == {"format", "version", "bank"}
         assert questions == {key: detail[key] for key in ("status", "result", "processing")}
+        bank_endpoint = endpoint.removesuffix('/export') + '/bank'
+        assert (await client.get(bank_endpoint)).status_code == 422
+        direct = await client.get(bank_endpoint, params={"checkpoint_id": detail["checkpointId"]})
+        assert direct.status_code == 200, direct.text
+        assert direct.headers['content-type'] == 'application/json'
+        assert 'content-disposition' not in direct.headers
+        assert {key: direct.json()[key] for key in ('status', 'result', 'processing')} == questions
+        assert (await client.get(bank_endpoint, params={"checkpoint_id": "old"})).status_code == 409
         assert len(model.calls) == 1
         missing = await client.get(f"/api/document-tasks/{uuid4()}/export")
         assert missing.status_code == 404

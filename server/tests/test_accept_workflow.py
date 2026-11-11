@@ -61,7 +61,7 @@ def test_workflow_quality_rejects_changed_or_incomplete_output(change):
 
 def native_rows(hashes, repetitions):
     return [{"name":name,"repetition":repetition,"firstRun":repetition==0,
-             "zipSha256":digest,"questions":3,"correct":3,"earnedCents":300,
+             "inputSha256":digest,"questions":3,"correct":3,"earnedCents":300,
              "reopen":True,"backupRestore":True}
             for name,digest in hashes.items() for repetition in range(repetitions)]
 
@@ -100,7 +100,7 @@ def test_native_evidence_rejects_incomplete_or_mismatched_results(tmp_path, chan
         rows[-1] = deepcopy(rows[0])
     else:
         field, value = {"case":("name","unknown"), "repetition":("repetition",8),
-            "boolean_repetition":("repetition",False), "zip":("zipSha256","b"*64),
+            "boolean_repetition":("repetition",False), "zip":("inputSha256","b"*64),
             "questions":("questions",2), "correct":("correct",2), "score":("earnedCents",200),
             "unrestored":("backupRestore",False), "unreopened":("reopen",False),
             "first_run":("firstRun",False)}[change]
