@@ -62,7 +62,7 @@ Keep `origin` as your fork's push target and use `upstream` to fetch project upd
 
 ### Set up the affected components
 
-Install only what your change needs. App development requires Node.js 22.12+. Service work, shared-contract generation, and package preparation use an existing Python 3.14+ interpreter and uv. Select it with `AI_PYTHON=/path/to/python3.14`; do not create a project `.venv`.
+Install only what your change needs. App development requires Node.js 22.18+ within the 22.x line, or 24.11+ (Babel 8's supported versions). Service work, shared-contract generation, and package preparation use an existing Python 3.14+ interpreter and uv. Select it with `AI_PYTHON=/path/to/python3.14`; do not create a project `.venv`.
 
 Run the relevant commands from the repository root:
 

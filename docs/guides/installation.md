@@ -9,7 +9,7 @@ PractiQ is in development; these steps build local packages and a development se
 | Item | Requirement |
 | --- | --- |
 | Practice app | macOS 14+ on Apple Silicon |
-| Node.js | 22.12 or newer |
+| Node.js | 22.18+ within 22.x, or 24.11+ |
 | Rust | Installed through [rustup](https://rustup.rs/); the repository pins its toolchain |
 | Python | An existing 3.14+ interpreter for packaging checks; do not create a project `.venv` |
 | uv | Required for locked dependency installation |
