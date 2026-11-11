@@ -93,6 +93,8 @@ jobs:
           version: '0.12.13'
           enable-cache: true
           cache-dependency-glob: server/uv.lock
+      - name: Use Ubuntu archive mirror
+        run: printf '%s\n' 'https://mirrors.edge.kernel.org/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
       - name: Install PDF fallback fonts
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
       - name: Install locked dependencies
