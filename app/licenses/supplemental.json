@@ -461,5 +461,17 @@
       "file": "texts/117829c3ca21efb132d81a44b55363d395ab8eea18526873bc828da4c0e5f038.txt",
       "verification": "The published crate declares the upstream workspace MIT license and its .cargo_vcs_info.json matches this commit. The root terms match the LICENSE bundled by jsonschema 0.58.6 from the same commit."
     }
+  ],
+  "cargo:selectors@0.41.0": [
+    {
+      "source": "https://www.mozilla.org/media/MPL/2.0/index.txt",
+      "sha256": "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04",
+      "file": "texts/3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04.txt",
+      "verification": "Complete canonical MPL 2.0 terms retrieved unchanged from Mozilla. The exact published manifest declares MPL-2.0; lib.rs matches the same VCS commit and retains its notice linking to Mozilla MPL 2.0.",
+      "evidence": {
+        "file": "selectors-0.41.0.provenance.json",
+        "sha256": "bf86387b9c91ac85df2bd9195e8bad4f9219cb2ded71f9e90f56e3d59edea21c"
+      }
+    }
   ]
 }

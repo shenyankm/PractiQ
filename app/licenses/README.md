@@ -66,3 +66,11 @@ from shadcn 4.21.0: `data-open`, `data-closed`, `data-checked` and `data-disable
 The source is [release commit 7c9eaba](https://github.com/shadcn-ui/ui/tree/7c9eaba1c0a6404c990c144a654792e3313c650d/packages/shadcn).
 The same file includes the complete upstream MIT license and copyright notice
 in a preserved CSS comment, so built application styles carry the terms.
+
+## selectors 0.41.0 attribution
+
+The published crate checksum matches Cargo.lock. Its original manifest and source
+header match upstream commit `34d25f741765a0bdb894f8271852e633299352d8` byte for byte
+and declare MPL-2.0. The version-specific provenance record binds that evidence
+to the complete canonical Mozilla MPL 2.0 text already retained in `texts/`; no
+generic license label replaces the upstream terms.
