@@ -322,9 +322,12 @@ impl Snapshot {
         bytes: Option<(Vec<u8>, String)>,
     ) -> Result<reqwest::blocking::Response> {
         validate_path(path, &method)?;
+        let url = url::Url::parse(&origin(&self.origin)?)
+            .and_then(|base| base.join(path))
+            .map_err(|_| error("CLOUD_PATH_INVALID"))?;
         let mut request = self
             .client
-            .request(method, format!("{}{path}", self.origin))
+            .request(method, url)
             .timeout(request_timeout(path));
         if !self.secret.cookie.is_empty() {
             request = request
@@ -864,6 +867,32 @@ mod tests {
                 )
                 .is_err());
             assert_eq!(entry.read().unwrap().as_deref(), Some("retained-original"));
+        }
+    }
+    #[test]
+    fn native_requests_revalidate_origin_before_sending_credentials() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = State::new(dir.path().into());
+        state.configure("https://example.test".into()).unwrap();
+        for (origin, code) in [
+            ("http://example.test", "LOCAL_URL_HTTPS_REQUIRED"),
+            ("http://127.0.0.1:9/private", "CLOUD_ORIGIN_INVALID"),
+            (
+                "http://127.0.0.1:9?token=forbidden",
+                "LOCAL_URL_CREDENTIALS_FORBIDDEN",
+            ),
+            (
+                "http://user:password@127.0.0.1:9",
+                "LOCAL_URL_CREDENTIALS_FORBIDDEN",
+            ),
+        ] {
+            let mut account = snapshot(&state);
+            account.origin = origin.into();
+            account.client = Client::builder().https_only(true).build().unwrap();
+            let error = account
+                .send(Method::GET, "/api/me/usage", None, None)
+                .unwrap_err();
+            assert_eq!(error.code, code, "{origin}");
         }
     }
     #[test]
