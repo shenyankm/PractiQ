@@ -95,6 +95,8 @@ jobs:
           VITEST_MAX_WORKERS: '2'
         working-directory: app
         run: npm run check:ui
+      - name: Use canonical Ubuntu package mirror
+        run: sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' /etc/apt/apt-mirrors.txt
       - run: npx playwright install --with-deps chromium --only-shell
         working-directory: app
       - run: npm run test:browser
