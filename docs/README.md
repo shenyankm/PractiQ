@@ -1,6 +1,6 @@
 # PractiQ documentation
 
-PractiQ has an independent personal Web and AI backend, plus an offline practice app for macOS. Start with the current guides below; dated reports describe only their recorded source and evidence, including retired Windows/Android targets.
+PractiQ has a macOS practice app with an embedded import workspace and an independent Python backend for macOS. Start with the current guides below; dated reports describe only their recorded source and evidence, including retired Windows/Android targets.
 
 ## Directory map
 
@@ -47,7 +47,7 @@ The API guide owns task payloads and controls; the user import guide explains th
 
 | Topic | Guide |
 | --- | --- |
-| Shared App/Web theme and component styles | [Visual specification](product/design.md) |
+| App theme and component styles | [Visual specification](product/design.md) |
 | Workspace interaction rules | [Workspace UX decisions](product/ux-workspace.md) |
 | Question versions and relationships | [Question model](reference/question-model.md) |
 | Question fields, types, rendering and scoring | [JSON and rendering reference](reference/question-types-data-rendering.md) |
@@ -61,7 +61,7 @@ The API guide owns task payloads and controls; the user import guide explains th
 | --- | --- |
 | Prepare issues/PRs and choose checks | [Contributing](../CONTRIBUTING.md) |
 | Review daily practice, notes, duplicate import and backup reminder acceptance | [Offline learning features](evidence/2026-11-02-learning-features/README.md) |
-| Reproduce performance work-count and bounded timing checks | [Service I/O](../server/docs/performance-io.md), [document pipeline](../server/docs/performance-pipeline.md), [native data](../app/docs/performance-native.md), [frontend](../web/docs/performance.md) |
+| Reproduce performance work-count and bounded timing checks | [Service I/O](../server/docs/performance-io.md), [document pipeline](../server/docs/performance-pipeline.md), [native data](../app/docs/performance-native.md), [frontend](../app/docs/performance-import.md) |
 | Reproduce connected App import and native practice acceptance | [Unified workflow acceptance](history/performance/workflow-20261102.md) |
 | Report vulnerabilities and review dependencies | [Security policy](../SECURITY.md) |
 | Review dependency risks and repository safeguards | [Dependency security](maintainers/dependency-security.md) |

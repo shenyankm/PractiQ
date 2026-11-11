@@ -1,5 +1,7 @@
 # ZIP response assembly — October 29, 2026
 
+Historical measurement of the retired Web surface. The current App import client retains the bounded response assembly; its tests run in the App suite. The commands below describe the historical checkout.
+
 Baseline: `125dae03a9594bd8892818819982df578412e87c`.
 
 The Web client previously kept bounded response chunks, copied them into one
@@ -17,7 +19,7 @@ authentication, checkpoint/scope checks, ZIP MIME validation and download name.
 
 ## Measurement
 
-The [probe](../scripts/benchmark-export.mjs) runs three alternating pairs of
+The [historical probe](https://github.com/shenyankm/PractiQ/blob/b593dd582f823655637c8312741cb7af6fcd9afc/web/scripts/benchmark-export.mjs) runs three alternating pairs of
 isolated Node/Chromium processes on macOS 27.0.1 arm64, Node 22.23.2 and Chromium
 153.0.8010.12. Each process retains five samples per case after one warmup, giving
 15 samples per version/case. Fixtures, Response construction, pre-sample garbage

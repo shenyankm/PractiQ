@@ -48,6 +48,5 @@ represent an application mode. Screenshots use the same App components and theme
 `shared/browser-evidence.mjs` finishes animations and records the rendered theme,
 language and viewport without hiding application controls.
 
-Personal Web screenshots use `npm --prefix web run test:browser` with
-substituted HTTP responses. The independent Web opens directly into the personal
-import workspace without an account.
+The embedded import workspace is covered by `npm --prefix app run test:browser`
+with substituted native IPC and HTTP responses. No separate Web frontend is shipped.

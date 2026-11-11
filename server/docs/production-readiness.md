@@ -170,7 +170,7 @@ Use the HTTP load driver below for deployed-process evidence.
 1. Build/check the candidate and deploy it through the existing single-owner
    procedure. Retain its immutable image identity and exact checkout. Verify HTTPS
    externally, sandbox behavior, representative cgroup peaks and overload behavior.
-2. Upload a representative annotated source through the explicit Web workflow.
+2. Upload a representative annotated source through the explicit App import workflow.
    Save its `{"document": <verified DocumentReference>}` as a private load input.
    The following load command creates paid tasks: choose its count/concurrency
    deliberately and keep the existing budget/queue bounds.

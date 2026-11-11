@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import "./import-test-setup";
 import { storageKey } from "../../shared/cloud/serviceStorage";
 import { expect, it } from "vitest";
 import { correctionDrafts, putCorrectionDraft, removeCorrectionDraft, type CorrectionDraft } from "../../shared/cloud/correctionDrafts";

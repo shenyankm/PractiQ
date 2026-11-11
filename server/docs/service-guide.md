@@ -73,7 +73,7 @@ in the trusted service environment; [Tencent parser setup](tencent-document-pars
 describes the all-input URL transport, private permissions, limits and cleanup.
 Local directories remain authoritative and are used without COS in the default mode.
 
-Build the independent personal Web with `make web-install web-build`; the AI service serves its static assets at `/` (`AI_WEB_DIR` may override the directory). For development, `make web-dev` starts the loopback frontend proxy. No registration, administrator setup or application access token is required. The macOS App can also connect to this service under **Document import**; Python, PostgreSQL and RabbitMQ remain in the independent service deployment.
+Open **Document import** in the macOS App; its embedded workspace defaults to `http://127.0.0.1:8090`. Change that backend address under the import **Settings** tab. No registration, administrator setup or application access token is required. There is no independent Web frontend or static hosting at `/`. Python, PostgreSQL and RabbitMQ remain in the independent backend deployment.
 
 ## Import workflow
 

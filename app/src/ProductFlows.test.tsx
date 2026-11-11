@@ -183,7 +183,7 @@ it("offers cloud parsing from the empty bank list without replacing offline impo
     return original(request);
   });
   render(<App />);
-  await userEvent.click(await screen.findByRole("button", { name: "从云端解析文档" }));
+  await userEvent.click(await screen.findByRole("button", { name: "导入文档" }));
   expect(await screen.findByRole("alert")).toBeTruthy();
   expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
 });

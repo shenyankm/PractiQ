@@ -227,7 +227,7 @@ async def run(output: Path, live: bool, native_binary: Path, case: str | None = 
                     await asyncio.sleep(.1)
                 else:
                     raise TimeoutError("Service readiness deadline")
-            # App assets need their own preview; the backend normally serves the independent Web.
+            # Only the test harness serves App assets; the Python backend exposes APIs.
             with socket.socket() as ui_socket:
                 ui_socket.bind(("127.0.0.1", 0))
                 preview_port = ui_socket.getsockname()[1]

@@ -12,6 +12,17 @@ test('personal App imports through explicit native actions while keeping offline
     let generation=1, origin='http://127.0.0.1:8090';
     w.__TAURI_INTERNALS__={invoke:async(command:string,args:{request:Record<string,unknown>;context?:{origin:string;generation:number}})=>{
       const r=args.request; await w.__recordCloudCall({command,request:r});
+      if(command==='request') {
+        switch(r.type) {
+          case 'language': return 'zh-CN';
+          case 'info': return {version:'Native IPC substitute',dataDirectory:'isolated'};
+          case 'banks': return [];
+          case 'banks_page': return {items:[],total:0,offset:0};
+          case 'unfinished_session': return null;
+          case 'backup_status': return {lastBackupAt:null,newAttempts:0,changedNotes:0,due:false};
+          default: throw Error(`Unexpected local action ${r.type}`);
+        }
+      }
       if(command!=='cloud_request') throw Error('Unexpected command');
       let value: unknown;
       if(r.type==='status') value={origin,generation};
@@ -43,7 +54,15 @@ test('personal App imports through explicit native actions while keeping offline
   await sidebar.getByRole('button',{name:'文档导入',exact:true}).click();
   await expect(page.getByText(/^服务支持：/)).toBeVisible();
   await expect(page.getByLabel('登录邮箱')).toHaveCount(0);
-  await page.getByRole('button',{name:'选择云端导入文件',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'连接云端服务',exact:true})).toHaveCount(0);
+  await expect(page.getByText('读取语言设置失败',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('题库概览读取失败',{exact:true})).toHaveCount(0);
+  await page.screenshot({path:testInfo.outputPath('app-import-workspace.png'),fullPage:true});
+  await page.getByRole('link',{name:'设置',exact:true}).click();
+  await expect(page.getByLabel('导入服务地址',{exact:true})).toHaveValue('http://127.0.0.1:8090');
+  await page.screenshot({path:testInfo.outputPath('app-import-settings.png'),fullPage:true});
+  await page.getByRole('link',{name:'开始导入',exact:true}).click();
+  await page.getByRole('button',{name:'选择文档',exact:true}).click();
   await expect(page.getByText('cloud-only.txt',{exact:true})).toBeVisible();
   expect(calls.some(c=>c.request.type==='upload'||c.request.method==='POST')).toBe(false);
   await page.getByRole('button',{name:'开始导入',exact:true}).click();

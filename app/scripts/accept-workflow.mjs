@@ -76,7 +76,7 @@ try {
     try {
       const started=performance.now(); current=await open();let {page}=current;
       await page.locator('#app-sidebar').getByRole('button',{name:'文档导入',exact:true}).click();
-      await page.getByRole('button',{name:'选择云端导入文件',exact:true}).click();
+      await page.getByRole('button',{name:'选择文档',exact:true}).click();
       await expect(page.getByRole('button',{name:'开始导入',exact:true})).toBeEnabled();
       expect(uploads).toBe(0);expect(creates).toBe(0);
       await page.getByRole('button',{name:'开始导入',exact:true}).click();

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import "./import-test-setup";
 import { afterEach, expect, it } from "vitest";
 import { Client } from "../../shared/cloud/api";
 import { storageKey } from "../../shared/cloud/serviceStorage";

@@ -81,7 +81,7 @@ Shared-contract checks need the locked service dependencies, even when the AI se
 | --- | --- |
 | `app/` | Offline Tauri/React practice app with Rust and SQLite, targeting macOS. Imports bank ZIPs and supports explicit model/service connection checks; only explicit AI grading or retry starts model work. |
 | `server/` | Python/LangGraph document processing and grading, with PostgreSQL state, RabbitMQ delivery, and local file storage. |
-| `shared/` | Frontend code used by App and Web; validate both consumers when affected. |
+| `shared/` | Import workspace, rendering and theme code used inside the App; validate affected native and browser-harness flows. |
 
 App packages contain no Python or LibreOffice runtime. Passive reads, polling, export, and backup must not start model work. Document-import provider credentials stay in the service environment; direct App grading uses the user's API key held only in the native credential store; the service remains a personal self-hosted deployment without user management or built-in billing. Follow the [service recovery guide](server/docs/rabbitmq.md) when changing durable state or delivery.
 
@@ -185,6 +185,6 @@ Follow [SECURITY.md](SECURITY.md) for private reporting and supported developmen
 
 New contributors can start with the [bounded fixture tasks and handover checklist](docs/maintainers/contributor-handover.md). Roles remain opt-in; task listings grant no repository or secret access. For consented feedback and sanitized results, follow the [trial protocol](docs/acceptance/desktop-user-trial.md); recruitment and participation require separate authorization.
 
-### Personal Web checks
+### Embedded import checks
 
-The independent `web/` frontend is the personal import workspace. Use `make web-install web-dev` for local development and `make web-check web-build` for types, lint, component coverage, browser interactions and static assets. Shared import UI changes require App and Web checks. `make image-check` builds the personal Web before the service image. Accounts, administration, plans, payments and service-token fields are retired; do not restore them.
+The import workspace lives in `shared/cloud/` and runs inside the App. Its component, coverage and browser checks are part of the App checks above. The Python backend ships no frontend assets. Accounts, administration, plans, payments and service-token fields are retired; do not restore them.

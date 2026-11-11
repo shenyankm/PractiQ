@@ -4,7 +4,7 @@ PractiQ is an open-source personal document importer and offline practice app. T
 
 ## Access
 
-The independent Web opens directly into the personal import workspace without an application access token or login page. Build it with `make web-install web-build`, then start the AI service and open its root URL. The macOS App also offers **Document import** for native selection/upload and review. Legacy `AI_SERVICE_TOKEN` values are ignored; existing files and credentials are not deleted. `AI_WEB_DIR` selects the built personal Web assets when needed.
+The macOS App opens directly into **Document import** for native selection/upload, task review, corrections and ZIP export. It defaults to the independent Python backend at `http://127.0.0.1:8090`; change the address under import **Settings**. There is no independent Web frontend or backend static hosting. Legacy `AI_SERVICE_TOKEN` and `AI_WEB_DIR` values are ignored; existing files and credentials are not deleted.
 
 Keep the service on loopback. If you expose it through a private HTTPS proxy,
 configure access control at that proxy. Cross-origin browser API requests are

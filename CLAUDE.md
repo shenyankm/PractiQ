@@ -72,4 +72,4 @@ Use `docs/README.md` as the index. Most useful entry points: `docs/guides/instal
 
 Conventional Commits `<type>(<scope>): <summary>` (types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`; imperative, ≤72 chars, no period). Issues must use the form in `.github/ISSUE_TEMPLATE/`; pull requests must use `.github/PULL_REQUEST_TEMPLATE.md` and complete their sections. See `CONTRIBUTING.md` for validation-to-change tables and label rules.
 
-The independent personal Web remains in `web/`; use `make web-install`, `make web-dev`, `make web-check` and `make web-build`. Shared import UI must remain usable from both Web and the App native bridge. No Python runtime is embedded in the macOS App.
+The document-import workspace is embedded in the macOS App using `shared/cloud/` and the native bridge. There is no independent Web frontend or static hosting. Python remains an independent backend; the App defaults to its loopback address and exposes address editing under import Settings. No Python runtime is embedded in the macOS App.

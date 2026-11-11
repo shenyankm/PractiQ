@@ -86,7 +86,9 @@ impl State {
                 .filter(|value| value.version == 1)
                 .and_then(|value| origin(&value.origin).ok())
                 .ok_or(()),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                Ok("http://127.0.0.1:8090".into())
+            }
             _ => Err(()),
         };
         Self {
@@ -370,7 +372,11 @@ mod tests {
         let bytes = br#"{"version":1,"origin":"https://old.test"}"#;
         std::fs::write(&legacy, bytes).unwrap();
         let state = State::new(dir.path().into());
-        assert!(state.lock().unwrap().origin.is_none());
+        assert_eq!(
+            state.context().unwrap().unwrap().origin,
+            "http://127.0.0.1:8090"
+        );
+        assert!(!dir.path().join(CONFIG).exists());
         state.configure("http://127.0.0.1:8090".into()).unwrap();
         let context = state.context().unwrap().unwrap();
         let snapshot = state.snapshot(&context).unwrap();

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import "./import-test-setup";
 import { expect, it } from "vitest";
 import { parsePages, validPages, validReparseSelection } from "../../shared/cloud/importSelection";
 

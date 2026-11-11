@@ -15,7 +15,7 @@ body:
       label: Affected area
       options:
         - Practice app - macOS
-        - Import Web frontend
+        - App document import
         - AI service or document processing
         - Shared UI or data contracts
         - Build, CI, or packaging

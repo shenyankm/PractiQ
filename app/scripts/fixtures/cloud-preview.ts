@@ -6,7 +6,7 @@ let origin: string | null = "https://preview.practiq.invalid";
 const capabilities: ImportCapabilities = { sourceTypes: ["pdf", "text", "markdown", "image", "doc", "docx", "ppt", "pptx", "xls", "xlsx"], sourceMaxBytes: 25 * 1024 * 1024, officeAvailable: true, officeModes: [], modelConfigured: false, parserConfigured: false, parserInputMaxBytes: 8 * 1024 * 1024, modelBudget: { limit: 400, unitCalls: 4, contextUnitCalls: 8 } };
 
 export function previewCloud(request: Record<string, unknown>, context: { origin: string; generation: number } | null, scenario: PreviewScenario) {
-  if (!initialized) { initialized = true; if (scenario === "unconfigured") origin = null; }
+  if (!initialized) { initialized = true; if (scenario === "unconfigured") origin = "http://127.0.0.1:8090"; }
   let value: unknown;
   if (request.type === "status") value = { origin, generation };
   else if (request.type === "configure") {

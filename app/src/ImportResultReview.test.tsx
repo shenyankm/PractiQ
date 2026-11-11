@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import "./import-test-setup";
 import { createRequire } from "node:module";
 import { StrictMode } from "react";
 import { act, render, screen, within } from "@testing-library/react";

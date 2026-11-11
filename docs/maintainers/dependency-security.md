@@ -38,10 +38,10 @@ build-rejection boundaries continue to hold.
 
 ## KaTeX renderer dependency consistency
 
-The practice app and import Web frontend must use a consistent fixed KaTeX
+The practice and embedded import UI must use a consistent fixed KaTeX
 version for
 [GHSA-238p-pmpm-9mq7](https://github.com/KaTeX/KaTeX/security/advisories/GHSA-238p-pmpm-9mq7).
-Both npm overrides use `$katex` to keep the direct CSS dependency,
+The App npm override uses `$katex` to keep the direct CSS dependency,
 `rehype-katex` and `micromark-extension-math` on the manifest version. Read the
 current versions from the manifests and lockfiles instead of maintaining a
 second version list here. Dependency updates must retain

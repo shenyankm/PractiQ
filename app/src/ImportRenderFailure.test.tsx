@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import "./import-test-setup";
 import { render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { ErrorBoundary } from "../../shared/error-boundary";

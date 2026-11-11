@@ -38,7 +38,7 @@ make app-check app-build
 
 Focused checks cover bank creation through the existing command, local filtering, feasible quick counts, persistent connection feedback, untitled ZIP append with a valid bank-title fallback, unchanged checkpoint data, and passive file removal. Browser checks include 375px, 768px and 1440px workflow captures, answer-card focus, light/dark token contrast, 200% root text sizing, and the existing responsive, reduced-motion, bilingual and dirty-editor suites.
 
-Screenshots and browser diagnostics are generated under `app/test-results/browser/` and `web/test-results/browser/`. These are browser/model-substitute checks; they do not establish native package acceptance, physical-device behavior, extraction accuracy or user preference. Actual system Dynamic Type remains a separate device check.
+Screenshots and browser diagnostics are generated under `app/test-results/browser/`. These are browser/model-substitute checks; they do not establish native package acceptance, physical-device behavior, extraction accuracy or user preference. Actual system Dynamic Type remains a separate device check.
 
 ## Source guidance
 

@@ -44,9 +44,9 @@ Export a bank from its card menu to share its questions without your answers or 
 
 ## Import documents with AI
 
-Import documents in the independent personal Web or macOS App using your self-hosted AI backend:
+Import documents inside the macOS App using the independent Python backend:
 
-1. [Start the service](#self-host-the-import-service) and open its root URL for the personal Web, or connect the service URL under **Document import** in the App. No login is required.
+1. [Start the service](#self-host-the-import-service) and open **Document import** in the App. It defaults to `http://127.0.0.1:8090`; change the address under import **Settings** if needed. No login is required.
 2. Choose up to 10 files and select **Start import**. Choosing files does not upload or parse them.
 3. Review the questions, images and anything flagged for review, then download a question-bank ZIP.
 4. In the desktop app, open **Settings → Import and restore → Import bank ZIP**.
@@ -83,7 +83,7 @@ Desktop data lives in `v4/` with SQLite schema 11. Full backups use container ve
 
 ## Self-host the import service
 
-Document import needs the self-hosted AI service. It requires Python 3.14+, uv, Node.js 22.12+, PostgreSQL, RabbitMQ, Tencent parsing credentials and a model endpoint supporting the Responses API with text, images and structured output. Keep the service on loopback. The [installation guide](docs/guides/installation.md), [personal-use guide](server/docs/personal-use.md) and [Tencent setup guide](server/docs/tencent-document-parser.md) cover setup and upgrades; configure your own providers, with charges paid directly and no PractiQ billing.
+Document import needs the self-hosted AI service. It requires Python 3.14+, uv, PostgreSQL, RabbitMQ, Tencent parsing credentials and a model endpoint supporting the Responses API with text, images and structured output. Keep the service on loopback. The [installation guide](docs/guides/installation.md), [personal-use guide](server/docs/personal-use.md) and [Tencent setup guide](server/docs/tencent-document-parser.md) cover setup and upgrades; configure your own providers, with charges paid directly and no PractiQ billing.
 
 ## Documentation and development
 

@@ -184,20 +184,11 @@ async def test_original_image_source_is_checked_downloadable_but_other_source_ke
         assert (await client.post(endpoint, json={**reference, "objectKey": source.objectKey.replace("source.png", "source.txt"), "mediaType": "text/plain"})).status_code == 404
 
 
-async def test_optional_personal_web_assets_keep_api_and_removed_routes_separate(tmp_path):
-    from fastapi import FastAPI
-    application = FastAPI()
-    @application.get("/ok")
-    def ok():
-        return {"ok": True}
-    webapp.mount_web(application, tmp_path / "missing")
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=application), base_url="http://test") as client:
-        assert (await client.get("/")).status_code == 404
-    (tmp_path / "index.html").write_text("<html>Personal import workspace</html>")
-    webapp.mount_web(application, tmp_path)
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=application), base_url="http://test") as client:
-        assert "Personal import workspace" in (await client.get("/")).text
-        assert (await client.get("/ok")).json() == {"ok": True}
-        for path in ("/admin", "/login", "/register", "/payments", "/api/auth/session", "/api/admin/users"):
+async def test_service_has_no_frontend_even_when_legacy_web_assets_exist(monkeypatch, tmp_path):
+    (tmp_path / "index.html").write_text("<html>Retired frontend</html>")
+    monkeypatch.setenv("AI_WEB_DIR", str(tmp_path))
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=webapp.app), base_url="http://test") as client:
+        for path in ("/", "/index.html", "/admin", "/login", "/register", "/payments", "/api/auth/session", "/api/admin/users"):
             assert (await client.get(path)).status_code == 404
         assert (await client.post("/api/auth/login", json={})).status_code == 404
+        assert (await client.get("/api/import-capabilities")).status_code == 200

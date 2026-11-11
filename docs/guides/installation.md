@@ -61,7 +61,7 @@ If a damaged database prevents the app from starting, follow [desktop data recov
 
 ## Install the AI import service (optional)
 
-The service hosts the independent personal Web, handles document import for the App and can grade short answers for the desktop app. Its commands use GNU Make; on a host without the native build tools, the [service guide](../../server/docs/service-guide.md) covers building the Docker image instead. It needs:
+The independent Python service handles document import for the App and can grade short answers for the desktop app. Its commands use GNU Make; on a host without the native build tools, the [service guide](../../server/docs/service-guide.md) covers building the Docker image instead. It needs:
 
 - Python 3.14+ and uv
 - An empty, dedicated PostgreSQL database
@@ -84,13 +84,11 @@ Set these values in `.env`:
 | `RABBITMQ_URI` | RabbitMQ address using a dedicated vhost |
 | `AI_STORAGE_DIR` | Absolute, persistent location for uploads and results |
 
-Then build the Web, initialise the service tables and start the service:
+Then initialise the service tables and start the service:
 
 ```sh
 make install-locked AI_PYTHON=/path/to/python3.14
 make init-db AI_PYTHON=/path/to/python3.14
-make web-install
-make web-build
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
@@ -99,7 +97,7 @@ The service listens on `127.0.0.1:8090`, keeps tasks in PostgreSQL, delivers wor
 ### Confirm the service works
 
 1. Open `http://127.0.0.1:8090/ok` and `http://127.0.0.1:8090/ready`; both should return a success response (for example with `curl`).
-2. Open `http://127.0.0.1:8090/` to use the import workspace without a login.
+2. Open **Document import** in the App. It defaults to `http://127.0.0.1:8090`; change the backend under the import **Settings** tab if needed. The backend root has no frontend.
 3. Import one small PDF or TXT file and download the resulting question-bank ZIP.
 
 The last step calls Tencent and your model provider, and may cost money. Skip it if credentials are not configured.

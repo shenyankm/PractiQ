@@ -1,6 +1,6 @@
 import { cloudLocale, t, useCloudLocale } from "./i18n";
 import { nativeBridge } from "./transport";
-import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { parsePages } from "./importSelection";
 import { Select, SelectOption } from "./components/ui/select";
 import { Upload, Play, RefreshCw, Download, Trash2, Server, ChevronLeft, ChevronRight, FileText, LoaderCircle, History, Settings, Pause, Square } from "lucide-react";
@@ -60,7 +60,7 @@ function pageFromHash(): Page | undefined {
 }
 const dateLabel = (value: string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? t("时间未知") : date.toLocaleString(cloudLocale(), { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }); };
 
-export default function App({ requestedTask, hideSkipLink = false, focusMain = false }: { requestedTask?: {id:string}; hideSkipLink?: boolean; focusMain?: boolean } = {}) {
+export default function App({ requestedTask, hideSkipLink = false, focusMain = false, serviceSettings }: { requestedTask?: {id:string}; hideSkipLink?: boolean; focusMain?: boolean; serviceSettings?: ReactNode } = {}) {
   useCloudLocale();
   const Main = nativeBridge() ? "section" : "main";
   const FilePicker = nativeBridge() ? "div" : "label";
@@ -337,7 +337,7 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
                 <div className="import-option"><label htmlFor="import-page-range">{t("页面范围（留空为全部）")}</label><Input id="import-page-range" aria-describedby="page-range-help" value={pageRange} maxLength={8000} placeholder={t("例如 1,3-5")} disabled={busy} onChange={event => setPageRange(event.target.value)} /><p id="page-range-help" className="import-cost-note">{t("页码从 1 开始；TXT/Markdown 不支持。范围仅限制题目整理，腾讯仍可能按整份文件计费。")}</p></div>
               </div>
               {documentRole === "answers" && <p>{t("答案卷只提取已有内容，不生成答案。导入完成后，在题目任务中选择“关联答案卷”核对并采用。")}</p>}
-              <FilePicker className="file-picker"><FileText aria-hidden="true" />{nativeBridge() ? <Button type="button" variant="outline" className="file-picker-action" aria-label={t("选择云端导入文件")} aria-describedby="file-limit file-help" disabled={busy} onClick={() => { void nativeBridge()!.pickSources().then(chooseFiles).catch(error => setFileError(error instanceof Error ? error.message : t("文件选择失败。"))); }}>{t("选择文件")}</Button> : <><span className="file-picker-action">{t("选择文件")}</span><Input className="sr-only" ref={fileInput} type="file" multiple aria-label={t("选择文档")} aria-describedby="file-limit file-help" aria-invalid={!!fileError} accept={capabilities.sourceTypes.map(type => sourceExtensions[type]).join(",")} disabled={busy} onChange={event => chooseFiles(Array.from(event.target.files || []))} /></>}</FilePicker>
+              <FilePicker className="file-picker"><FileText aria-hidden="true" />{nativeBridge() ? <Button type="button" variant="outline" className="file-picker-action" aria-label={t("选择文档")} aria-describedby="file-limit file-help" disabled={busy} onClick={() => { void nativeBridge()!.pickSources().then(chooseFiles).catch(error => setFileError(error instanceof Error ? error.message : t("文件选择失败。"))); }}>{t("选择文件")}</Button> : <><span className="file-picker-action">{t("选择文件")}</span><Input className="sr-only" ref={fileInput} type="file" multiple aria-label={t("选择文档")} aria-describedby="file-limit file-help" aria-invalid={!!fileError} accept={capabilities.sourceTypes.map(type => sourceExtensions[type]).join(",")} disabled={busy} onChange={event => chooseFiles(Array.from(event.target.files || []))} /></>}</FilePicker>
               <div className="upload-details"><p className="supported-formats">{t("服务支持：")}{[...new Set(capabilities.sourceTypes.map(type => t(formatGroups[type])))].join("、")}</p>
               <p id="file-help">{t("单文件 ≤ ")}{sizeLabel(sourceLimit(capabilities))}{capabilities.officeAvailable && sourceLimit(capabilities, "docx") < sourceLimit(capabilities) && ` · Word / Excel ≤ ${sizeLabel(sourceLimit(capabilities, "docx"))}`}</p></div>
               {capabilities.parserConfigured === false && <p className="notice">{t("腾讯文档识别尚未配置，当前无法开始新的文档导入。")}</p>}
@@ -407,6 +407,7 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
       <div className="sidebar-connection"><Server aria-hidden="true" /><strong>{client ? t("服务已连接") : t("尚未连接服务")}</strong></div>
     </aside>
     <div className="web-body"><Main id="main-content" tabIndex={-1} className="web-main" data-page={page} aria-label={pages.find(item => item.id === page)!.label}>
+      {serviceSettings && <div hidden={page !== "settings"} className="settings-page mb-6">{serviceSettings}</div>}
       {!client ? <section aria-label={t("服务状态")} className="notice">{capError ? <><p role="alert">{capError}</p><Button variant="outline" onClick={() => setConnectionRevision(value => value + 1)}>{t("重试连接")}</Button></> : <p role="status">{t("正在读取服务状态…")}</p>}</section> : <>
         {notice && <p className="notice operation-notice" role="status">{notice}</p>}
         {operationError && <div ref={operationNotice} className="error-banner" role="alert"><span className="min-w-0 flex-1">{operationError}</span></div>}

@@ -53,8 +53,8 @@ def ci_scope():
     (["server/conftest.py"], True, True),
     (["server/tests/conftest.py"], True, True),
     (["server/tests/test_ci.py"], True, True),
-    (["web/src/App.tsx"], True, False),
-    (["web/package-lock.json"], True, False),
+    (["web/src/App.tsx"], False, False),
+    (["web/package-lock.json"], False, False),
     (["shared/theme.css"], True, True),
     (["app/fixtures/english.json"], True, True),
     (["app/scripts/check-rich-recognition.py"], True, True),
@@ -65,7 +65,7 @@ def ci_scope():
     (["app/src/App.tsx", "README.md"], False, True),
     (["app/src/App.tsx", ".github/PULL_REQUEST_TEMPLATE.md"], False, True),
     (["app/src/index.css", "app/src/locales/en.ts"], False, True),
-    (["app/src/App.tsx", "web/src/App.tsx"], True, True),
+    (["app/src/App.tsx", "web/src/App.tsx"], False, True),
     (["server/src/practiq_ai/webapp.py", "app/src/App.tsx"], True, True),
     (["Makefile"], True, True),
     (["rust-toolchain.toml"], False, True),
@@ -192,7 +192,7 @@ def test_app_workflow_outputs_satisfy_the_real_gate_contract(scope, required):
 
 @pytest.mark.parametrize("paths,required_scopes", [
     (["app/src/App.tsx"], {"desktop"}),
-    (["web/src/App.tsx"], {"service"}),
+    (["web/src/App.tsx"], set()),
     (["server/src/practiq_ai/webapp.py"], {"service"}),
     (["server/scripts/check_package.py"], {"service"}),
     (["app/src/App.tsx", ".github/ISSUE_TEMPLATE/bug.yml"], {"desktop"}),

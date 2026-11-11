@@ -54,48 +54,62 @@ it("localizes the import workspace tabs", async () => {
   expect(screen.getByRole("link", { name: "Settings" })).toBeTruthy();
 });
 
-it("asks for a service address only when no cloud connection exists", async () => {
-  const { calls } = fixture({ origin: null }); render(<CloudPage />);
-  const address = await screen.findByLabelText("云端服务地址");
-  expect(screen.queryByText("云端连接设置")).toBeNull();
-  expect(calls).toEqual([{ type: "status" }]);
-  expect(screen.queryByLabelText("登录邮箱")).toBeNull();
-  await userEvent.type(address, "https://cloud.example.test");
-  await userEvent.click(screen.getByRole("button", { name: "连接云端服务" }));
-  await waitFor(() => expect(calls.some(call => call.type === "configure")).toBe(true));
+it("opens the workspace directly and keeps the backend address in import settings", async () => {
+  const { calls } = fixture(); render(<CloudPage />);
   expect(await screen.findByRole("link", { name: "开始导入" })).toBeTruthy();
+  expect(screen.queryByRole("heading", { name: "连接云端服务" })).toBeNull();
+  expect(calls.every(call => call.type === "status" || call.method === "GET")).toBe(true);
+  await userEvent.click(screen.getByRole("link", { name: "设置" }));
+  expect((screen.getByLabelText("导入服务地址") as HTMLInputElement).value).toBe("http://127.0.0.1:8090");
 });
 
-it("lets a user correct an unreachable saved service address", async () => {
+it("lets a user correct an unreachable saved backend in settings", async () => {
   const { calls } = fixture({ unavailableOrigin: "http://127.0.0.1:8090" }); render(<CloudPage />);
   const events = userEvent.setup();
-  await screen.findByRole("button", { name: "更改云端服务地址" });
-  expect(screen.queryByLabelText("登录邮箱")).toBeNull();
-  await events.click(screen.getByRole("button", { name: "更改云端服务地址" }));
-  const address = screen.getByLabelText("云端服务地址") as HTMLInputElement;
-  expect(address.value).toBe("http://127.0.0.1:8090");
+  await events.click(await screen.findByRole("link", { name: "设置" }));
+  const address = screen.getByLabelText("导入服务地址") as HTMLInputElement;
   await events.clear(address);
   await events.type(address, "https://cloud.example.test");
-  await events.click(screen.getByRole("button", { name: "连接云端服务" }));
+  await events.click(screen.getByRole("button", { name: "保存服务地址" }));
   await waitFor(() => expect(calls.some(call => call.type === "configure" && call.origin === "https://cloud.example.test")).toBe(true));
   expect(await screen.findByRole("link", { name: "开始导入" })).toBeTruthy();
-  expect(calls.some(call => call.type === "forget_session" || call.method === "POST")).toBe(false);
+  expect(calls.some(call => call.method === "POST")).toBe(false);
 });
 
-it("cancels service editing without changing the saved connection", async () => {
-  const { calls } = fixture(); render(<CloudPage />);
+it("cancels an address draft without unmounting the import workspace", async () => {
+  const { calls } = fixture(); const view = render(<CloudPage />);
   const events = userEvent.setup();
-  await events.click(await screen.findByRole("button", { name: "更改云端服务地址" }));
-  await events.clear(screen.getByLabelText("云端服务地址"));
-  await events.type(screen.getByLabelText("云端服务地址"), "https://other.example.test");
+  await events.click(await screen.findByRole("link", { name: "设置" }));
+  const workspace = view.container.querySelector(".web-shell");
+  await events.clear(screen.getByLabelText("导入服务地址"));
+  await events.type(screen.getByLabelText("导入服务地址"), "https://other.example.test");
   await events.click(screen.getByRole("button", { name: "取消" }));
-  expect(await screen.findByRole("link", { name: "开始导入" })).toBeTruthy();
-  expect(calls.some(call => call.type === "configure" || call.type === "forget_session")).toBe(false);
+  expect(view.container.querySelector(".web-shell")).toBe(workspace);
+  expect((screen.getByLabelText("导入服务地址") as HTMLInputElement).value).toBe("http://127.0.0.1:8090");
+  expect(calls.some(call => call.type === "configure")).toBe(false);
+});
+
+it("honors submission and correction leave guards before changing the backend", async () => {
+  const { calls } = fixture(); const view = render(<CloudPage />);
+  const events = userEvent.setup();
+  await events.click(await screen.findByRole("link", { name: "设置" }));
+  const workspace = view.container.querySelector(".web-shell");
+  const address = screen.getByLabelText("导入服务地址");
+  await events.clear(address); await events.type(address, "https://other.example.test");
+  const guard = vi.fn((event: Event) => event.preventDefault());
+  document.addEventListener("practiq-cloud-before-leave", guard);
+  try {
+    await events.click(screen.getByRole("button", { name: "保存服务地址" }));
+    expect(guard).toHaveBeenCalledOnce();
+    expect(calls.some(call => call.type === "configure")).toBe(false);
+    expect(view.container.querySelector(".web-shell")).toBe(workspace);
+    expect(address).toHaveProperty("value", "https://other.example.test");
+  } finally { document.removeEventListener("practiq-cloud-before-leave", guard); }
 });
 
 it("native file selection stays passive and only Start uploads and creates a cloud task", async () => {
   const { calls } = fixture(); render(<CloudPage />); const events = userEvent.setup();
-  await events.click(await screen.findByRole("button", { name: "选择云端导入文件" }));
+  await events.click(await screen.findByRole("button", { name: "选择文档" }));
   expect(screen.queryByRole("navigation", {name:"个人导航"})).toBeNull();
   expect(screen.queryByRole("button", {name:"退出登录"})).toBeNull();
   expect(calls.some(call => String(call.path).startsWith("/api/auth/"))).toBe(false);

@@ -1,4 +1,9 @@
 export const en = {
+  "导入服务": "Import service",
+  "导入服务地址": "Import service URL",
+  "保存服务地址": "Save service URL",
+  "默认连接本机 Python 后端。文档解析在后端运行，离线练习不受影响。": "Connects to the local Python backend by default. Document parsing runs in the backend; offline practice remains available.",
+
   "包含题库、图片、收藏、作答和评分记录。不包含原始文档、云端任务和模型密钥。请定期保存到其他位置。": "Includes question banks, images, bookmarks, answers and scores. Excludes source documents, cloud tasks and model keys. Save regular copies elsewhere.",
   "配置已读取": "Settings loaded",
   "导入 ZIP 开始离线练习；文档解析请前往 AI 服务网页。": "Import a ZIP to practise offline. Parse documents on the AI service website.",
@@ -766,7 +771,7 @@ export const en = {
   "至少选择一个选项后可提交": "Select at least one option to submit",
   "选择判断结果后可提交": "Choose true or false to submit",
   "填写答案后可提交": "Enter an answer to submit",
-  "导入题库 ZIP 即可离线练习；PDF、Word 或图片可先在云端解析成题库。": "Import a question-bank ZIP to practise offline. To turn PDFs, Word files or images into a bank, parse them in the cloud first.",
+  "导入题库 ZIP 即可离线练习；也可在应用内导入 PDF、Word 或图片，由独立后端解析成题库。": "Import a question-bank ZIP to practise offline, or import PDFs, Word files and images in the app for parsing by the independent backend.",
   "更改云端服务地址": "Change cloud service address",
-  "从云端解析文档": "Parse a document in the cloud",
+  "导入文档": "Import documents",
 } as const;

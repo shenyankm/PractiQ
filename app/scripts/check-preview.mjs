@@ -1155,13 +1155,15 @@ for (const width of [960, 1280]) for (const colorScheme of ['light', 'dark']) {
  });
 }
 
-test('unconfigured personal import offers a connection entry and offline access', async ({page}) => {
+test('unconfigured import opens the workspace with a local backend default', async ({page}) => {
  await page.addInitScript(()=>sessionStorage.setItem('practiq-test-scenario','unconfigured'));
  await page.goto('/');
  const sidebar=page.locator('#app-sidebar');
  await sidebar.getByRole('button',{name:'文档导入',exact:true}).click();
- await expect(page.getByRole('heading',{name:'连接云端服务',exact:true})).toBeVisible();
- await expect(page.getByLabel('云端服务地址',{exact:true})).toBeVisible();
+ await expect(page.getByRole('link',{name:'开始导入',exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'连接云端服务',exact:true})).toHaveCount(0);
+ await page.getByRole('link',{name:'设置',exact:true}).click();
+ await expect(page.getByLabel('导入服务地址',{exact:true})).toHaveValue('http://127.0.0.1:8090');
  await sidebar.getByRole('button',{name:'我的题库',exact:true}).click();
  await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
 });

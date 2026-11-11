@@ -398,7 +398,7 @@ it("previews a personal import workspace without accounts or paid work", async (
 it("configures an isolated preview origin explicitly and rejects stale origin contexts",async()=>{
  mode.value="unconfigured";
  const {invoke}=await import("../scripts/fixtures/transport");
- expect(await invoke("cloud_request",{request:{type:"status"}})).toMatchObject({value:{origin:null}});
+ expect(await invoke("cloud_request",{request:{type:"status"}})).toMatchObject({value:{origin:"http://127.0.0.1:8090"}});
  const connected=await invoke<{value:{origin:string;generation:number}}>("cloud_request",{request:{type:"configure",origin:"https://demo.example.test"}});
  expect(connected.value.origin).toBe("https://demo.example.test");
  await expect(invoke("cloud_request",{request:{type:"fetch",path:"/api/import-capabilities"},context:{origin:"https://other.test",generation:1}})).rejects.toEqual({code:"CLOUD_SERVICE_CHANGED"});

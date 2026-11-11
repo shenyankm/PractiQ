@@ -93,7 +93,6 @@ lines.append('export const COMPOSITE_MODES: readonly string[] = ' + json.dumps(s
 lines.append('export const COMPOSITE_FILTERS: readonly string[] = ' + json.dumps(sorted(COMPOSITE_MODES | {k for k, v in QUESTION_KIND_MODES.items() if v in COMPOSITE_MODES})) + ';')
 generated = '\n'.join(lines) + '\n'
 write_changed(path.parents[1] / 'src' / 'contracts.generated.ts', generated, 'Client types changed: run app/scripts/export-contracts.py')
-write_changed(path.parents[2] / 'web/src/contracts.generated.ts', '// Canonical client schemas are generated from the service contract.\nexport * from \"../../app/src/contracts.generated\";\n', 'Web client types changed: run app/scripts/export-contracts.py')
 
 metadata_path = path.parent / 'src/question_metadata.rs'
 filter_modes = sorted({'', 'single', 'multiple', *get_args(AnswerMode), *QUESTION_KIND_MODES})

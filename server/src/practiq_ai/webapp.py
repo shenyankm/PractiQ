@@ -1,17 +1,14 @@
-"""Authenticated document APIs with a PostgreSQL-backed LangGraph runtime."""
+"""Personal import APIs with a PostgreSQL-backed LangGraph runtime."""
 
 import asyncio
-import os
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Annotated, Any, BinaryIO, get_args
 from uuid import UUID
 from weakref import WeakKeyDictionary
 
 from anyio import CancelScope
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
-from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from psycopg import Error as DatabaseError
 from starlette.responses import StreamingResponse
@@ -410,21 +407,3 @@ async def subjective_grade(request: GradeWireRequest) -> dict:
     except ValueError as exc:
         raise HTTPException(422, {"code": "GRADING_INPUT_INVALID", "message": "Grading input or digest is invalid", "params": {}}) from exc
     return await _task_response(grade(verified))
-
-
-class WebStaticFiles(StaticFiles):
-    async def get_response(self, path: str, scope) -> Response:
-        if scope["method"] not in {"GET", "HEAD"}:
-            # Unknown/removed API routes keep their existing 404 semantics even
-            # when the optional frontend is mounted at the root.
-            raise HTTPException(404, "Not Found")
-        return await super().get_response(path, scope)
-
-
-def mount_web(application: FastAPI, directory: Path) -> None:
-    """An absent optional frontend does not prevent API deployments from starting."""
-    if (directory / "index.html").is_file():
-        application.mount("/", WebStaticFiles(directory=directory, html=True), name="web")
-
-
-mount_web(app, Path(os.environ.get("AI_WEB_DIR", str(Path(__file__).resolve().parents[3] / "web/dist"))))

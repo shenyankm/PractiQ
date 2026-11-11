@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import "./import-test-setup";
 import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { StrictMode } from "react";

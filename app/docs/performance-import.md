@@ -2,7 +2,7 @@
 
 ## Metadata previews and saved practice statistics (October 30)
 
-Web detail and preview reads retain their existing lifecycle, polling, failures
+Import detail and preview reads retain their existing lifecycle, polling, failures
 and checkpoint controls. The client opts into `include_result=false` for previews,
 so a merged result's questions/groups/visuals travel in detail only. The review
 reuses that detail content when checkpoint IDs match; source-only units still
@@ -16,7 +16,7 @@ array copy or per-status scans are needed. The closed completion dialog also
 reuses its saved-attempt counts. Submitted/skipped precedence, false answers,
 empty drafts, fixed status order and all answer buttons remain unchanged.
 
-`ResultReview.test.tsx`, `App.test.tsx`, `api.test.ts`, `ContentPerformance.test.tsx`
+`ImportResultReview.test.tsx`, `ImportWorkspace.test.tsx`, `ImportApi.test.ts`, `ContentPerformance.test.tsx`
 and `AnswerCardStatus.test.tsx` cover these boundaries. The opt-in answer-card
 probe records complete output hashes, noncurrent answer reads and React/JSDOM
 render durations, including small controls. See the
@@ -27,7 +27,7 @@ These optimizations remove redundant work without changing task APIs, result
 contracts, persistence, or explicit paid-action boundaries. They add no dependency
 or additional cache layer.
 
-## Import Web
+## App import workspace
 
 - Only a previously read `COMPLETED` detail uses the lightweight head check.
   Noncomplete details are read directly: pending writes and interrupts must not be
@@ -50,7 +50,7 @@ or additional cache layer.
   closing/reopening and updates with subsequent task details, including unknown
   usage and provider request IDs.
 
-`web/src/App.test.tsx` supplies deterministic mocked-HTTP/fake-clock evidence:
+`app/src/App.test.tsx` supplies deterministic mocked-HTTP/fake-clock evidence:
 
 | Scenario | Verified work after the change |
 | --- | --- |
@@ -64,11 +64,11 @@ Tests also cover changed checkpoints, runs, state, timestamps and model settings
 head failures disabling export; explicit refresh/control behavior; in-flight reads
 finishing while hidden; result and list state retention; focus restoration; and
 unchanged GET-only behavior for passive actions. Existing API/result tests retain
-authentication, checksum and rendering safeguards.
+transport, checksum and rendering safeguards.
 
 ### View-owned artifact reads
 
-Image and source-evidence viewers cancel their authenticated artifact read when
+Image and source-evidence viewers cancel their verified artifact read when
 unmounted (including leaving the resources tab or resource page) or when the
 client, task ID, or any reference field changes. Equivalent reference objects
 from subsequent checkpoints retain the loaded view. Cancelled reads cannot publish
@@ -76,7 +76,7 @@ stale images, evidence, or error messages; a new identity requires an explicit
 read. Reload/retry remains explicit, and replaced/unmounted image object URLs are
 revoked. Original-source and ZIP downloads are not cancelled by viewer cleanup.
 
-`web/src/ResultReview.test.tsx` and `web/src/api.test.ts` use synthetic stalled
+`app/src/ResultReview.test.tsx` and `app/src/api.test.ts` use synthetic stalled
 responses: abandoning either viewer aborts the fetch signal, cancels the body
 reader once, releases its lock, and performs zero SHA-256 calls. Tests also cover
 header-stage cancellation, deadline cleanup, fresh reads after cancellation,
@@ -136,10 +136,11 @@ three times per variant using fresh output paths. The normal suite runs its
 functional cases and skips only the opt-in timing case.
 
 ```sh
-(cd web && PRACTIQ_BENCH_OUTPUT=/tmp/review-quality.json \
-  node node_modules/vitest/vitest.mjs run src/ResultReview.performance.test.tsx \
+(cd app && PRACTIQ_BENCH_OUTPUT=/tmp/review-quality.json \
+  node node_modules/vitest/vitest.mjs run src/ImportResultReview.performance.test.tsx \
   -t 'quality serialization probe')
-make web-check web-build
+npm --prefix app run check:ui
+npm --prefix app run build
 ```
 
 ## Practice App frontend
@@ -168,9 +169,8 @@ Android/WebView or browser-layout measurements.
 With existing locked frontend dependencies installed:
 
 ```sh
-(cd web && node node_modules/vitest/vitest.mjs run src/App.test.tsx src/api.test.ts src/ResultReview.test.tsx)
+(cd app && node node_modules/vitest/vitest.mjs run src/ImportWorkspace.test.tsx src/ImportApi.test.ts src/ImportResultReview.test.tsx)
 (cd app && node node_modules/vitest/vitest.mjs run src/AnswerCardStatus.test.tsx src/ContentPerformance.test.tsx src/AnswerInput.test.tsx)
-(cd web && node node_modules/typescript/bin/tsc -b && npm run lint)
 (cd app && node node_modules/typescript/bin/tsc -b && npm run lint)
 ```
 

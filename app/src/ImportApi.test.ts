@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import "./import-test-setup";
 import { storageKey } from "../../shared/cloud/serviceStorage";
 import { describe, expect, it, vi } from "vitest";
 import { Client, ApiError, MAX_BANK_ZIP_BYTES, downloadBlob, fileFormat, readBytes, sha256, sourceLimit, validateFiles } from "../../shared/cloud/api";
