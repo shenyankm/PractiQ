@@ -4,7 +4,7 @@ COPY server/pyproject.toml server/uv.lock ./
 RUN uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements.txt
 RUN python -c "import tomllib; project = tomllib.load(open('pyproject.toml', 'rb')); print(*project['build-system']['requires'] + project['tool']['uv']['build-constraint-dependencies'], sep='\n', file=open('build-constraints.txt', 'w'))"
 
-FROM rust:1.99.1-slim-bookworm@sha256:86234e857a413004348b471d11a4ebe1aa92d2eae2b6b143cac68fd1ac3c48be AS rust-toolchain
+FROM rust:1.99.1-slim-bookworm@sha256:f2c004e3d2d8b547e8cf7ffbc29205385f4e71d23e53e4e383065db5e9f822cd AS rust-toolchain
 
 FROM python:3.15-bookworm@sha256:6f060cab421d9509c6c6a6a7762c651baf03c3f1d0145befe16b688762b7fe81 AS dependencies
 COPY --from=rust-toolchain /usr/local/cargo /usr/local/cargo
