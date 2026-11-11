@@ -9,6 +9,15 @@ import htmlBlocks from "../fixtures/rich-content/html-blocks.json";
 vi.mock("./api", () => ({api: vi.fn()}));
 beforeEach(() => { vi.mocked(api).mockReset().mockRejectedValue(new Error("missing asset")); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+it("keeps original text and readable warnings without exposing source metadata", async () => {
+  const user = (await import("@testing-library/user-event")).default.setup();
+  const snapshot = { question: {...fixture.questions[0], sourceText: "Original supplied question"}, groups: [], visuals: [], sources: [{questionId:"private-id",stage:"document_parse",unitIndex:0}], warnings: ["Please check the reference answer"], missingAssets: false } as unknown as Snapshot;
+  render(<Content snapshot={snapshot} source/>);
+  await user.click(screen.getByText("原文与导入提示"));
+  expect(await screen.findByText("Original supplied question")).toBeTruthy();
+  expect(screen.getByText("Please check the reference answer")).toBeTruthy();
+  expect(screen.queryByText(/private-id|document_parse|unitIndex/)).toBeNull();
+});
 it("retains all distinct HTML source fields as escaped text without activating markup", () => {
   const { container } = render(<Blocks blocks={htmlBlocks as Block[]} />);
   for (const value of new Set(htmlBlocks.flatMap(block => [block.textValue, block.markdownValue]))) {

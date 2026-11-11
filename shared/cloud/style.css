@@ -46,8 +46,8 @@ h4 { font-size: var(--text-body); font-weight: 600; margin: 8px 0; }
 .task-title > div, .file-list > li > div { min-width: 0; }
 .review-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .task-panel { min-height: 640px; min-width: 0; padding: var(--space-card); border: 1px solid var(--border); border-radius: 16px; background: var(--card); }
-.file-picker { display: block; padding: 24px 16px; border: 1px dashed var(--input); border-radius: var(--radius); background: var(--background); text-align: center; }
-.file-picker > svg { margin: 0 auto 6px; width: 26px; height: 26px; color: var(--primary); }
+.file-picker { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 32px 24px; border: 1px dashed var(--input); border-radius: var(--radius); background: var(--background); text-align: center; }
+.file-picker > svg { width: 32px; height: 32px; color: var(--primary); }
 .file-picker { position: relative; cursor: pointer; }
 .file-picker [data-slot="input"][type="file"] { top: 0; left: 0; width: 1px; height: 1px; min-height: 0; margin: 0; padding: 0; border: 0; }
 .file-picker:focus-within { outline: 2px solid var(--ring); outline-offset: 3px; }
@@ -157,6 +157,13 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 .import-workspace > * { min-width: 0; }
 .import-card-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .import-card-heading > span { color: var(--muted-foreground); font-size: 13px; }
+.import-options { display: grid; grid-template-columns: minmax(12rem, 0.8fr) minmax(0, 1.2fr); gap: 24px; align-items: start; }
+.import-option { display: grid; gap: 8px; min-width: 0; }
+.import-option > label { font-size: 14px; font-weight: 500; line-height: 1.5; }
+.import-option > :is(input,button,select) { width: 100%; min-height: var(--control-height); }
+@media(max-width:639px) {
+  .import-options { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}
 .upload-details { display: grid; gap: 4px; font-size: 13px; color: var(--muted-foreground); }
 .import-guide p { margin-top: 8px; font-size: 13px; color: var(--muted-foreground); line-height: 1.75; }
 .import-guide details { padding-top: 16px; border-top: 1px solid var(--border); }
@@ -169,7 +176,8 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 .import-cost-note { font-size: 13px; color: var(--muted-foreground); }
 .supported-formats { font-size: 13px; color: var(--muted-foreground); line-height: 1.7; }
 .import-page [data-slot="card"] { --card-spacing: var(--space-card); }
-.import-page .file-picker { padding: 24px; }
+.import-page .file-picker { padding: 32px 24px; }
+@media(max-width:639px) { .import-page .file-picker { padding: 20px 16px; } }
 .operation-notice { margin-bottom: 20px; }
 .records-panel, .settings-panel { padding: var(--space-card); border: 1px solid var(--border); border-radius: 16px; background: var(--card); }
 .section-heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
@@ -347,6 +355,8 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 }
 @media(max-width:767px) {
   .account-navigation + div .import-page .file-picker { padding-block: 8px; }
+  .account-navigation + div .import-page .file-picker { gap: 4px; }
+  .account-navigation + div .import-page .file-picker > svg { width: 24px; height: 24px; }
 }
 .account-header > span { min-width: 0; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -364,7 +374,7 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 .plans-page { max-width: 1120px; margin-inline: auto; }
 .plans-heading, .plan-topup, .plan-recovery { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
 .plans-heading { margin-bottom: 28px; }
-.plans-heading h1 { margin-bottom: 8px; }
+.plans-heading :is(h1, h2) { margin-bottom: 8px; }
 .plans-page p { line-height: 1.75; }
 .plans-page > .notice { margin-bottom: 20px; }
 .plan-balance { padding-block: 0 28px; margin-bottom: 28px; border-bottom: 1px solid var(--border); }

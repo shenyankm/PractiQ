@@ -847,7 +847,7 @@ for (const [width, height] of layoutViewports) {
     await page.setViewportSize({ width, height });
     const questions = layoutSnapshots.map((snapshot, index) => ({ ...snapshot.question, id: `layout-${index}`, parentId: null, optionSourceId: null, passage: snapshot.materials.flatMap(material => material.passage || material.contentBlocks || []) }));
     const http = await fakeHTTP(page, { ...task, result: { ...task.result!, questions } });
-    http.server.review = { ...preview, units: [{ ...preview.units[0], questions, visualElements: [layoutSnapshots.at(-1)!.visuals[0]] }] };
+    http.server.review = { ...preview, units: [{ ...preview.units[0], questions, visualElements: [layoutSnapshots.find(snapshot => snapshot.key === 'rich-choice')!.visuals[0]] }] };
     http.server.intercept = async (route, call) => {
       if (call.path !== '/api/artifacts/read') return false;
       await route.fulfill({ contentType: 'image/png', body: layoutImage });

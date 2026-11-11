@@ -23,9 +23,9 @@ async function observe(page,seedReview=false) {
 }
 
 for(const [locale,names] of [
-  ['zh-CN',{overview:'学习概览',period:'统计范围',cause:'按错因筛选',practice:'专项练习',setup:'开始练习或考试',start:'开始复习 1 题'}],
-  ['en',{overview:'Learning overview',period:'Date range',cause:'Filter by mistake cause',practice:'Practise this area',setup:'Start practice or an exam',start:'Review 1 question'}],
-  ['zh-TW',{overview:'學習概覽',period:'統計範圍',cause:'依錯因篩選',practice:'專項練習',setup:'開始練習或考試',start:'開始複習 1 題'}],
+  ['zh-CN',{overview:'学习概览',refresh:'刷新',period:'统计范围',cause:'按错因筛选',practice:'专项练习',setup:'开始练习或考试',start:'开始复习 1 题'}],
+  ['en',{overview:'Learning overview',refresh:'Refresh',period:'Date range',cause:'Filter by mistake cause',practice:'Practise this area',setup:'Start practice or an exam',start:'Review 1 question'}],
+  ['zh-TW',{overview:'學習概覽',refresh:'重新整理',period:'統計範圍',cause:'依錯因篩選',practice:'專項練習',setup:'開始練習或考試',start:'開始複習 1 題'}],
 ]) for(const theme of ['light','dark']) for(const width of [1440,960]) {
   test(`learning overview fits and opens targeted practice ${locale} ${theme} ${width}`,async({page},testInfo)=>{
     const errors=[];page.on('pageerror',error=>errors.push(error.message));
@@ -35,6 +35,10 @@ for(const [locale,names] of [
     await page.getByRole('button',{name:names.overview,exact:true}).click();
     await expect(page.getByRole('heading',{name:names.overview,exact:true})).toBeVisible();
     await expect(page.getByRole('button',{name:names.start,exact:true})).toBeEnabled();
+    const refresh=await page.getByRole('button',{name:names.refresh,exact:true}).boundingBox();
+    const start=await page.getByRole('button',{name:names.start,exact:true}).boundingBox();
+    expect(Math.abs(refresh.y-start.y)).toBeLessThan(2);
+    expect(refresh.x+refresh.width).toBeLessThan(start.x);
     await page.screenshot({path:testInfo.outputPath('learning-overview.png')});
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
     await chooseOption(page.getByLabel(names.period,{exact:true}),'30');

@@ -56,6 +56,13 @@ for (const variant of variants) {
       const key = layoutSnapshots[index].key;
       await checkContent(page);
       const card = page.locator('[data-slot="card"]').filter({ has: page.locator('#current-question') });
+      if (!submitted) {
+        const gap = await card.locator('.practice-content').evaluate(content => {
+          const bottom = Math.max(...[...content.children].map(child => child.getBoundingClientRect()).filter(rect => rect.height > 0).map(rect => rect.bottom));
+          return content.nextElementSibling.getBoundingClientRect().top - bottom;
+        });
+        expect(gap, `${key}: spacing between question and answer`).toBeGreaterThanOrEqual(24);
+      }
       if (key === 'rich-choice') {
         await card.locator('figure').first().scrollIntoViewIfNeeded();
         await expect.poll(() => card.locator('figure img').first().evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);

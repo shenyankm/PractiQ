@@ -28,6 +28,11 @@ stressed.question.contentBlocks = rich.questions[0].contentBlocks;
 stressed.question.options[0].content = 'Matrix option:\n\n$$\\displaystyle \\frac{\\sum_{n=1}^{\\infty}\\frac{(-1)^{n+1}}{n^2}}{\\sqrt{1+\\frac{x^2}{1+x^2}}}+\\int_0^1\\frac{x^2}{\\sqrt{1-x^2}}\\,dx=\\frac{\\pi}{4}$$';
 stressed.visuals = [{ ...rich.visualElements[0], id: 'rich-visual', questionIds: [stressed.question.id], sourceRef: { objectKey: 'portrait.png', sha256: createHash('sha256').update(portrait).digest('hex'), mediaType: 'image/png', sizeBytes: portrait.length } }];
 selected.set(stressed.key, stressed);
+const tableAnswer = structuredClone(selected.get('short_answer'));
+tableAnswer.key = 'table-short-answer';
+tableAnswer.question.stem = '比较第一周与第四周的阅读时间变化。\n\n| 周次 | 第一周 | 第二周 | 第三周 | 第四周 |\n| --- | --- | --- | --- | --- |\n| 阅读时间（分钟） | 120 | 150 | 135 | 195 |';
+tableAnswer.question.contentBlocks = [];
+selected.set(tableAnswer.key, tableAnswer);
 export const layoutSnapshots = [...selected.values()];
 
 export async function installLayoutSession(page, { submitted = false, locale = 'zh-CN', failPositionOnce = false, failInfo = false } = {}) {

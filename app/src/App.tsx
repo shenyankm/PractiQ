@@ -14,6 +14,7 @@ import {
   Menu,
   MoreHorizontal,
   Upload,
+  CloudUpload,
   Plus,
   Star,
   History,
@@ -80,7 +81,6 @@ const AnswerDisplay = lazy(() => import("./AnswerInput").then(module => ({defaul
 const AnswerInput = lazy(() => import("./AnswerInput").then(module => ({default:module.AnswerInput})));
 const QuestionEditor = lazy(() => import("./QuestionEditor").then(module => ({default:module.QuestionEditor})));
 const Practice = lazy(() => import("./Practice").then(module => ({default:module.Practice})));
-const ConnectionSettingsPanel = lazy(() => import("./ConnectionSettings").then(module => ({default:module.ConnectionSettingsPanel})));
 const ImportBankDialog = lazy(() => import("./ImportBankDialog").then(module => ({default:module.ImportBankDialog})));
 const CloudPage = lazy(() => import("./CloudPage").then(module => ({default:module.CloudPage})));
 const SettingsPage = lazy(() => import("./SettingsPage").then(module => ({default:module.SettingsPage})));
@@ -96,8 +96,8 @@ type Page =
   | "history"
   | "cloud"
   | "account"
+  | "plans"
   | "settings"
-  | "service-settings"
   | "practice";
 function SidebarButton({ collapsed, label, description, children, className = "", ...props }: ComponentProps<typeof Button> & { collapsed: boolean; label: string; description?: string }) {
   return (
@@ -182,8 +182,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const questionList = useQuestionListPage(page, bank);
   const { questions, questionTotal, questionError, search, mode, loading, filter, refresh: refreshQuestions, reset: resetQuestions } = questionList;
   const [session, setSession] = useState<Session | null>(null);
-  const [gradingDrafts, setGradingDrafts] = useState<Record<string, GradingDraft>>({});
   const [gradingReturn, setGradingReturn] = useState<string | null>(null);
+  const [gradingDrafts, setGradingDrafts] = useState<Record<string, GradingDraft>>({});
   useUnsavedChanges(Object.keys(gradingDrafts).length > 0);
   const [busy, setBusy] = useState(false);
   const [importPreview, setImportPreview] = useState<{ preview: Preview; initialBank: string } | null>(null);
@@ -323,7 +323,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     if (next === "banks" || next === "history") setListRevision(v => v + 1);
   }
   function navigate(next: Page, bankId: string | null = null, showRestore = false) {
-    if ((page === "cloud" || page === "account") && !document.dispatchEvent(new Event("practiq-cloud-before-leave", { cancelable: true }))) return;
+    if ((page === "cloud" || page === "account" || page === "plans") && !document.dispatchEvent(new Event("practiq-cloud-before-leave", { cancelable: true }))) return;
     run(() => transitionTo(next, bankId, showRestore));
   }
   function openSession(id: string) {
@@ -351,7 +351,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               ? t("练习记录")
               : page === "practice"
                 ? t(session && (session.finishedAt != null || (session.kind && session.kind !== "practice" && session.submittedAt != null)) ? "练习回顾" : session?.kind === "mock_exam" ? "模拟考试" : session?.kind === "self_test" ? "自主测验" : "专注练习")
-                : page === "cloud" ? t("云端服务") : page === "account" ? t("个人中心") : page === "service-settings" ? t("AI 服务") : t("设置");
+                : page === "cloud" ? t("文档导入") : page === "account" ? t("个人中心") : page === "plans" ? t("套餐与额度") : t("设置");
   const loadingView = <p role="status" className="p-4 text-sm text-muted-foreground">{t("加载中…")}</p>;
   const listPage = ["questions", "wrong", "favorite"].includes(page);
   const languageError = language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><ErrorNotice error={language.error.cause} /><Button size="sm" variant="outline" disabled={language.saving || busy} onClick={() => {
@@ -372,6 +372,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           {(
             [
               { id: "banks", label: t("我的题库"), icon: BookOpen },
+              { id: "cloud", label: t("文档导入"), icon: CloudUpload },
               { id: "learning", label: t("学习概览"), icon: CalendarCheck },
               { id: "wrong", label: t("错题本"), icon: BookmarkX },
               { id: "favorite", label: t("收藏夹"), icon: Star },
@@ -396,7 +397,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           ))}
         </nav>
         <div className="mt-auto space-y-4 pt-6">
-          <SidebarButton collapsed={sidebarCollapsed} label={t("个人中心")} description={accountSummary.status === "ready" ? accountSummary.user?.name || accountSummary.user?.email : t(accountSummary.status === "loading" ? "读取账户状态…" : accountSummary.status === "disconnected" ? "未连接云端" : accountSummary.status === "signedOut" ? "未登录" : "账户状态暂不可用")} aria-current={page === "account" || page === "cloud" ? "page" : undefined} disabled={busy} onClick={() => navigate("account")}><UserRound /></SidebarButton>
+          {import.meta.env.VITE_DEMO_MODE !== "true" && <SidebarButton collapsed={sidebarCollapsed} label={t("个人中心")} description={accountSummary.status === "ready" ? accountSummary.user?.name || accountSummary.user?.email : t(accountSummary.status === "loading" ? "读取账户状态…" : accountSummary.status === "disconnected" ? "未连接云端" : accountSummary.status === "signedOut" ? "未登录" : "账户状态暂不可用")} aria-current={page === "account" ? "page" : undefined} disabled={busy} onClick={() => navigate("account")}><UserRound /></SidebarButton>}
           <div className="space-y-2">
             <DropdownMenu open={themeOpen} onOpenChange={setThemeOpen}>
               <DropdownMenuTrigger asChild>
@@ -431,8 +432,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           <SidebarButton
             collapsed={sidebarCollapsed}
             label={t("设置")}
-            variant={page === "settings" || page === "service-settings" ? "secondary" : "ghost"}
-            aria-current={page === "settings" || page === "service-settings" ? "page" : undefined}
+            variant={page === "settings" || page === "plans" ? "secondary" : "ghost"}
+            aria-current={page === "settings" || page === "plans" ? "page" : undefined}
             disabled={busy}
             onClick={() => navigate("settings")}
           >
@@ -457,7 +458,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
       <main className="flex min-w-0 flex-1 flex-col">
         <header className="app-header flex shrink-0 flex-wrap items-center justify-between gap-4 border-b">
           <div className="flex min-w-0 items-center gap-3">
-            {compact && !["questions", "practice", "service-settings"].includes(page) && <Button size="icon" variant="ghost" aria-label={t("打开主导航")} aria-expanded={navigationOpen} disabled={busy} onClick={() => setNavigationOpen(true)}><Menu /></Button>}
+            {compact && !["questions", "practice"].includes(page) && <Button size="icon" variant="ghost" aria-label={t("打开主导航")} aria-expanded={navigationOpen} disabled={busy} onClick={() => setNavigationOpen(true)}><Menu /></Button>}
             {page === "practice" && <Button size="icon" variant="ghost" aria-label={t("返回练习记录")} disabled={busy} onClick={event => {
               const timed = session?.kind === "mock_exam" && session.deadlineAt != null && session.finishedAt == null && session.submittedAt == null;
               if (!timed) { navigate("history"); return; }
@@ -479,11 +480,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 <ArrowLeft />
               </Button>
             )}
-            {page === "service-settings" && (
-              <Button size={gradingReturn ? "default" : "icon"} variant="ghost" disabled={busy} aria-label={gradingReturn ? t("返回评分") : t("返回设置")} onClick={() => gradingReturn ? openSession(gradingReturn) : navigate("settings")}>
-                <ArrowLeft />{gradingReturn && t("返回评分")}
-              </Button>
-            )}
+            {page === "plans" && <Button size={gradingReturn ? "default" : "icon"} variant="ghost" aria-label={gradingReturn ? t("返回评分") : t("返回设置")} disabled={busy} onClick={() => gradingReturn ? openSession(gradingReturn) : navigate("settings")}><ArrowLeft />{gradingReturn && t("返回评分")}</Button>}
             <div className="min-w-0">
               <h1 ref={pageHeading} tabIndex={-1} className="break-words text-xl font-semibold tracking-tight outline-none md:text-2xl">
                 {heading}
@@ -518,7 +515,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
         <div className={`app-content min-h-0 flex-1 overflow-y-auto ${page === "practice" ? "practice-app-content" : ""}`}>
           <div className={`page-workspace ${page === "practice" ? "practice-workspace" : ""}`}>
           <div className="workspace-notices">
-          {operationError && !dialogOpen && <div ref={operationNotice} className={`mb-5 ${page === "settings" || page === "service-settings" ? "mx-auto max-w-3xl" : ""}`}><OperationFeedback /></div>}
+          {operationError && !dialogOpen && <div ref={operationNotice} className={`mb-5 ${page === "settings" ? "mx-auto max-w-3xl" : ""}`}><OperationFeedback /></div>}
           {(bankError != null || infoError != null) && <div role="alert" className="mb-5 space-y-2 rounded-lg border border-destructive/40 p-4">
             <p>{t("概览读取失败，已保存的数据和已完成的操作不受影响。请重试读取，不要重复导入或保存。")}</p>
             <ErrorNotice error={bankError ?? infoError} />
@@ -528,7 +525,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           <ErrorBoundary key={page} fallback={<RenderFailure />}><Suspense fallback={loadingView}>
           {page === "history" && <HistoryPage state={history} busy={busy} onOpen={openSession} onBrowse={() => navigate("banks")} />}
           {page === "learning" && <LearningPage revision={listRevision} busy={busy} run={run}
-            onSettings={() => navigate("settings")}
             onPractice={(bank,mode) => setPracticeSetup({bank,mode,filter:"",search:""})}
             onStart={async next => { await flushRef.current(); setSession(next); setSessionOffset(0); setPage("practice"); }} />}
           {page === "banks" && <BankList
@@ -592,25 +588,14 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 else delete next[key];
                 return next;
               })}
-              onConfigureGrading={() => run(async () => { await flushRef.current(); setGradingReturn(session.id); setPage("service-settings"); })}
+              onConnectAccount={() => run(async () => { await flushRef.current(); setGradingReturn(session.id); setPage("plans"); })}
               onNextUnattempted={session.bankIds?.some(id => banks.some(b => b.id === id)) ? () => setPracticeSetup({ bank: null, bankIds: session.bankIds!.filter(id => banks.some(b => b.id === id)), filter: "unattempted" }) : undefined}
             />
           )}
-          {page === "service-settings" && (
-            <div className="max-w-3xl space-y-6">
-              <ConnectionSettingsPanel
-                key={settingsRevision}
-                busy={busy}
-                run={run}
-                flushRef={flushRef}
-              />
-            </div>
-          )}
-          {(page === "cloud" || page === "account") && <CloudPage key={page} initialPage={page === "account" ? "account" : "workspace"} />}
+          {(page === "cloud" || page === "account" || page === "plans") && <CloudPage key={page} initialPage={page === "account" ? "account" : page === "plans" ? "plans" : "workspace"} />}
           {page === "settings" && (
-            <SettingsPage busy={busy} run={run} flushRef={flushRef} revision={settingsRevision} version={info?.version}
+            <SettingsPage busy={busy} run={run} revision={settingsRevision} version={info?.version} onQuota={() => navigate("plans")}
               restoreOpen={restoreOpen} onRestoreOpenChange={setRestoreOpen}
-              onConfigure={() => navigate("service-settings")}
               onPickImport={pickImport}
               onRestore={(recoverAssets, trigger) => openConfirm({
                 title: message("用备份替换当前数据？"),

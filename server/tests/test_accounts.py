@@ -80,6 +80,37 @@ async def test_personal_token_scope_and_disable_revocation(accounts):
     assert (await client.get('/api/maintenance', headers={'Authorization': 'Bearer ' + raw})).status_code == 401
 
 
+async def test_native_account_cookie_grading_requires_csrf_and_isolates_receipt_owners(accounts, monkeypatch):
+    import json
+
+    from practiq_ai import grading
+
+    _, client = accounts
+    calls = []
+
+    async def grade(request):
+        calls.append((identity.owner.get(), request.requestId))
+        return {'status': 'ungraded', 'reason': 'Model substitute'}
+
+    monkeypatch.setattr(webapp, 'grade', grade)
+    monkeypatch.setattr(webapp, 'require_model_config', lambda: None)
+    payload = json.dumps({'question': {'stem': 'Explain evaporation', 'answerMode': 'short_answer', 'questionTypeId': '简答题', 'answerPayload': {'text': 'Liquid becomes gas'}}, 'answer': 'Liquid becomes gas', 'maxCents': 500})
+    request = {'requestId': str(uuid4()), 'inputDigest': grading.digest_payload(payload), 'payload': payload}
+    first = (await login(client, 'grade-one@example.test', register=True))['user']
+    assert (await client.post('/api/subjective-grades', json=request, headers={'X-CSRF-Token': ''})).status_code == 403
+    assert not calls
+    response = await client.post('/api/subjective-grades', json=request)
+    assert response.status_code == 200, response.text
+    assert calls[0][0] == first['id']
+    second = (await login(client, 'grade-two@example.test', register=True))['user']
+    assert (await client.post('/api/subjective-grades', json=request)).status_code == 200
+    assert calls[1][0] == second['id'] and calls[0][1] != calls[1][1]
+    assert 'Authorization' not in client.headers
+    assert (await client.post('/api/auth/logout')).status_code == 200
+    assert (await client.post('/api/subjective-grades', json=request)).status_code == 401
+    assert len(calls) == 2
+
+
 async def test_cross_user_source_proof_and_quota_atomicity(accounts):
     import asyncio
 

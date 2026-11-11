@@ -10,6 +10,16 @@ use tauri::{AppHandle, Manager};
 const CONFIG: &str = "account-service-v1.json";
 pub(crate) const MAX_RESPONSE: usize = 64 * 1024 * 1024;
 
+fn request_timeout(path: &str) -> Duration {
+    Duration::from_secs(if path == "/api/subjective-grades" {
+        900
+    } else if path.contains("/export?") {
+        600
+    } else {
+        125
+    })
+}
+
 pub(crate) fn error(code: &str) -> AppError {
     AppError::new(
         code,
@@ -33,6 +43,7 @@ struct Secret {
 pub(crate) struct Cloud {
     pub(crate) origin: Option<String>,
     secret: Secret,
+    authenticated: bool,
     loaded: bool,
     pub(crate) epoch: u64,
     invalid: bool,
@@ -114,6 +125,7 @@ impl State {
                 origin: config.as_ref().ok().filter(|v| !v.is_empty()).cloned(),
                 invalid: config.is_err(),
                 secret: Secret::default(),
+                authenticated: false,
                 loaded: false,
                 epoch: 0,
                 sources: HashMap::new(),
@@ -144,10 +156,21 @@ impl State {
             .map_err(|_| error("CLOUD_CONFIG_WRITE"))?;
         state.origin = Some(value.clone());
         state.secret = Secret::default();
+        state.authenticated = false;
         state.loaded = false;
         state.sources.clear();
         state.epoch += 1;
         Ok(json!({"origin":value,"generation":state.epoch}))
+    }
+    pub(crate) fn context(&self) -> Result<Option<Context>> {
+        let state = self.lock()?;
+        if state.invalid {
+            return Err(error("CLOUD_CONFIG_INVALID"));
+        }
+        Ok(state.origin.clone().map(|origin| Context {
+            origin,
+            generation: state.epoch,
+        }))
     }
     pub(crate) fn snapshot(
         &self,
@@ -172,6 +195,7 @@ impl State {
                 let secret: Secret =
                     serde_json::from_str(&value).map_err(|_| error("CLOUD_CREDENTIAL_INVALID"))?;
                 validate_secret(&secret)?;
+                state.authenticated = !secret.cookie.is_empty();
                 state.secret = secret;
             }
             state.loaded = true;
@@ -179,6 +203,7 @@ impl State {
         Ok(Snapshot {
             origin,
             secret: state.secret.clone(),
+            authenticated: state.authenticated,
             epoch: state.epoch,
             client: self
                 .client
@@ -187,14 +212,21 @@ impl State {
         })
     }
     pub(crate) fn current(&self, snapshot: &Snapshot) -> Result<()> {
+        self.current_guard(snapshot).map(drop)
+    }
+    pub(crate) fn current_guard(
+        &self,
+        snapshot: &Snapshot,
+    ) -> Result<std::sync::MutexGuard<'_, Cloud>> {
         let state = self.lock()?;
         if state.epoch != snapshot.epoch
             || state.origin.as_deref() != Some(&snapshot.origin)
             || state.secret.cookie != snapshot.secret.cookie
+            || state.authenticated != snapshot.authenticated
         {
             return Err(error("CLOUD_ACCOUNT_CHANGED"));
         }
-        Ok(())
+        Ok(state)
     }
     fn clear(&self, snapshot: &Snapshot, credential: &dyn Credential) -> Result<()> {
         let mut state = self.lock()?;
@@ -203,6 +235,7 @@ impl State {
         }
         credential.write(None)?;
         state.secret = Secret::default();
+        state.authenticated = false;
         state.epoch += 1;
         state.sources.clear();
         Ok(())
@@ -229,11 +262,13 @@ impl State {
             return Err(error("CLOUD_ACCOUNT_CHANGED"));
         }
         credential.write((!value["user"].is_null()).then_some(encoded.as_str()))?;
-        if state.secret.cookie != secret.cookie {
+        let authenticated = !value["user"].is_null();
+        if state.secret.cookie != secret.cookie || state.authenticated != authenticated {
             state.epoch += 1;
             state.sources.clear();
         }
         state.secret = secret;
+        state.authenticated = authenticated;
         value["csrf"] = json!("");
         Ok(value)
     }
@@ -259,10 +294,23 @@ fn validate_secret(secret: &Secret) -> Result<()> {
 pub(crate) struct Snapshot {
     pub(crate) origin: String,
     secret: Secret,
+    authenticated: bool,
     epoch: u64,
     client: Client,
 }
 impl Snapshot {
+    pub(crate) fn has_session(&self) -> bool {
+        self.authenticated
+    }
+    pub(crate) fn redact(&self, value: Value) -> Value {
+        let value = crate::ai::redact(value, &self.secret.cookie);
+        let token = self
+            .secret
+            .cookie
+            .split_once('=')
+            .map_or("", |(_, token)| token);
+        crate::ai::redact(crate::ai::redact(value, token), &self.secret.csrf)
+    }
     pub(crate) fn identity(&self) -> String {
         crate::store::hash(self.secret.cookie.as_bytes())
     }
@@ -274,14 +322,13 @@ impl Snapshot {
         bytes: Option<(Vec<u8>, String)>,
     ) -> Result<reqwest::blocking::Response> {
         validate_path(path, &method)?;
+        let url = url::Url::parse(&origin(&self.origin)?)
+            .and_then(|base| base.join(path))
+            .map_err(|_| error("CLOUD_PATH_INVALID"))?;
         let mut request = self
             .client
-            .request(method, format!("{}{path}", self.origin))
-            .timeout(Duration::from_secs(if path.contains("/export?") {
-                600
-            } else {
-                125
-            }));
+            .request(method, url)
+            .timeout(request_timeout(path));
         if !self.secret.cookie.is_empty() {
             request = request
                 .header(header::COOKIE, &self.secret.cookie)
@@ -323,7 +370,7 @@ pub(crate) fn validate_path(path: &str, method: &Method) -> Result<()> {
         "/api/me/tokens" | "/api/me/payments" => method == Method::GET || method == Method::POST,
         "/api/me/payments/offer" | "/api/me/plans" => method == Method::GET,
         "/api/import-settings" => method == Method::GET || method == Method::PUT,
-        "/api/uploads" | "/api/artifacts/read" => method == Method::POST,
+        "/api/uploads" | "/api/artifacts/read" | "/api/subjective-grades" => method == Method::POST,
         "/api/uploads/content" => method == Method::PUT,
         "/api/document-tasks" => method == Method::GET || method == Method::POST,
         _ => {
@@ -550,6 +597,7 @@ pub(crate) fn request(app: AppHandle, value: Request, context: Option<Context>) 
                 Snapshot {
                     origin,
                     secret: Secret::default(),
+                    authenticated: value.authenticated,
                     epoch: value.epoch,
                     client: state
                         .client
@@ -595,6 +643,29 @@ pub(crate) fn request(app: AppHandle, value: Request, context: Option<Context>) 
 }
 
 #[cfg(test)]
+pub(crate) fn test_account(dir: &std::path::Path, origin: &str, token: &str) -> (State, Snapshot) {
+    let state = State::new(dir.to_path_buf());
+    state.configure(origin.to_owned()).unwrap();
+    let mut current = state.lock().unwrap();
+    current.secret = Secret {
+        cookie: format!("practiq_session={token}"),
+        csrf: "a".repeat(64),
+    };
+    validate_secret(&current.secret).unwrap();
+    current.loaded = true;
+    current.authenticated = true;
+    let snapshot = Snapshot {
+        origin: origin.into(),
+        secret: current.secret.clone(),
+        authenticated: current.authenticated,
+        epoch: current.epoch,
+        client: state.client.clone().unwrap(),
+    };
+    drop(current);
+    (state, snapshot)
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use std::io::Write;
@@ -603,6 +674,7 @@ mod tests {
         Snapshot {
             origin: current.origin.clone().unwrap(),
             secret: current.secret.clone(),
+            authenticated: current.authenticated,
             epoch: current.epoch,
             client: state.client.clone().unwrap(),
         }
@@ -798,6 +870,32 @@ mod tests {
         }
     }
     #[test]
+    fn native_requests_revalidate_origin_before_sending_credentials() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = State::new(dir.path().into());
+        state.configure("https://example.test".into()).unwrap();
+        for (origin, code) in [
+            ("http://example.test", "LOCAL_URL_HTTPS_REQUIRED"),
+            ("http://127.0.0.1:9/private", "CLOUD_ORIGIN_INVALID"),
+            (
+                "http://127.0.0.1:9?token=forbidden",
+                "LOCAL_URL_CREDENTIALS_FORBIDDEN",
+            ),
+            (
+                "http://user:password@127.0.0.1:9",
+                "LOCAL_URL_CREDENTIALS_FORBIDDEN",
+            ),
+        ] {
+            let mut account = snapshot(&state);
+            account.origin = origin.into();
+            account.client = Client::builder().https_only(true).build().unwrap();
+            let error = account
+                .send(Method::GET, "/api/me/usage", None, None)
+                .unwrap_err();
+            assert_eq!(error.code, code, "{origin}");
+        }
+    }
+    #[test]
     fn native_http_sends_csrf_and_session_only_to_its_origin_without_redirect_or_post_replay() {
         use std::net::TcpListener;
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -889,5 +987,38 @@ mod tests {
         let state = State::new(dir.path().into());
         assert!(state.configure("https://example.test".into()).is_err());
         assert_eq!(std::fs::read(&path).unwrap(), b"{\"version\":99}");
+    }
+    #[test]
+    fn anonymous_session_reads_do_not_select_managed_grading_or_leave_old_requests_current() {
+        let dir = tempfile::tempdir().unwrap();
+        let (state, signed_in) = test_account(dir.path(), "http://127.0.0.1:8090", &"A".repeat(43));
+        assert!(signed_in.has_session());
+        state
+            .accept(
+                &signed_in,
+                None,
+                json!({"user":null,"csrf":"a".repeat(64)}),
+                &test_credential(),
+            )
+            .unwrap();
+        assert!(!snapshot(&state).has_session());
+        assert!(state.current(&signed_in).is_err());
+        assert!(validate_path("/api/subjective-grades", &Method::POST).is_ok());
+        assert!(validate_path("/api/subjective-grades", &Method::GET).is_err());
+    }
+    #[test]
+    fn grading_preserves_the_service_timeout_without_extending_passive_reads() {
+        assert_eq!(
+            request_timeout("/api/subjective-grades"),
+            Duration::from_secs(900)
+        );
+        assert_eq!(
+            request_timeout("/api/document-tasks/id/export?partial=true"),
+            Duration::from_secs(600)
+        );
+        assert_eq!(
+            request_timeout("/api/auth/session"),
+            Duration::from_secs(125)
+        );
     }
 }

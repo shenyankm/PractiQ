@@ -13,7 +13,7 @@ import type { AccountUser } from "./contracts.generated";
 vi.mock("./api", async () => ({ ...await vi.importActual("./api"), api: vi.fn() }));
 vi.mock("./transport", () => ({ invoke: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ isTauri: () => false, invoke: vi.fn() }));
-afterEach(() => { cleanup(); setNativeBridge(null); setAccount(null); vi.resetAllMocks(); });
+afterEach(() => { cleanup(); setNativeBridge(null); setAccount(null); vi.resetAllMocks(); vi.unstubAllEnvs(); });
 
 function fixture(origin: string | null, user: AccountUser | null = null) {
   HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -35,12 +35,49 @@ function fixture(origin: string | null, user: AccountUser | null = null) {
     if (r.path === "/api/auth/session") data = { user: state.user, csrf: "", registrationEnabled: true };
     if (r.path === "/api/auth/logout") { state.user = null; state.generation++; data = { ok: true }; }
     if (r.path === "/api/import-capabilities") data = capabilities;
+    if (r.path === "/api/me/plans") data = { checkoutEnabled: false, environment: null, sandboxAmount: null, products: [], balance: { plan: "free", expiresAt: null, activeTasks: 1, freePages: 50, freeUsedPages: 13, freeRemainingPages: 37, remainingPages: 37, grants: [] } };
     if (r.path === "/api/import-settings") data = { revision: "preview", settings: { tencentConcurrency: 1, readRetryCount: 2, retryBaseSeconds: 1, deduplicateQuestions: false, generateAnswers: false } };
     if (String(r.path).startsWith("/api/document-tasks")) data = { items: [], hasMore: false };
     return { value: { status: 200, mediaType: "application/json", bytes: Buffer.from(JSON.stringify(data)).toString("base64") }, generation: state.generation } as never;
   });
   return state;
 }
+
+it("opens allowance from Settings without exposing provider configuration or starting model work", async () => {
+  vi.stubEnv("VITE_DEMO_MODE", "true");
+  fixture("https://cloud.example.test", { id: "owner", name: "小章鱼", email: "owner@example.test", role: "user", enabled: true });
+  render(<App />); const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "设置" }));
+  await user.click(await screen.findByRole("button", { name: "查看额度" }));
+  expect(await screen.findByRole("heading", { name: "套餐与额度", level: 1 })).toBeTruthy();
+  expect(await screen.findByText("可用识别额度")).toBeTruthy();
+  expect(screen.getByText("可用识别额度").closest("div")?.textContent).toContain("37");
+  expect(screen.queryByRole("navigation", { name: "个人导航" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "导入工作区" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "退出登录" })).toBeNull();
+  expect(invoke).not.toHaveBeenCalledWith("cloud_request", expect.objectContaining({ request: expect.objectContaining({ path: "/api/import-settings" }) }));
+  expect(invoke).not.toHaveBeenCalledWith("cloud_request", expect.objectContaining({ request: expect.objectContaining({ path: "/api/import-capabilities" }) }));
+  await user.click(screen.getByRole("button", { name: "购买记录" }));
+  expect(await screen.findByRole("heading", { name: "购买记录" })).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "查看套餐与额度" }));
+  expect(await screen.findByText("可用识别额度")).toBeTruthy();
+  expect(screen.queryByLabelText("模型 API 地址")).toBeNull();
+  expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "ai_request")).toBe(false);
+  await user.click(screen.getByRole("button", { name: "返回设置" }));
+  expect(await screen.findByRole("button", { name: "导出备份" })).toBeTruthy();
+});
+
+it("hides only the personal-center sidebar entry in demo mode", async () => {
+  vi.stubEnv("VITE_DEMO_MODE", "true");
+  fixture(null); render(<App />);
+  const user = userEvent.setup();
+  expect(await screen.findByRole("button", {name:"从云端解析文档"})).toBeTruthy();
+  expect(screen.queryByRole("button", {name:"个人中心"})).toBeNull();
+  expect(screen.getByRole("button", {name:"设置"})).toBeTruthy();
+  await user.click(screen.getByRole("button", {name:"文档导入"}));
+  expect(await screen.findByRole("heading", {name:"文档导入",level:1})).toBeTruthy();
+  expect(await screen.findByRole("heading", {name:"连接云端服务"})).toBeTruthy();
+});
 
 it("keeps local work available and offers a connection entry when no cloud service is configured", async () => {
   fixture(null); render(<App />); const user = userEvent.setup();

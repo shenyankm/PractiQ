@@ -12,7 +12,7 @@ function fixture():LearningOverview {
   return {days:7,since:1,through:9,counts,banks:[{id:"bank",title:"Algebra",available:true,counts}],kinds:[{kind:"single",counts}],review:[{rootId:"group",bankId:"bank",bankTitle:"Algebra",stem:"Complete material group",count:3,reason:"repeated_wrong",lastAnsweredAt:1,causes:["misread"]}],backup:{lastBackupAt:null,newAttempts:5,changedNotes:0,due:true}};
 }
 function mount() {
-  const props={revision:0,busy:false,run:(job:()=>Promise<void>)=>void job(),onStart:vi.fn(),onPractice:vi.fn(),onSettings:vi.fn()};
+  const props={revision:0,busy:false,run:(job:()=>Promise<void>)=>void job(),onStart:vi.fn(),onPractice:vi.fn()};
   render(<LearningPage {...props}/>);return props;
 }
 it("loads passively, separates scoring and starts a complete recommended group only on demand",async()=>{
@@ -27,7 +27,8 @@ it("loads passively, separates scoring and starts a complete recommended group o
   await screen.findByText("Complete material group");expect(api).toHaveBeenCalledTimes(1);
   const table=within(screen.getByRole("heading",{name:"按题库"}).parentElement!);
   expect(table.getByText("50%")).toBeTruthy();expect(table.getByRole("columnheader",{name:"自动判定正确率"})).toBeTruthy();
-  await user.click(screen.getByRole("button",{name:"前往备份"}));expect(props.onSettings).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("button",{name:"前往备份"})).toBeNull();
+  expect(screen.queryByText("尚未导出学习数据备份。")).toBeNull();
   await user.click(screen.getByRole("button",{name:"开始复习 3 题"}));
   await waitFor(()=>expect(props.onStart).toHaveBeenCalledWith({id:"practice"}));
   expect(api).toHaveBeenCalledWith({type:"preview_paper",request:expect.objectContaining({bank_ids:["bank"],question_ids:["group"],selection:"manual",filter:"",search:"",mode:""})});

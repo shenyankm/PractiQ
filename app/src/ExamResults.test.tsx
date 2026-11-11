@@ -171,6 +171,19 @@ it.each(["LOCAL_SERVICE_TOKEN_REQUIRED", "LOCAL_RESPONSE_INVALID"])("stops the b
   expect(invoke).toHaveBeenCalledTimes(1);
 });
 
+it("stops after an expired account receipt and offers login without grading later questions", async () => {
+  const session = exam(2);
+  session.attempts[0].grading = { lastRequest: { status: "unknown", appError: { code: "LOGIN_REQUIRED", message: "Expired session" } } };
+  vi.mocked(invoke).mockResolvedValue(session);
+  const onAccount = vi.fn();
+  const user = userEvent.setup();
+  render(<ExamResults session={exam(2)} onSession={vi.fn()} onAccount={onAccount} run={job => { void job(); }} />);
+  await user.click(screen.getByRole("button", { name: "AI 评分/继续（2 题，将调用模型）" }));
+  await user.click(await screen.findByRole("button", { name: "连接云端账户" }));
+  expect(invoke).toHaveBeenCalledTimes(1);
+  expect(onAccount).toHaveBeenCalledOnce();
+});
+
 it("#418 retries the failed current ordinal only after explicit confirmation", async () => {
   const user = userEvent.setup();
   const session = exam(2);

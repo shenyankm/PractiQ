@@ -223,13 +223,7 @@ test('trilingual sidebar preserves alignment, keyboard navigation and language p
   await expect(page.locator('#app-sidebar')).toHaveCSS('width','208px');
   assert.deepEqual(await sidebarPositions(),expandedPositions,'Sidebar rows and icons stay aligned after expanding');
   await expectNoOverflow(page,names.locale+' expanded');
-  const serviceEntry=page.locator('main').getByRole('button',{name:names.locale==='en'?'Configure':names.locale==='zh-TW'?'設定':'配置',exact:true});
-  await serviceEntry.click();
-  await expect(page.getByLabel(names.locale==='en'?'AI service URL':names.locale==='zh-TW'?'AI 服務位址':'AI 服务地址',{exact:true})).toBeVisible();
-  await expectNoOverflow(page,names.locale+' service settings');
-  if(names.locale==='zh-TW') await page.screenshot({path:testInfo.outputPath('zh-TW-service-settings.png'),fullPage:true});
-  await page.getByRole('button',{name:names.locale==='en'?'Back to settings':names.locale==='zh-TW'?'返回設定':'返回设置',exact:true}).click();
-  await expect(serviceEntry).toBeVisible();
+  await expect(page.locator('main').getByRole('button',{name:names.locale==='en'?'Configure':names.locale==='zh-TW'?'設定':'配置',exact:true})).toHaveCount(0);
   await expect(page.getByLabel(names.locale==='en'?'AI service URL':names.locale==='zh-TW'?'AI 服務位址':'AI 服务地址',{exact:true})).toHaveCount(0);
  }
  await page.getByRole('button',{name:'語言',exact:true}).click();
@@ -268,7 +262,7 @@ test('trilingual sidebar preserves alignment, keyboard navigation and language p
  await expect(page.getByRole('menu')).toBeHidden();
 });
 
-test('offline ZIP entry and service settings never submit documents or start model work',async ({page,observedCalls})=>{
+test('offline ZIP entry and account-only settings never submit documents or start model work',async ({page,observedCalls})=>{
  await expect(page.locator('aside').getByRole('button',{name:'Import',exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Start import',exact:true})).toHaveCount(0);
  expect(observedCalls.filter(c=>c.request.type==='pick_import')).toHaveLength(0);
@@ -285,47 +279,12 @@ test('offline ZIP entry and service settings never submit documents or start mod
  await page.keyboard.press('Escape');
  await expect(page.getByRole('menu')).toBeHidden();
 
- await page.getByRole('button',{name:'Configure',exact:true}).click();
- await expect(page.getByRole('heading',{name:'AI service',exact:true})).toBeVisible();
- const url=page.getByLabel('AI service URL',{exact:true});
- const token=page.getByLabel('AI service access token',{exact:true});
- await expect(page.getByLabel('Model ID',{exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Configure',exact:true})).toHaveCount(0);
+ await expect(page.getByLabel('AI service URL',{exact:true})).toHaveCount(0);
  await expect(page.getByLabel('API Key',{exact:true})).toHaveCount(0);
- await expect(token).toHaveAttribute('type','password');
- await url.fill('https://service.example.test');
- await token.focus();
- await expect.poll(()=>observedCalls.some(c=>c.request.type==='save_settings'&&c.request.config.service_url==='https://service.example.test')).toBe(true);
- await token.fill('fake-browser-token');
- await page.getByRole('button',{name:'Test connection',exact:true}).focus();
- await expect(token).toHaveValue('');
- const savedRequests=()=>observedCalls.filter(c=>c.request.type==='save_settings').map(c=>c.request);
- await expect.poll(savedRequests,'Each completed field blur saves once').toEqual([
-  {type:'save_settings',config:{service_url:'https://service.example.test'},service_token:null},
-  {type:'save_settings',config:{service_url:'https://service.example.test'},service_token:'fake-browser-token'},
- ]);
- await expectNoOverflow(page,'autosaved service settings');
- await page.getByRole('button',{name:'Test connection',exact:true}).click();
- await expect(page.getByRole('status').filter({hasText:'Connection test passed'})).toBeVisible();
- expect(savedRequests()).toHaveLength(2);
- await expect.poll(()=>observedCalls.filter(c=>c.request.type==='test_settings').map(c=>c.request)).toEqual([{type:'test_settings',config:{service_url:'https://service.example.test'},service_token:null}]);
- await url.fill('https://service-latest.example.test');
- await page.getByRole('button',{name:'Back to settings',exact:true}).click();
- await expect(page.getByRole('heading',{name:'Settings',exact:true})).toBeVisible();
- await expect.poll(savedRequests,'Navigation flush and blur share the latest save').toHaveLength(3);
- expect(savedRequests().at(-1)).toEqual({type:'save_settings',config:{service_url:'https://service-latest.example.test'},service_token:null});
- await page.getByRole('button',{name:'Configure',exact:true}).click();
- await expect(url).toHaveValue('https://service-latest.example.test');
- await expect(token).toHaveValue('');
- await token.fill('fake-latest-service-token');
- await page.getByRole('button',{name:'Test connection',exact:true}).focus();
- await expect.poll(savedRequests).toHaveLength(4);
- await page.getByRole('button',{name:'Clear saved access token',exact:true}).click();
- await expect.poll(savedRequests).toHaveLength(5);
- expect(savedRequests().at(-1)).toEqual({type:'save_settings',config:{service_url:'https://service-latest.example.test'},service_token:''});
- await expect(page.getByRole('button',{name:'Test connection',exact:true})).toBeDisabled();
- await expect(token).toHaveValue('');
- await page.getByRole('button',{name:'Back to settings',exact:true}).click();
- await expect(page.getByRole('status').filter({hasText:'Not configured'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'View allowance',exact:true})).toBeVisible();
+ expect(observedCalls.filter(c=>['settings','save_settings','test_settings'].includes(c.request.type))).toEqual([]);
+ await expectNoOverflow(page,'account-only settings');
  expect(observedCalls.filter(c=>c.command!=='request').every(c=>c.command==='cloud_request' && c.request.type==='status')).toBe(true);
 });
 

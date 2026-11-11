@@ -219,6 +219,8 @@ html[lang="en"] [data-button]:not([data-size^="icon"]) {
 .practice-actions:empty { display: none; }
 .practice-question-body { min-height: 0; }
 .practice-question-body > .practice-content { display: contents; }
+/* A display: contents wrapper cannot carry the question-to-answer margin. */
+.practice-question-body > .practice-content + * { margin-block-start: 1.5rem; }
 .practice-material { position: sticky; top: 0; z-index: 20; }
 .practice-material-body { max-height: 35dvh; overscroll-behavior: contain; }
 .practice-navigation { display: flex; gap: 0.75rem; }

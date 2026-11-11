@@ -271,12 +271,12 @@ test('study rules and backup details remain available on desktop and narrow scre
   await page.getByRole('button',{name:'设置',exact:true}).click();
   const details=page.getByText('备份范围与注意事项',{exact:true});
   await expect(page.getByRole('heading',{name:'学习数据备份',exact:true})).toBeVisible();
-  await expect(page.getByText(/不包含原始文档、AI 任务及服务访问令牌/)).toBeHidden();
+  await expect(page.getByText(/不包含原始文档、云端任务及登录凭据/)).toBeHidden();
   await details.focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByText(/不包含原始文档、AI 任务及服务访问令牌/)).toBeVisible();
+  await expect(page.getByText(/不包含原始文档、云端任务及登录凭据/)).toBeVisible();
   await page.keyboard.press('Enter');
-  await expect(page.getByText(/不包含原始文档、AI 任务及服务访问令牌/)).toBeHidden();
+  await expect(page.getByText(/不包含原始文档、云端任务及登录凭据/)).toBeHidden();
  }
 });
 
@@ -722,7 +722,8 @@ for(const scenario of ['empty','many','unconfigured','missing','slow','error']) 
   await page.getByRole('button',{name:'设置',exact:true}).click();
   await expect(page.getByRole('heading',{name:'设置',exact:true})).toBeVisible();
   if(scenario==='error') await expect(page.getByRole('alert').filter({hasText:'演示请求失败'}).first()).toBeVisible();
-  else await expect(page.getByRole('status').filter({hasText:scenario==='unconfigured'?'未配置':'已配置'})).toBeVisible();
+  else await expect(page.getByRole('button',{name:'导出备份',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'配置',exact:true})).toHaveCount(0);
  });
 }
 
