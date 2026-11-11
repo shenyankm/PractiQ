@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { t } from "./i18n";
 import "../../shared/cloud/style.css";
 
-export function CloudPage({ initialPage = "workspace" }: { initialPage?: "workspace" | "account" } = {}) {
+export function CloudPage({ initialPage = "workspace" }: { initialPage?: "workspace" | "account" | "plans" } = {}) {
   const [revision, setRevision] = useState(0);
   const [connected, setConnected] = useState("");
   const [unconfigured, setUnconfigured] = useState(false);

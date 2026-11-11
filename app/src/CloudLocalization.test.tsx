@@ -21,7 +21,7 @@ it('localizes the personal area navigation in English', async () => {
     if (String(input).includes('/api/auth/session')) return Response.json({ user: { id: 'u1', email: 'ada@example.test', name: 'Ada', role: 'user', enabled: true }, csrf: 'token', registrationEnabled: true });
     return Response.json({});
   }));
-  render(<Portal embedded />);
+  render(<Portal />);
   expect(await screen.findByRole('button', { name: 'Import results' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Import workspace' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: '我的题库' })).toBeNull();

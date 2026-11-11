@@ -25,28 +25,23 @@ async function navigate(page, name) {
 }
 
 for (const width of [1280, 390]) for (const theme of ['light', 'dark']) {
-  test(`service failures stay with their controls at ${width}px in ${theme}`, async ({ page }, testInfo) => {
+  test(`backup read failures stay with their controls at ${width}px in ${theme}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 850 });
     await page.addInitScript(value => localStorage.setItem('practiq-theme', value), theme);
     await inject(page, `
-      if (command === 'request' && args?.request?.type === 'test_settings') {
-        globalThis.connectionTests = (globalThis.connectionTests || 0) + 1;
-        throw new Error('Synthetic connection failure');
+      if (command === 'request' && args?.request?.type === 'backup_status') {
+        globalThis.backupReads = (globalThis.backupReads || 0) + 1;
+        if (!globalThis.backupReadAvailable) throw new Error('Synthetic backup status failure');
       }
-      if (command === 'request' && args?.request?.type === 'save_settings' && args.request.service_token === '') {
-        globalThis.clearAttempts = (globalThis.clearAttempts || 0) + 1;
-        if (globalThis.clearAttempts === 1) throw new Error('Synthetic credential clear failure');
-      }
+      if (command === 'request' && ['settings','save_settings','test_settings'].includes(args?.request?.type)) throw new Error('Provider configuration is not a user setting');
     `);
     await page.goto('/');
     await navigate(page, '设置');
-    await page.getByRole('button', { name: '配置', exact: true }).click();
-    await page.getByRole('button', { name: '测试连接', exact: true }).click();
     await expect(page.getByRole('alert')).toHaveCount(1);
-    await expect(page.getByRole('alert')).toContainText('Synthetic connection failure');
+    await expect(page.getByRole('alert')).toContainText('Synthetic backup status failure');
     const errorToast = page.locator('[data-sonner-toast][data-type="error"]');
     await expect(errorToast).toHaveCount(0);
-    await page.screenshot({ path: testInfo.outputPath(`connection-error-${width}-${theme}.png`), fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath(`backup-status-error-${width}-${theme}.png`), fullPage: true });
     await navigate(page, '设置');
     await page.getByRole('button', { name: '导入与恢复', exact: true }).click();
     await page.getByRole('menuitem', { name: '导入题库 ZIP', exact: true }).click();
@@ -60,18 +55,12 @@ for (const width of [1280, 390]) for (const theme of ['light', 'dark']) {
     await expect(errorToast).toHaveCount(0);
     await page.screenshot({ path: testInfo.outputPath(`import-unobscured-${width}-${theme}.png`), fullPage: true });
     await page.getByRole('button', { name: '取消', exact: true }).click();
-    await page.getByRole('button', { name: '配置', exact: true }).click();
-    const clear = page.getByRole('button', { name: '清除已保存的访问令牌', exact: true });
-    await expect(clear).toBeEnabled();
-    await clear.click();
-    await expect(page.getByRole('alert')).toHaveCount(1);
-    await expect(page.getByRole('alert')).toContainText('Synthetic credential clear failure');
-    await expect(errorToast).toHaveCount(0);
-    await expect(clear).toBeEnabled();
-    await clear.click();
+    const reads = await page.evaluate(() => { globalThis.backupReadAvailable = true; return globalThis.backupReads; });
+    await page.getByRole('alert').getByRole('button', { name: '重试', exact: true }).click();
     await expect(page.getByRole('alert')).toHaveCount(0);
-    await expect(clear).toBeDisabled();
-    expect(await page.evaluate(() => ({ tests: globalThis.connectionTests, clears: globalThis.clearAttempts }))).toEqual({ tests: 1, clears: 2 });
+    await expect(page.getByText('尚未导出学习数据备份。', { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => globalThis.backupReads)).toBe(reads + 1);
+
   });
 }
 
@@ -162,13 +151,12 @@ for (const width of [1280, 360]) {
     expect(await page.evaluate(() => globalThis.auditImports)).toBe(1);
   });
 
-  test(`manual grading drafts and configuration return preserve context at ${width}px`, async ({ page }, testInfo) => {
+  test(`manual grading drafts survive cloud configuration failures at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 800 });
     await inject(page, `
       // This scenario supplies a reference for the current question; the stock
       // preview's grading fixture deliberately has missing evidence.
       if (command === 'request' && args?.request?.type === 'session' && args.request.id === 'preview-grading') {
-        if (globalThis.auditFailReturn) { globalThis.auditFailReturn = false; throw { code: 'OPERATION_FAILED', diagnostic: 'Session read unavailable (synthetic)' }; }
         const { demoInvoke } = await import('/scripts/fixtures/preview-data.ts');
         const session = await demoInvoke(command, args, 'normal');
         session.attempts[0].snapshot.question.answerPayload = { text: 'Checked reference' };
@@ -176,7 +164,6 @@ for (const width of [1280, 360]) {
       }
       if (command === 'ai_request') {
         globalThis.auditGradingCalls = (globalThis.auditGradingCalls || 0) + 1;
-        globalThis.auditFailReturn = true;
         throw { code: 'LOCAL_SERVICE_URL_REQUIRED' };
       }
     `);
@@ -197,16 +184,12 @@ for (const width of [1280, 360]) {
     await record.getByRole('button', { name: '核对评分', exact: true }).click();
     await expect(score).toHaveValue('2');
     await page.getByRole('button', { name: '核对上次评分结果', exact: true }).click();
-    await page.getByRole('button', { name: '配置 AI 服务', exact: true }).click();
-    await expect(page.getByLabel('AI 服务地址', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: '返回评分', exact: true }).click();
-    await expect(page.getByRole('alert').filter({ hasText: '操作失败' })).toBeVisible();
-    await expect(page.getByLabel('AI 服务地址', { exact: true })).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath(`settings-return-error-${width}.png`) });
-    await page.getByRole('button', { name: '返回评分', exact: true }).click();
-    await expect(page.getByRole('heading', { name: '第 1 / 5 题', exact: true })).toBeVisible();
+    await expect(page.getByText('云端评分暂不可用，请稍后重试或联系管理员。')).toBeVisible();
+    await expect(page.getByRole('button', { name: '配置 AI 服务', exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('AI 服务地址', { exact: true })).toHaveCount(0);
     await expect(score).toHaveValue('2');
     await expect(reason).toHaveValue('Checked rubric');
+    await page.screenshot({ path: testInfo.outputPath(`managed-grading-unavailable-${width}.png`) });
     expect(await page.evaluate(() => globalThis.auditGradingCalls)).toBe(1);
     expect(await page.evaluate(async () => (await import('/src/useUnsavedChanges.ts')).canCloseWindow())).toBe(false);
     await page.getByRole('button', { name: '保存人工评分', exact: true }).click();
@@ -356,22 +339,15 @@ for (const width of [1280, 360]) {
 }
 
 
-test('subpage return preserves failed settings feedback without a second navigation control', async ({ page }, testInfo) => {
-  await page.setViewportSize({ width: 360, height: 800 });
-  await inject(page, `
-    if (command === 'request' && args?.request?.type === 'save_settings') throw { code: 'OPERATION_FAILED', diagnostic: 'Settings save unavailable (synthetic)' };
-  `);
+test('settings omits provider controls while keeping backups available', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 960, height: 820 });
+  await inject(page, `if (command === 'request' && ['settings', 'save_settings', 'test_settings'].includes(args?.request?.type)) throw new Error('Settings must not access provider configuration');`);
   await page.goto('/'); await navigate(page, '设置');
-  await page.getByRole('button', { name: '配置', exact: true }).click();
-  await page.getByLabel('AI 服务地址', { exact: true }).fill('http://127.0.0.1:8000');
-  await page.getByRole('heading', { name: 'AI 服务', exact: true }).click();
-  await expect(page.getByRole('alert')).toBeVisible();
-  await expect(page.getByRole('button',{name:'打开主导航',exact:true})).toHaveCount(0);
-  await page.getByRole('button',{name:'返回设置',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'AI 服务',exact:true})).toBeVisible();
-  await expect(page.getByRole('alert')).toHaveCount(1);
-  await expect(page.getByLabel('AI 服务地址', { exact: true })).toHaveValue('http://127.0.0.1:8000');
-  await page.screenshot({path:testInfo.outputPath('subpage-return-save-error-360.png')});
+  await expect(page.getByRole('heading', { name: '学习数据备份', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '配置', exact: true })).toHaveCount(0);
+  await expect(page.getByText('AI 服务', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '导出备份', exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('settings-without-provider-controls.png') });
 });
 
 for (const width of [1280, 360]) {

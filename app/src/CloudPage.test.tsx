@@ -119,7 +119,7 @@ it("recovers from undecodable credentials without a session or logout request", 
   expect(calls.some(call => call.type === "configure" || call.method === "POST")).toBe(false);
   await events.type(screen.getByLabelText("密码"), password);
   await events.click(screen.getByRole("button", { name: "登录" }));
-  expect(await screen.findByText(email)).toBeTruthy();
+  expect(await screen.findByRole("link", {name:"开始导入"})).toBeTruthy();
 });
 
 it("reports a failed local credential clear and waits for an explicit retry", async () => {
@@ -142,7 +142,7 @@ it("registers through native IPC without browser fetch or persisted passwords", 
   await events.type(screen.getByLabelText("登录邮箱"), email);
   await events.type(screen.getByLabelText("密码（至少 12 字符）"), password);
   await events.click(screen.getByRole("button", { name: "注册并登录" }));
-  expect(await screen.findByText(email)).toBeTruthy();
+  expect(await screen.findByRole("link", {name:"开始导入"})).toBeTruthy();
   expect(calls.filter(c => c.path === "/api/auth/register")).toEqual([expect.objectContaining({ method: "POST", body: { email, password } })]);
   expect(browserFetch).not.toHaveBeenCalled();
   expect(JSON.stringify(localStorage)).not.toContain(password);
@@ -173,6 +173,9 @@ it("accepts an administrator-issued reset code entirely inside the app", async (
 it("native file selection stays passive and only Start uploads and creates a cloud task", async () => {
   const { calls } = fixture({ loggedIn: true }); render(<CloudPage />); const events = userEvent.setup();
   await events.click(await screen.findByRole("button", { name: "选择云端导入文件" }));
+  expect(screen.queryByRole("navigation", {name:"个人导航"})).toBeNull();
+  expect(screen.queryByRole("button", {name:"退出登录"})).toBeNull();
+  expect(screen.queryByText(email)).toBeNull();
   await screen.findByText("native-upload.txt");
   expect(calls.some(c => c.type === "upload" || c.method === "POST")).toBe(false);
   await events.click(screen.getByRole("button", { name: "开始导入" }));
@@ -182,14 +185,14 @@ it("native file selection stays passive and only Start uploads and creates a clo
 });
 
 it("displays the lifetime 50-page allowance without starting paid work", async () => {
-  const { calls } = fixture({ loggedIn: true }); render(<CloudPage />); const events = userEvent.setup();
+  const { calls } = fixture({ loggedIn: true }); render(<CloudPage initialPage="account" />); const events = userEvent.setup();
   await events.click(await screen.findByRole("button", { name: "用量" }));
   expect(await screen.findByText(/可用识别额度：50 页/)).toBeTruthy();
   expect(calls.some(c => c.method === "POST" || c.type === "upload")).toBe(false);
 });
 
 it("logs out explicitly while keeping offline access and the selected cloud origin", async () => {
-  const { calls } = fixture({ loggedIn: true }); render(<CloudPage />); const events = userEvent.setup();
+  const { calls } = fixture({ loggedIn: true }); render(<CloudPage initialPage="account" />); const events = userEvent.setup();
   await events.click(await screen.findByRole("button", { name: "退出登录" }));
   await screen.findByRole("heading", { name: "登录 PractiQ" });
   expect(calls.filter(c => c.path === "/api/auth/logout")).toHaveLength(1);

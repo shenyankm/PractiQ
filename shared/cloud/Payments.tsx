@@ -28,6 +28,7 @@ const issues: Record<string, string> = {
 
 export function Payments({ view = "plans", onNavigate }: { view?: "plans" | "orders"; onNavigate?: (page: "plans" | "payments") => void }) {
   useCloudLocale();
+  const Heading = nativeBridge() ? "h2" : "h1";
   const [orders, setOrders] = useState<PaymentOrder[]>([]);
   const [data, setData] = useState<AccountPlan | null>(null);
   const [error, setError] = useState("");
@@ -97,7 +98,7 @@ export function Payments({ view = "plans", onNavigate }: { view?: "plans" | "ord
   const blocked = busy || loading || !data?.checkoutEnabled || !nativeBridge() || pending || recoveryBlocked || !!saved;
   const balance = data?.balance;
   return <section className="plans-page">
-    <header className="plans-heading"><div><h1>{view === "plans" ? t("套餐与额度") : t("订单与付款")}</h1><p>{view === "plans" ? t("按需整理文档，安心离线练习。") : t("付款由支付宝完成，到账以服务端查单或验签通知为准。")}</p></div><Button variant="outline" disabled={busy || loading} onClick={() => void act(async () => {})}><RefreshCw size={16} aria-hidden="true" />{view === "plans" ? t("刷新额度") : t("刷新订单")}</Button></header>
+    <header className="plans-heading"><div><Heading>{view === "plans" ? t("套餐与额度") : t("订单与付款")}</Heading><p>{view === "plans" ? t("按需整理文档，安心离线练习。") : t("付款由支付宝完成，到账以服务端查单或验签通知为准。")}</p></div><Button variant="outline" disabled={busy || loading} onClick={() => void act(async () => {})}><RefreshCw size={16} aria-hidden="true" />{view === "plans" ? t("刷新额度") : t("刷新订单")}</Button></header>
     {loading && <p role="status">{t("正在读取套餐与订单…")}</p>}
     {error && <AccountError error={error} />}
     {notice && <p className="notice" role="status">{notice}</p>}

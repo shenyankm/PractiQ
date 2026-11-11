@@ -239,11 +239,6 @@ export const Content = memo(function Content({
             {snapshot.warnings.map((w, i) => (
               <p key={i}>{w}</p>
             ))}
-            {snapshot.sources.map((s, i) => (
-              <pre key={i} className="whitespace-pre-wrap">
-                {JSON.stringify(s, null, 2)}
-              </pre>
-            ))}
           </div>
         </LazyDetails>
       )}

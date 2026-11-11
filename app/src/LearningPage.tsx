@@ -8,11 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 
-export function LearningPage({ revision, busy, run, onStart, onPractice, onSettings }: {
+export function LearningPage({ revision, busy, run, onStart, onPractice }: {
   revision: number; busy: boolean; run: (job: () => Promise<void>) => void;
   onStart: (session: Session) => Promise<void>;
   onPractice: (bank: string | null, mode: string) => void;
-  onSettings: () => void;
 }) {
   const [days, setDays] = useState<7 | 30>(7), [cause, setCause] = useState("");
   const [data, setData] = useState<LearningOverview | null>(null);
@@ -32,16 +31,17 @@ export function LearningPage({ revision, busy, run, onStart, onPractice, onSetti
   const reasons = {repeated_wrong:t("反复出错"),wrong:t("最近答错"),stale:t("较久未练")};
   const grading = [{label:t("自动判定"),score:data?.counts.auto},{label:t("自评"),score:data?.counts.selfAssessed},{label:t("AI 评分"),score:data?.counts.ai},{label:t("人工评分"),score:data?.counts.manual}];
   return <div className="learning-page space-y-6" aria-busy={loading}>
-    <div className="flex justify-end"><Button variant="outline" disabled={busy || loading} onClick={() => setRetry(value=>value+1)}>{t("刷新")}</Button></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="today-review-title" className="text-lg font-medium">{t("今日复习")}</h2><div className="flex flex-wrap items-center gap-2">
+      <Button variant="outline" disabled={busy || loading} onClick={() => setRetry(value=>value+1)}>{t("刷新")}</Button>
+      <Button disabled={busy || loading || error != null || !selected.length} onClick={() => run(async () => {
+        const preview = await api({type:"preview_paper",request:{bank_ids:[...new Set(selected.map(item=>item.bankId))],search:"",mode:"",filter:"",selection:"manual",count:0,quotas:{},question_ids:selected.map(item=>item.rootId),random:false,total_cents:0}});
+        await onStart(await api({type:"start_paper",paper:{question_ids:preview.questionIds,digest:preview.digest,kind:"practice",minutes:null,scores:[],total_cents:0}}));
+      })}>{t("开始复习 {0} 题",{0:size})}</Button>
+    </div></div>
     {error != null && <div role="alert" className="space-y-2"><ErrorNotice error={error}/><Button variant="outline" onClick={() => setRetry(value=>value+1)}>{t("重试")}</Button></div>}
     {loading && <p role="status">{t("加载中…")}</p>}
     {!loading && error == null && data && <>
-      {data.backup.due && <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm"><p>{data.backup.lastBackupAt == null ? t("尚未导出学习数据备份。") : t("上次备份后新增 {0} 次作答、修改 {1} 条笔记。",{0:data.backup.newAttempts,1:data.backup.changedNotes})}</p><Button variant="outline" disabled={busy} onClick={onSettings}>{t("前往备份")}</Button></div>}
       <section className="space-y-3" aria-labelledby="today-review-title">
-        <div className="flex flex-wrap items-center justify-between gap-3"><h2 id="today-review-title" className="text-lg font-medium">{t("今日复习")}</h2><Button disabled={busy || !selected.length} onClick={() => run(async () => {
-          const preview = await api({type:"preview_paper",request:{bank_ids:[...new Set(selected.map(item=>item.bankId))],search:"",mode:"",filter:"",selection:"manual",count:0,quotas:{},question_ids:selected.map(item=>item.rootId),random:false,total_cents:0}});
-          await onStart(await api({type:"start_paper",paper:{question_ids:preview.questionIds,digest:preview.digest,kind:"practice",minutes:null,scores:[],total_cents:0}}));
-        })}>{t("开始复习 {0} 题",{0:size})}</Button></div>
         <div className="flex flex-wrap items-center gap-3"><Label htmlFor="review-cause-filter">{t("按错因筛选")}</Label><NativeSelect id="review-cause-filter" value={cause} disabled={busy} onValueChange={setCause}><NativeSelectOption value="">{t("全部错因")}</NativeSelectOption>{Object.entries(causeNames()).map(([value,label])=><NativeSelectOption key={value} value={value}>{label}</NativeSelectOption>)}</NativeSelect></div>
         {review.length ? <ul className="divide-y rounded-lg border px-4">{review.slice(0,5).map(item => <li key={item.rootId} className="flex items-start justify-between gap-4 py-3"><div className="min-w-0"><p className="line-clamp-2 text-sm">{item.stem || t("原文未提供题干")}</p><p className="mt-1 text-xs text-muted-foreground">{item.bankTitle} · {reasons[item.reason]} · {t("{0} 题",{0:item.count})}</p></div><span className="shrink-0 text-xs text-muted-foreground tabular-nums">{date(item.lastAnsweredAt)}</span></li>)}</ul> : <div className="rounded-lg border p-4 text-sm"><p>{cause ? t("当前推荐中没有符合此错因的题目。") : t("暂无待复习题目。")}</p><Button variant="outline" className="mt-3" disabled={busy} onClick={() => onPractice(null,"")}>{t("开始新的练习")}</Button></div>}
         {review.length > 5 && <details className="text-sm"><summary className="cursor-pointer">{t("查看其余 {0} 组",{0:review.length-5})}</summary><ul className="mt-2 space-y-2">{review.slice(5).map(item=><li key={item.rootId}>{item.stem || t("原文未提供题干")} · {reasons[item.reason]} · {t("{0} 题",{0:item.count})}</li>)}</ul></details>}

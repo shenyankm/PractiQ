@@ -197,17 +197,16 @@ it("retains manual grading drafts per question across navigation, failures and r
   expect(canCloseWindow()).toBe(true);
 });
 
-it("returns from AI configuration to the same grading question without automatically grading", async () => {
-  setup(); vi.mocked(ai).mockRejectedValue({ code: "LOCAL_SERVICE_URL_REQUIRED" });
+it.each(["LOCAL_SERVICE_URL_REQUIRED", "LOCAL_SERVICE_TOKEN_REQUIRED", "LOCAL_MODEL_URL_REQUIRED", "LOCAL_MODEL_ID_REQUIRED", "LOCAL_MODEL_KEY_REQUIRED"])("keeps grading drafts and sends configuration failures to the operator (%s)", async code => {
+  setup(); vi.mocked(ai).mockRejectedValue({ code });
   const user = userEvent.setup(); render(<App />);
   await screen.findByText("English"); await openExam(user);
   await user.click(screen.getByRole("button", { name: "下一题" }));
   await user.type(screen.getByRole("textbox", { name: "人工得分" }), "3");
   await user.click(screen.getByRole("button", { name: /AI 评分\/继续/ }));
-  await user.click(await screen.findByRole("button", { name: "配置 AI 服务" }));
-  await user.type(await screen.findByRole("textbox", { name: "模型 API 地址" }), "http://127.0.0.1:8000");
-  await user.click(screen.getByRole("button", { name: "返回评分" }));
-  await screen.findByRole("heading", { name: "第 2 / 2 题" });
+  expect(await screen.findByText("云端评分暂不可用，请稍后重试或联系管理员。")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "配置 AI 服务" })).toBeNull();
+  expect(screen.queryByLabelText("模型 API 地址")).toBeNull();
   expect((screen.getByRole("textbox", { name: "人工得分" }) as HTMLInputElement).value).toBe("3");
   expect(ai).toHaveBeenCalledTimes(1);
   expect(api).not.toHaveBeenCalledWith(expect.objectContaining({ type: "test_settings" }));
@@ -249,27 +248,4 @@ it("preserves an editor draft and persistent inline diagnostics after save failu
   expect(within(dialog).getByText(/Disk full/).closest("details")?.open).toBe(false);
   await user.click(within(dialog).getByText("诊断详情", { exact: true }));
   expect(within(dialog).getByText(/Disk full/).closest("details")?.open).toBe(true);
-});
-
-it("shows a failed return from service settings while preserving the grading draft", async () => {
-  const original = setup(); let failSession = false;
-  vi.mocked(api).mockImplementation(async request => {
-    if (request.type === "session" && failSession) throw new Error("Saved session unavailable");
-    return original(request);
-  });
-  vi.mocked(ai).mockRejectedValue({ code: "LOCAL_SERVICE_URL_REQUIRED" });
-  const user = userEvent.setup(); render(<App />);
-  await screen.findByText("English"); await openExam(user);
-  await user.type(screen.getByRole("textbox", { name: "人工得分" }), "3");
-  await user.click(screen.getByRole("button", { name: /AI 评分\/继续/ }));
-  await user.click(await screen.findByRole("button", { name: "配置 AI 服务" }));
-  await screen.findByRole("textbox", { name: "模型 API 地址" });
-  failSession = true;
-  await user.click(screen.getByRole("button", { name: "返回评分" }));
-  expect(await screen.findByRole("alert")).toBeTruthy();
-  expect(screen.getByText(/Saved session unavailable/)).toBeTruthy();
-  failSession = false;
-  await user.click(screen.getByRole("button", { name: "返回评分" }));
-  expect((await screen.findByRole("textbox", { name: "人工得分" }) as HTMLInputElement).value).toBe("3");
-  expect(ai).toHaveBeenCalledTimes(1);
 });

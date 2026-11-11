@@ -12,17 +12,19 @@ import { Input } from "./components/ui/input";
 import logo from "./assets/octopus.png";
 const Workspace = lazy(() => import("./App"));
 
-export default function AccountPortal({ embedded = false, initialPage = "workspace", onChangeService, onForgetSession }: { embedded?: boolean; initialPage?: "workspace" | "account"; onChangeService?: () => void; onForgetSession?: () => void } = {}) {
+export default function AccountPortal({ embedded = false, initialPage = "workspace", onChangeService, onForgetSession }: { embedded?: boolean; initialPage?: "workspace" | "account" | "plans"; onChangeService?: () => void; onForgetSession?: () => void } = {}) {
   useCloudLocale();
   const auth = useAccount();
   const [mode, setMode] = useState("login");
   const [focusMain, setFocusMain] = useState(false);
   const [email, setEmail] = useState(""), [password, setPassword] = useState(""), [token, setToken] = useState("");
   const user = auth.user;
+  const workspaceOnly = embedded && initialPage === "workspace";
+  const plansOnly = embedded && initialPage === "plans";
   function changeMode(value: string) { setMode(value); setPassword(""); setToken(""); auth.setError(""); }
   return <>
     {!embedded && user && <a className="skip-link" href="#main-content" onClick={event => { event.preventDefault(); setFocusMain(true); const main = document.getElementById("main-content"); main?.focus(); main?.scrollIntoView(); }}>{t("跳到主要内容")}</a>}
-    {(!embedded || user) && <header className="account-header">
+    {!workspaceOnly && !plansOnly && (!embedded || user) && <header className="account-header">
       {!embedded && <a href="#"><img src={logo} alt="" />PractiQ</a>}
       {user && <><span>{user.name || user.email}</span><Button variant="outline" onClick={() => { if (document.dispatchEvent(new Event("practiq-cloud-before-leave", {cancelable:true}))) void auth.logout(); }}>{t("退出登录")}</Button></>}
     </header>}
@@ -47,11 +49,19 @@ export default function AccountPortal({ embedded = false, initialPage = "workspa
         {onChangeService && <Button variant="link" onClick={onChangeService}>{t("更改云端服务地址")}</Button>}
         {onForgetSession && <Button variant="link" onClick={() => void onForgetSession()}>{t("清除本机登录状态")}</Button>}
       </div>}
-    </section> : <CustomerArea key={user.id} user={user} initialPage={initialPage} focusMain={focusMain} onNameSaved={name => auth.updateName(user.id, name)} />}
+    </section> : workspaceOnly ? <Suspense key={user.id} fallback={<p>{t("正在载入工作区…")}</p>}><Workspace hideSkipLink focusMain={focusMain} /></Suspense> : plansOnly ? <Allowance key={user.id} /> : <CustomerArea key={user.id} user={user} initialPage={initialPage} focusMain={focusMain} onNameSaved={name => auth.updateName(user.id, name)} />}
   </>;
 }
 
-function CustomerArea({ user, initialPage, focusMain, onNameSaved }: { user: AccountUser; initialPage: "workspace" | "account"; focusMain: boolean; onNameSaved: (name: string) => void }) {
+function Allowance() {
+  const [page, setPage] = useState<"plans" | "payments">("plans");
+  return <section className="account-content">
+    <Payments key={page} view={page === "plans" ? "plans" : "orders"} onNavigate={setPage} />
+    {page === "plans" && <Button variant="outline" onClick={() => setPage("payments")}>{t("购买记录")}</Button>}
+  </section>;
+}
+
+function CustomerArea({ user, initialPage, focusMain, onNameSaved }: { user: AccountUser; initialPage: "workspace" | "account" | "plans"; focusMain: boolean; onNameSaved: (name: string) => void }) {
   useCloudLocale();
   const Content = nativeBridge() ? "section" : "main";
   const [page, setPage] = useState<string>(initialPage);

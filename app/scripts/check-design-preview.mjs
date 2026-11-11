@@ -105,10 +105,7 @@ try {
       await chooseOption(filter, "all");
     }
   }
-  await app.getByRole("button", { name: "配置", exact: true }).click();
-  await expect(app.getByLabel("AI 服务地址", { exact: true })).toBeVisible();
-  await capture(app, "app-service-light-desktop");
-  await app.getByRole("button", { name: "返回设置", exact: true }).click();
+  await expect(app.getByRole("button", { name: "配置", exact: true })).toHaveCount(0);
   await app.getByRole("button", { name: "主题", exact: true }).click();
   await app.getByRole("menuitemradio", { name: "深色", exact: true }).click();
   await capture(app, "app-settings-dark-desktop");

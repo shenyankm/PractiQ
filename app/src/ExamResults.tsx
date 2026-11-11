@@ -17,11 +17,17 @@ import { Label } from "@/components/ui/label";
 export interface GradingDraft { score: string; reason: string }
 
 function gradingStatus(status: string) { return ({graded: t("已完成"), ungraded:t("未能评分，需复核"), unknown:t("评分结果待确认")})[status] || status; }
+function GradingError({ error }: { error: unknown }) {
+  const code = String((error as { code?: string } | null)?.code ?? "");
+  return ["LOCAL_SERVICE_URL_REQUIRED", "LOCAL_SERVICE_TOKEN_REQUIRED", "LOCAL_SERVICE_TOKEN_INVALID", "INVALID_SERVICE_TOKEN", "LOCAL_MODEL_URL_REQUIRED", "LOCAL_MODEL_ID_REQUIRED", "LOCAL_MODEL_KEY_REQUIRED"].includes(code)
+    ? <p>{t("云端评分暂不可用，请稍后重试或联系管理员。")}</p>
+    : <ErrorNotice error={error} />;
+}
 function eligible(a:Attempt){const q=a.snapshot.question;return a.submittedAt!=null&&!a.skipped&&q.answerMode==="short_answer"&&!!q.stem&&!!a.answer?.text?.trim()&&!!(q.scoringRubric||q.answerPayload?.text)&&!a.snapshot.missingAssets&&!q.missingFields.some(k=>["stem","material","media","answerMode"].includes(k))&&!["manual","self"].includes(a.gradeKind);}
 function GradeDetails({request}: {request: GradingResponse}) {
   const error = request.appError || request.error;
   return <div className="space-y-2">
-    {error && <ErrorNotice error={error} />}
+    {error && <GradingError error={error} />}
     {typeof request.result?.reason === "string" && request.result.reason && <p>{request.result.reason}</p>}
     {Array.isArray(request.result?.evidence) && request.result.evidence.filter(e=>typeof e === "string").map((e,i)=><p key={i}>{e}</p>)}
     {Array.isArray(request.result?.reviewReasons) && request.result.reviewReasons.filter(e=>typeof e === "string").map((e,i)=><p key={i}>{t("复核提示：{0}", {0:e})}</p>)}
@@ -45,7 +51,6 @@ export function ExamResults({
   onNextUnattempted,
   draft,
   onDraftChange,
-  onConfigure,
   questionContainer,
 }: {
   session: Session;
@@ -54,7 +59,6 @@ export function ExamResults({
   onNextUnattempted?: () => void;
   draft?: GradingDraft;
   onDraftChange?: (draft: GradingDraft) => void;
-  onConfigure?: () => void;
   questionContainer?: HTMLElement | null;
 }) {
   useI18n();
@@ -86,8 +90,6 @@ export function ExamResults({
   }, [exam, pending, a]);
   if(!submitted)return null;
   const latest=a.grading?.lastRequest;
-  const configurationError = error ?? latest?.appError;
-  const needsConfiguration = ["LOCAL_SERVICE_URL_REQUIRED", "LOCAL_SERVICE_TOKEN_REQUIRED", "LOCAL_SERVICE_TOKEN_INVALID", "INVALID_SERVICE_TOKEN", "LOCAL_MODEL_URL_REQUIRED", "LOCAL_MODEL_ID_REQUIRED", "LOCAL_MODEL_KEY_REQUIRED"].includes(String((configurationError as { code?: string } | null)?.code ?? ""));
   function grade(items:Attempt[],retry=false){run(async()=>{
     stopped.current=false;setRunning(true);setError(null);setFailedAttempt(null);
     try {
@@ -120,8 +122,7 @@ export function ExamResults({
       {onNextUnattempted&&<Button variant="outline" disabled={running} onClick={onNextUnattempted}>{t("继续下一批未做题")}</Button>}
       {!!pendingAi.length&&<Button disabled={running} onClick={()=>grade(pendingAi)}>{t("AI 评分/继续（{0} 题，将调用模型）", { 0: pendingAi.length })}</Button>}{running&&<Button variant="outline" onClick={()=>{stopped.current=true;}}>{t("停止后续评分")}</Button>}{exam&&!session.finishedAt&&<Button variant="outline" disabled={running} onClick={()=>run(async()=>onSession(await api({type:"complete_review",id:session.id})))}>{t("结束核对（可保留未判定）")}</Button>}
       </div>
-      {error != null && <div role="alert"><ErrorNotice error={error} /></div>}
-      {needsConfiguration && onConfigure && <Button variant="outline" disabled={running || saving} onClick={onConfigure}>{t("配置 AI 服务")}</Button>}
+      {error != null && <div role="alert"><GradingError error={error} /></div>}
     </>
   );
 

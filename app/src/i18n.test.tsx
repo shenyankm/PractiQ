@@ -24,11 +24,7 @@ function Controls() { language = useI18n(); return null; }
 function wrap(children: React.ReactNode) { return render(<I18nProvider><Controls />{children}</I18nProvider>); }
 async function ready() { await act(async () => {}); await waitFor(() => expect(language.ready).toBe(true)); }
 async function change(locale: Locale) { await act(async () => language.change(locale)); }
-async function selectService() {
-  const control = await screen.findByLabelText(t("评分连接方式"));
-  await waitFor(() => expect(control.closest("fieldset")?.disabled).toBe(false));
-  await userEvent.selectOptions(control, "service");
-}
+
 beforeEach(() => {
   saved = null; failSave = false;
   Object.defineProperty(navigator, "languages", { configurable: true, value: ["zh-CN"] });
@@ -163,10 +159,7 @@ it.each(["zh-CN", "en"] as const)("collapses the sidebar without resetting setti
   saved = value;
   wrap(<App />); await ready();
   await userEvent.click(screen.getByRole("button", { name: t("设置") }));
-  await userEvent.click(await screen.findByRole("button", { name: t("配置") }));
-  await selectService();
-  const input = await screen.findByLabelText(t("AI 服务地址"));
-  await userEvent.type(input, "https://example.com/v1");
+  const backup = await screen.findByRole("heading", { name: t("学习数据备份") });
   const calls = vi.mocked(invoke).mock.calls.length;
   const toggle = screen.getByRole("button", { name: t("收起侧边栏") });
   toggle.focus();
@@ -174,16 +167,16 @@ it.each(["zh-CN", "en"] as const)("collapses the sidebar without resetting setti
   expect(toggle.getAttribute("aria-expanded")).toBe("false");
   expect(screen.getByRole("button", { name: t("展开侧边栏") })).toBe(toggle);
   expect(screen.getByRole("button", { name: t("设置") }).getAttribute("aria-current")).toBe("page");
-  expect(screen.getByLabelText(t("AI 服务地址"))).toBe(input);
-  expect((input as HTMLInputElement).value).toBe("https://example.com/v1");
-  expect(vi.mocked(invoke).mock.calls.slice(calls)).toEqual([["request", {locale:value,request:{type:"save_settings",config:{service_url:"https://example.com/v1"},service_token:null}}]]);
+  expect(screen.getByRole("heading", { name: t("学习数据备份") })).toBe(backup);
+  expect(screen.queryByLabelText(t("AI 服务地址"))).toBeNull();
+  expect(vi.mocked(invoke).mock.calls.slice(calls)).toEqual([]);
   await userEvent.click(screen.getByRole("button", { name: t("语言") }));
   expect(screen.getByRole("menu", { name: t("语言") })).toBeTruthy();
   await userEvent.keyboard("{Escape}");
   await userEvent.click(toggle);
   expect(toggle.getAttribute("aria-expanded")).toBe("true");
-  expect(screen.getByLabelText(t("AI 服务地址"))).toBe(input);
-  expect((input as HTMLInputElement).value).toBe("https://example.com/v1");
+  expect(screen.getByRole("heading", { name: t("学习数据备份") })).toBe(backup);
+  expect(screen.queryByLabelText(t("AI 服务地址"))).toBeNull();
 });
 it("keeps editor input and an open dialog while changing all its labels", async () => {
   wrap(<QuestionEditor initial={blankQuestion()} busy={false} onClose={() => {}} onSave={() => {}} />); await ready();
@@ -333,7 +326,7 @@ it("formats history accuracy counts through the translated sentence", async () =
   expect(await screen.findByText("Graded 10,000 questions, correct 5,000 · Accuracy: 50%")).toBeTruthy();
   expect(screen.getByText("Unanswered / skipped: 19 · Ungraded: 1")).toBeTruthy();
 });
-it.each(["en", "zh-CN"] as const)("imports offline ZIP and saves a translated service form in %s", async value => {
+it.each(["en", "zh-CN"] as const)("imports offline ZIP and keeps settings free of provider configuration in %s", async value => {
   saved = value;
   const original = vi.mocked(invoke).getMockImplementation()!;
   vi.mocked(invoke).mockImplementation(async (command, args) => {
@@ -352,17 +345,11 @@ it.each(["en", "zh-CN"] as const)("imports offline ZIP and saves a translated se
   await userEvent.click(screen.getByRole("button", {name:t("确认导入")}));
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("request", expect.objectContaining({locale:value,request:expect.objectContaining({type:"import",ticket:"ticket",title:"原文 filename"})})));
   await userEvent.click(screen.getByRole("button", {name:t("设置")}));
-  await userEvent.click(await screen.findByRole("button", {name:t("配置")}));
-  await selectService();
-  const model = await screen.findByLabelText(t("AI 服务地址"));
-  await waitFor(() => expect(model.closest("fieldset")?.disabled).toBe(false));
-  await userEvent.type(screen.getByLabelText(t("AI 服务访问令牌")),"test-key");
-  await userEvent.type(model,"https://service.example.com");
+  await screen.findByRole("heading", { name: t("学习数据备份") });
   await change(value === "en" ? "zh-CN" : "en");
-  expect((screen.getByLabelText(t("AI 服务地址")) as HTMLInputElement).value).toBe("https://service.example.com");
-  expect(vi.mocked(invoke).mock.calls.some(([,a]) => (a as {request:{type:string}}).request.type === "save_settings")).toBe(true);
-  await userEvent.tab();
-  await waitFor(() => expect(invoke).toHaveBeenCalledWith("request", expect.objectContaining({request:expect.objectContaining({type:"save_settings",config:expect.objectContaining({service_url:"https://service.example.com"})})})));
+  expect(screen.getByRole("heading", { name: t("学习数据备份") })).toBeTruthy();
+  expect(screen.queryByLabelText(t("AI 服务地址"))).toBeNull();
+  expect(vi.mocked(invoke).mock.calls.some(([,a]) => (a as {request:{type:string}}).request.type === "save_settings")).toBe(false);
   expect(vi.mocked(invoke).mock.calls.filter(([c]) => c === "ai_request")).toHaveLength(0);
 });
 it.each(["en", "zh-CN"] as const)("keeps grading explicit and formats partial scores in %s", async value => {
