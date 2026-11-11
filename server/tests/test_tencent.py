@@ -42,6 +42,27 @@ def ocr_page(*, figures=False):
     return {"width": 591, "height": 867, "elements": elements}
 
 
+@pytest.mark.parametrize('damage', [None, 'missing', 'cross_page', 'unlinked', 'invalid'])
+def test_figure_path_links_global_xml_id_to_page_local_index(damage):
+    page = ocr_page(figures=True)
+    path = 'images/figure.png'
+    page['elements'][1]['figure_info']['path'] = None if damage == 'invalid' else path
+    entries: list[tuple[str, str | bytes]] = [('sample_ocr_page0.json', json.dumps(page)),
+               ('sample_xml_full.xml', f'<root><image id="p-18" page-numbers="{1 if damage == "cross_page" else 0}" src="{path}"/></root>')]
+    if damage != 'missing':
+        entries.append((path, make_image()))
+    if damage == 'unlinked':
+        entries[1] = ('sample_xml_full.xml', '<root/>')
+    payload = archive(entries)
+    if damage:
+        with pytest.raises(DocumentProcessingError, match='Tencent result archive'):
+            decode_bundle(payload, load(), page_count=2)
+    else:
+        figure = decode_bundle(payload, load(), page_count=2)[0]['figures'][0]
+        assert figure['elementIndex'] == 9 and figure['imageMember'] == path
+        assert figure['bbox'] == [166 / 591, 526 / 867, 396 / 591, 652 / 867]
+
+
 def job_runtime(monkeypatch):
     monkeypatch.setenv("AI_TENCENT_SECRET_ID", "synthetic-id")
     monkeypatch.setenv("AI_TENCENT_SECRET_KEY", "synthetic-key")

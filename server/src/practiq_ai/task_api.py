@@ -21,6 +21,7 @@ from .contracts import (
     DocumentAnswerMatches,
     DocumentAnswerProposal,
     DocumentAnswerSource,
+    DocumentBankImport,
     DocumentCorrections,
     DocumentCorrectionSave,
     DocumentParseResult,
@@ -430,9 +431,9 @@ async def get_task_head(thread_id: str) -> dict[str, Any]:
     }).model_dump(mode='json')
 
 
-async def export_task(thread_id: str, checkpoint_id: str | None = None, *, completed: bool = False,
-                      revision_id: UUID | None = None, question_indexes: list[int] | None = None) -> BinaryIO:
-    from .bank_export import append_export_warning, export_task_bank
+async def _bank_snapshot(thread_id: str, checkpoint_id: str | None = None, *, completed: bool = False,
+                         revision_id: UUID | None = None, question_indexes: list[int] | None = None):
+    from .bank_export import append_export_warning
     service = client()
     task, snapshot, run = await _read_task(service, thread_id)
     current_checkpoint = service.checkpoint_id(snapshot, run)
@@ -479,11 +480,34 @@ async def export_task(thread_id: str, checkpoint_id: str | None = None, *, compl
         for index in retained_indexes:
             if evidence := answer_sources.get(index):
                 append_export_warning(detail.result, f'Supplied answer source for original question {index + 1}: {evidence.fileName or "answer document"}; SHA-256 {evidence.sourceSha256}; source excerpt: {(evidence.sourceText or "unavailable")[:1_200]}')
-    payload = await export_task_bank(detail, get_object_store(), source=DocumentReference.model_validate(task['document']))
+    return detail, DocumentReference.model_validate(task['document']), current_checkpoint, original_state
+
+
+async def _verify_bank_snapshot(thread_id, checkpoint_id, original_state):
+    service = client()
+    _, latest, latest_run = await _read_task(service, thread_id)
+    if service.checkpoint_id(latest, latest_run) != checkpoint_id or _task_state(latest, latest_run)[0] != original_state:
+        raise conflict('The task changed during export', 'STALE_CHECKPOINT')
+
+
+async def import_task(thread_id: str, checkpoint_id: str, *, completed: bool = False,
+                      revision_id: UUID | None = None, question_indexes: list[int] | None = None) -> DocumentBankImport:
+    from .bank_export import import_task_bank
+    detail, source, checkpoint, state = await _bank_snapshot(thread_id, checkpoint_id, completed=completed,
+                                                           revision_id=revision_id, question_indexes=question_indexes)
+    value = await import_task_bank(detail, get_object_store(), source=source)
+    await _verify_bank_snapshot(thread_id, checkpoint, state)
+    return value
+
+
+async def export_task(thread_id: str, checkpoint_id: str | None = None, *, completed: bool = False,
+                      revision_id: UUID | None = None, question_indexes: list[int] | None = None) -> BinaryIO:
+    from .bank_export import export_task_bank
+    detail, source, checkpoint, state = await _bank_snapshot(thread_id, checkpoint_id, completed=completed,
+                                                           revision_id=revision_id, question_indexes=question_indexes)
+    payload = await export_task_bank(detail, get_object_store(), source=source)
     try:
-        _, latest, latest_run = await _read_task(service, thread_id)
-        if service.checkpoint_id(latest, latest_run) != current_checkpoint or _task_state(latest, latest_run)[0] != original_state:
-            raise conflict('The task changed during export', 'STALE_CHECKPOINT')
+        await _verify_bank_snapshot(thread_id, checkpoint, state)
     except BaseException:
         payload.close()
         raise

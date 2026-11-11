@@ -184,12 +184,12 @@ fn desktop_ai_requests_only_accept_explicit_grading() {
     assert!(serde_json::from_value::<crate::ai::AiRequest>(unexpected).is_err());
 }
 #[test]
-fn service_settings_requests_reject_legacy_provider_fields() {
-    for kind in ["save_settings", "test_settings"] {
+fn retired_grading_settings_commands_are_rejected() {
+    for kind in ["settings", "save_settings", "test_settings"] {
         assert!(serde_json::from_value::<crate::Request>(
             json!({"type":kind,"config":{"service_url":"http://127.0.0.1:8123"}})
         )
-        .is_ok());
+        .is_err());
         assert!(serde_json::from_value::<crate::Request>(json!({"type":kind,"config":{"base_url":"https://provider.example/v1","model_id":"legacy"},"api_key":"old-key"})).is_err());
         assert!(serde_json::from_value::<crate::Request>(json!({"type":kind,"config":{"service_url":"http://127.0.0.1:8123","model_id":"urn:practiq:ai-service:v1"},"service_token":null})).is_err());
         assert!(serde_json::from_value::<crate::Request>(json!({"type":kind,"config":{"service_url":"http://127.0.0.1:8123"},"service_token":"retired"})).is_err());

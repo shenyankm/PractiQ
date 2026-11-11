@@ -163,6 +163,24 @@ it("labels unlabeled paragraph choices by position instead of ID", async () => {
   expect(screen.getAllByRole("option", { name: "2" })).toHaveLength(2);
 });
 
+it("keeps one-to-one matching drafts valid and lets a user release a target", async () => {
+  const user = userEvent.setup();
+  const question = { ...blankQuestion(), answerMode: "matching" as const, matchingVariant: "one_to_one" as const, items: [
+    { id: 0, side: "left" as const, content: "Apple" }, { id: 1, side: "left" as const, content: "Book" },
+    { id: 0, side: "right" as const, content: "苹果" }, { id: 1, side: "right" as const, content: "书" },
+  ] };
+  render(<Controlled question={question} />);
+  await user.selectOptions(screen.getByRole("combobox", { name: "匹配 Apple" }), "0");
+  const book = screen.getByRole("combobox", { name: "匹配 Book" }) as HTMLSelectElement;
+  expect(book.options[1].disabled).toBe(true);
+  await user.selectOptions(book, "0");
+  expect(book.value).toBe("");
+  await user.selectOptions(screen.getByRole("combobox", { name: "匹配 Apple" }), "");
+  expect(book.options[1].disabled).toBe(false);
+  await user.selectOptions(book, "0");
+  expect(book.value).toBe("0");
+});
+
 it("shows source answers and missing ordering or matching references clearly", () => {
   const question = { ...blankQuestion(), answerMode: "ordering" as const, choiceVariant: null, options: [], items: [{ id: 0, content: "第一项" }, { id: 1, content: "第二项" }] };
   const { rerender } = render(<AnswerDisplay answer={null} question={question} />);

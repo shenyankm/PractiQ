@@ -970,3 +970,33 @@ async def test_partial_ocr_export_keeps_json_evidence_out_of_image_resources(tmp
     with payload, ZipFile(payload) as archive:
         assert not any(name.startswith('resources/') for name in archive.namelist())
     assert await store.get_verified(pages[1]) == b'{"failed":true}'
+
+async def test_direct_bank_snapshot_matches_questions_without_creating_an_archive(tmp_path, monkeypatch):
+    store, source = await source_store(tmp_path)
+    monkeypatch.setattr(bank_export, 'ZipFile', Mock(side_effect=AssertionError('Direct import must not create ZIP')))
+    result = await bank_export.import_task_bank(detail(), store, source=source)
+    assert source.fileName is not None
+    assert result.status == 'PARTIAL' and result.title == source.fileName.rsplit('.', 1)[0]
+    assert result.result == parsed(detail()) and result.processing is None
+    assert result.result.questions[0].answerPayload is None
+    monkeypatch.setattr(store, 'get_verified', AsyncMock(side_effect=DocumentProcessingError(422, 'changed source', 'ARTIFACT_CHECKSUM_MISMATCH')))
+    with pytest.raises(DocumentProcessingError):
+        await bank_export.import_task_bank(detail(), store, source=source)
+
+
+async def test_direct_bank_snapshot_rejects_stale_checkpoints_and_preserves_saved_result(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from practiq_ai import task_api
+    store, source = await source_store(tmp_path)
+    snapshot = SimpleNamespace(values={'status': 'SUCCEEDED'}, interrupts=(), next=())
+    saved = {'document': source.model_dump()}
+    monkeypatch.setattr(task_api, 'client', lambda: SimpleNamespace(checkpoint_id=lambda *_args: 'current-result'))
+    monkeypatch.setattr(task_api, '_read_task', AsyncMock(return_value=(saved, snapshot, None)))
+    monkeypatch.setattr(task_api, '_task_detail', AsyncMock(return_value=detail()))
+    monkeypatch.setattr(task_api, 'get_object_store', lambda: store)
+    with pytest.raises(DocumentProcessingError) as error:
+        await task_api.import_task(str(detail().threadId), 'stale')
+    assert error.value.code == 'STALE_CHECKPOINT'
+    result = await task_api.import_task(str(detail().threadId), 'current-result')
+    assert result.result == parsed(detail())

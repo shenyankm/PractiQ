@@ -13,6 +13,7 @@ from .contracts import (
     BANK_IMAGE_MAX_DIMENSION,
     BANK_IMAGE_MAX_PIXELS,
     ArtifactReference,
+    DocumentBankImport,
     DocumentParseResult,
     DocumentProcessing,
     DocumentReference,
@@ -182,6 +183,19 @@ def _prepare_bank(
     _limit(len(questions), JSON_LIMIT, "Questions JSON")
     references = _references(result, source)
     return manifest, questions, references
+
+
+async def import_task_bank(detail: DocumentTaskDetail, store: ObjectStore, *, source: DocumentReference) -> DocumentBankImport:
+    """Expose the same validated saved snapshot without creating a ZIP."""
+    if detail.state != "COMPLETED" or not detail.checkpointId or detail.result is None or detail.status is None:
+        raise DocumentProcessingError(409, "Task has no completed current result", "BANK_EXPORT_NOT_READY")
+    if source.objectKey != document_source_key(source.sourceType, source.sha256):
+        raise _invalid("Task source is outside managed storage")
+    file_name = source.fileName or detail.fileName
+    title = file_name.rsplit(".", 1)[0] or file_name
+    _, questions, _ = await _thread_io(_prepare_bank, detail, source, title, "")
+    await store.get_verified(source)
+    return DocumentBankImport.model_validate({"title": title, **json.loads(questions)})
 
 
 async def export_task_bank(

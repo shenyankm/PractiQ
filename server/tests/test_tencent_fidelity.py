@@ -247,6 +247,14 @@ def test_nested_tencent_formula_is_checked_without_model_source_text(ocr_validat
     ocr_validation('1. Compute?', [row], elements)
 
 
+@pytest.mark.parametrize('escaped', ['x &gt; 0', 'x &#62; 0', 'x &#x3e; 0'])
+def test_xml_escaped_formula_keeps_literal_comparison_without_requiring_markup(escaped):
+    from practiq_ai.unit_results import missing_formulas
+
+    assert missing_formulas(f'${escaped}$', 'x > 0') == []
+    assert missing_formulas(f'${escaped}$', 'x < 0') == [escaped]
+
+
 @pytest.mark.parametrize('formula_element', [False, True])
 def test_mixed_answer_key_does_not_attach_other_questions_formulas(ocr_validation, formula_element):
     row = {**question('What is two plus two?'), 'id': 'page:1:17', 'answerPayload': {'text': '4'}}

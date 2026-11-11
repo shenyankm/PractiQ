@@ -347,7 +347,7 @@ test('personal settings provide grading configuration and backups without accoun
   await page.setViewportSize({ width: 960, height: 820 });
   await page.goto('/'); await navigate(page, '设置');
   await expect(page.getByRole('heading', { name: '学习数据备份', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '配置', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '配置', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '导出备份', exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('personal-settings.png') });
 });

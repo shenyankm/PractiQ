@@ -4,7 +4,7 @@ PractiQ is an open-source personal document importer and offline practice app. T
 
 ## Access
 
-The macOS App opens directly into **Document import** for native selection/upload, task review, corrections and ZIP export. It defaults to the independent Python backend at `http://127.0.0.1:8090`; change the address under import **Settings**. There is no independent Web frontend or backend static hosting. Legacy `AI_SERVICE_TOKEN` and `AI_WEB_DIR` values are ignored; existing files and credentials are not deleted.
+The macOS App opens directly into **Document import** for native selection/upload, task review, corrections and direct local-bank import. It defaults to the independent Python backend at `http://127.0.0.1:8090`; change the address under global **Settings → AI service**. There is no independent Web frontend or backend static hosting. Legacy `AI_SERVICE_TOKEN` and `AI_WEB_DIR` values are ignored; existing files and credentials are not deleted.
 
 Keep the service on loopback. If you expose it through a private HTTPS proxy,
 configure access control at that proxy. Cross-origin browser API requests are
@@ -36,4 +36,4 @@ Schemas 6–8 are not upgraded or adopted. Startup and offline upgrade refuse th
 
 The App connects directly from **Document import** to a personal service. Its origin is saved separately in `v4/import-service-v1.json`; old `account-service-v1.json`, account Keychain entries, practice databases and grading connection settings are untouched. Existing correction drafts and uncertain submission intents in the retired user namespace are not adopted. Finish/reconcile them in the original deployment before switching. No registration, administrator bootstrap, allowances, plans or payment setup is required.
 
-The API must remain on loopback or behind a private access-controlled proxy; it is not a public multi-tenant service. App model grading is configured separately under **Settings → AI service**, using a direct OpenAI-compatible provider or the personal grading service. Provider keys remain in macOS Keychain, and only explicit grading/retry starts a call.
+The API must remain on loopback or behind a private access-controlled proxy; it is not a public multi-tenant service. App AI grading uses the same backend configured under global **Settings → AI service**. Provider keys remain in the backend environment, and only explicit grading/retry starts a call. Legacy App credentials and grading sidecars are preserved but never used for direct calls.

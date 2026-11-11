@@ -160,6 +160,7 @@ def build_model(
         max_retries=0,
         use_responses_api=True,
         store=False,
+        reasoning={"effort": "none"} if provider == "deepseek" else None,
         extra_body={"enable_thinking": False}
         if endpoint == BASE_URLS["dashscope"] and model_name.startswith("qwen3.7-")
         else None,
@@ -559,6 +560,8 @@ async def structured_call[ResultT: BaseModel](
                 if runtime is None:
                     raise
                 error = {"status": exc.status_code, "code": exc.code, "detail": exc.detail}
+            elif isinstance(exc, APIStatusError) and exc.status_code == 402:
+                error = {"status": 402, "code": "AI_PROVIDER_BALANCE_REQUIRED", "detail": "Model provider balance is insufficient; update backend provider billing or configuration before explicitly retrying"}
             elif isinstance(exc, APIStatusError) and exc.status_code in {401, 403}:
                 error = {"status": exc.status_code, "code": "AI_PROVIDER_AUTH_ERROR", "detail": "Check the model API key and permissions, then retry failed units"}
             elif isinstance(exc, (APIConnectionError, APITimeoutError)) or (
@@ -638,7 +641,7 @@ async def structured_call[ResultT: BaseModel](
             if error["code"] == "MODEL_BUDGET_EXCEEDED" and failure_code == "AI_PROVIDER_UNAVAILABLE":
                 decision("stop", attempt, failure_code)
                 return None, usage, failure_code
-            if error["code"] in {"MODEL_BUDGET_EXCEEDED", "MODEL_INPUT_TOO_LARGE", "AI_PROVIDER_AUTH_ERROR", "AI_PROVIDER_ERROR"}:
+            if error["code"] in {"MODEL_BUDGET_EXCEEDED", "MODEL_INPUT_TOO_LARGE", "AI_PROVIDER_AUTH_ERROR", "AI_PROVIDER_BALANCE_REQUIRED", "AI_PROVIDER_ERROR"}:
                 decision("stop", attempt, error["code"])
                 return None, usage, error["code"]
             if error["code"] != "AI_PROVIDER_UNAVAILABLE":

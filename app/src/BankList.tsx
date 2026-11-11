@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, ChevronRight, CloudUpload, Download, EllipsisVertical, Pencil, Play, Trash2, Upload } from "lucide-react";
+import { BookOpen, ChevronRight, CloudUpload, Download, EllipsisVertical, Pencil, Play, Trash2 } from "lucide-react";
 import { api, type Bank, type BankPage, type UnfinishedSession } from "./api";
 import { message, t, useI18n } from "./i18n";
 import { toast } from "./notifications";
@@ -11,7 +11,7 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { ListPagination } from "@/components/ui/pagination";
 import { ErrorNotice } from "./OperationFeedback";
 
-export function BankList({ offset, onOffsetChange, revision, onLoadingChange, busy, ready, run, onOpenSession, onAddExample, onImport, onCloudImport, onHistory, onOpenQuestions, onPractice, onEdit, onDelete }: {
+export function BankList({ offset, onOffsetChange, revision, onLoadingChange, busy, ready, run, onOpenSession, onAddExample, onCloudImport, onHistory, onOpenQuestions, onPractice, onEdit, onDelete }: {
   offset: number;
   onOffsetChange: (offset: number) => void;
   revision: number;
@@ -21,7 +21,6 @@ export function BankList({ offset, onOffsetChange, revision, onLoadingChange, bu
   run: (job: () => Promise<void>) => void;
   onOpenSession: (id: string) => void;
   onAddExample: () => void;
-  onImport: () => void;
   onCloudImport: () => void;
   onHistory: () => void;
   onOpenQuestions: (bankId: string) => void;
@@ -75,7 +74,19 @@ export function BankList({ offset, onOffsetChange, revision, onLoadingChange, bu
       {error != null && <div role="alert" className="space-y-2"><ErrorNotice error={error} /><Button variant="outline" onClick={() => setRefresh(value => value + 1)}>{t("重试")}</Button></div>}
     </div>}
     {!loading && !error && unfinished && <Card className="resume-card"><CardContent className="resume-content"><div className="min-w-0 flex-1"><h2 className="text-lg font-semibold">{t("继续未完成的练习")}</h2><p className="mt-1 break-words font-medium">{unfinished.title}</p><p className="mt-2 text-sm text-muted-foreground"><SessionProgress session={unfinished} onExpired={() => setRefresh(value => value + 1)}/></p><progress className="practice-progress mt-3" aria-label={t("继续未完成的练习")} max={unfinished.count || 1} value={unfinished.kind && unfinished.kind !== "practice" ? unfinished.draftAnswered ?? 0 : unfinished.answered}/></div><div className="resume-actions"><Button variant="ghost" disabled={busy} onClick={onHistory}>{t("查看全部")}<ChevronRight aria-hidden="true" /></Button><Button disabled={busy} onClick={() => onOpenSession(unfinished.id)}><Play aria-hidden="true" />{unfinished.kind && unfinished.kind !== "practice" ? t("继续考试") : t("继续练习")}</Button></div></CardContent></Card>}
-    {!page.total && !loading && !error && ready && <Empty className="min-h-96 border border-dashed"><EmptyHeader><EmptyMedia><BookOpen /></EmptyMedia><EmptyTitle>{t("从第一个题库开始")}</EmptyTitle><EmptyDescription>{t("导入题库 ZIP 即可离线练习；也可在应用内导入 PDF、Word 或图片，由独立后端解析成题库。")}</EmptyDescription></EmptyHeader><EmptyContent><Button disabled={busy} onClick={onImport}><Upload />{t("导入题库 ZIP")}</Button><Button variant="outline" disabled={busy} onClick={onCloudImport}><CloudUpload />{t("导入文档")}</Button><Button variant="ghost" disabled={busy} onClick={onAddExample}><BookOpen />{t("添加示例题库")}</Button></EmptyContent></Empty>}
+    {!page.total && !loading && !error && ready && <Empty className="min-h-80 gap-6 border border-dashed py-10">
+      <EmptyHeader className="max-w-xl gap-3">
+        <EmptyMedia className="size-10"><BookOpen /></EmptyMedia>
+        <EmptyTitle className="text-lg">{t("从第一个题库开始")}</EmptyTitle>
+        <EmptyDescription>{t("导入 PDF、Word 或图片，解析完成后直接加入题库。")}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent className="max-w-none gap-3">
+        <div className="flex flex-wrap justify-center gap-3">
+          <Button disabled={busy} onClick={onCloudImport}><CloudUpload />{t("导入文档")}</Button>
+        </div>
+        <Button variant="ghost" disabled={busy} onClick={onAddExample}><BookOpen />{t("添加示例题库")}</Button>
+      </EmptyContent>
+    </Empty>}
     <div className="bank-grid">
       {!loading && !error && page.items.map(bank => <Card key={bank.id} className="bank-card">
         <CardHeader>

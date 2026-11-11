@@ -22,6 +22,7 @@ from practiq_ai.contracts import (
     DocumentAnswerMatches,
     DocumentAnswerProposal,
     DocumentAnswerSource,
+    DocumentBankImport,
     DocumentCorrections,
     DocumentCorrectionSave,
     DocumentReference,
@@ -278,6 +279,14 @@ async def get_answer_proposal(thread_id: UUID, answer_task_id: UUID, question_in
 @app.put('/api/document-tasks/{thread_id}/corrections', response_model=DocumentCorrections)
 async def save_document_correction(thread_id: UUID, request: DocumentCorrectionSave) -> DocumentCorrections:
     return await _task_response(task_api.save_correction(str(thread_id), request))
+
+
+@app.get("/api/document-tasks/{thread_id}/bank", response_model=DocumentBankImport, dependencies=[Depends(export_slot)])
+async def import_document_task(thread_id: UUID, checkpoint_id: str = Query(min_length=1, max_length=255),
+                               scope: str = Query(default='full', pattern='^(full|completed)$'), revision_id: UUID | None = None,
+                               question_index: Annotated[list[int] | None, Query(min_length=1, max_length=2_000)] = None) -> DocumentBankImport:
+    return await _task_response(task_api.import_task(str(thread_id), checkpoint_id, completed=scope == 'completed',
+                                                    revision_id=revision_id, question_indexes=question_index))
 
 
 @app.get("/api/document-tasks/{thread_id}/export", dependencies=[Depends(export_slot)])

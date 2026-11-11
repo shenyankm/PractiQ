@@ -13,7 +13,6 @@ import {
   BookOpen,
   Menu,
   MoreHorizontal,
-  Upload,
   CloudUpload,
   Plus,
   Star,
@@ -78,7 +77,6 @@ const AnswerInput = lazy(() => import("./AnswerInput").then(module => ({default:
 const QuestionEditor = lazy(() => import("./QuestionEditor").then(module => ({default:module.QuestionEditor})));
 const Practice = lazy(() => import("./Practice").then(module => ({default:module.Practice})));
 const ImportBankDialog = lazy(() => import("./ImportBankDialog").then(module => ({default:module.ImportBankDialog})));
-const ConnectionSettingsPanel = lazy(() => import("./ConnectionSettings").then(module => ({ default: module.ConnectionSettingsPanel })));
 const CloudPage = lazy(() => import("./CloudPage").then(module => ({default:module.CloudPage})));
 const SettingsPage = lazy(() => import("./SettingsPage").then(module => ({default:module.SettingsPage})));
 const BankList = lazy(() => import("./BankList").then(module => ({default:module.BankList})));
@@ -92,7 +90,6 @@ type Page =
   | "favorite"
   | "history"
   | "cloud"
-  | "service-settings"
   | "settings"
   | "practice";
 function SidebarButton({ collapsed, label, description, children, className = "", ...props }: ComponentProps<typeof Button> & { collapsed: boolean; label: string; description?: string }) {
@@ -286,6 +283,11 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     resetQuestions();
     if (next === "banks" || next === "history") setListRevision(v => v + 1);
   }
+  useEffect(() => {
+    const imported = (event: Event) => { void reloadBanks(); toast.success(message("已导入 {0} 道题目", {0:(event as CustomEvent<{count:number}>).detail.count})); };
+    window.addEventListener("practiq-bank-imported", imported);
+    return () => window.removeEventListener("practiq-bank-imported", imported);
+  }, [reloadBanks]);
   function navigate(next: Page, bankId: string | null = null, showRestore = false) {
     if ((page === "cloud") && !document.dispatchEvent(new Event("practiq-cloud-before-leave", { cancelable: true }))) return;
     run(() => transitionTo(next, bankId, showRestore));
@@ -315,7 +317,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               ? t("练习记录")
               : page === "practice"
                 ? t(session && (session.finishedAt != null || (session.kind && session.kind !== "practice" && session.submittedAt != null)) ? "练习回顾" : session?.kind === "mock_exam" ? "模拟考试" : session?.kind === "self_test" ? "自主测验" : "专注练习")
-                : page === "cloud" ? t("文档导入") : page === "service-settings" ? t("AI 服务") : t("设置");
+                : page === "cloud" ? t("文档导入") : t("设置");
   const loadingView = <p role="status" className="p-4 text-sm text-muted-foreground">{t("加载中…")}</p>;
   const listPage = ["questions", "wrong", "favorite"].includes(page);
   const languageError = language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><ErrorNotice error={language.error.cause} /><Button size="sm" variant="outline" disabled={language.saving || busy} onClick={() => {
@@ -395,8 +397,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           <SidebarButton
             collapsed={sidebarCollapsed}
             label={t("设置")}
-            variant={page === "settings" || page === "service-settings" ? "secondary" : "ghost"}
-            aria-current={page === "settings" || page === "service-settings" ? "page" : undefined}
+            variant={page === "settings" ? "secondary" : "ghost"}
+            aria-current={page === "settings" ? "page" : undefined}
             disabled={busy}
             onClick={() => navigate("settings")}
           >
@@ -443,7 +445,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 <ArrowLeft />
               </Button>
             )}
-            {page === "service-settings" && <Button size={gradingReturn ? "default" : "icon"} variant="ghost" aria-label={gradingReturn ? t("返回评分") : t("返回设置")} disabled={busy} onClick={() => gradingReturn ? openSession(gradingReturn) : navigate("settings")}><ArrowLeft />{gradingReturn && t("返回评分")}</Button>}
+            {page === "settings" && gradingReturn && <Button size={gradingReturn ? "default" : "icon"} variant="ghost" aria-label={gradingReturn ? t("返回评分") : t("返回设置")} disabled={busy} onClick={() => gradingReturn ? openSession(gradingReturn) : navigate("settings")}><ArrowLeft />{gradingReturn && t("返回评分")}</Button>}
             <div className="min-w-0">
               <h1 ref={pageHeading} tabIndex={-1} className="break-words text-xl font-semibold tracking-tight outline-none md:text-2xl">
                 {heading}
@@ -461,7 +463,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             )}
 
             {page === "banks" && (
-              <><Button variant="outline" size={compact ? "icon" : "default"} aria-label={t("刷新")} title={t("刷新")} disabled={busy || bankListLoading} onClick={() => setListRevision(value => value + 1)}>{compact ? <RefreshCw /> : t("刷新")}</Button><Button variant="outline" disabled={bankActionsUnavailable} onClick={event => { bankEditorTrigger.current = event.currentTarget; setOperationError(null); setBankEditor({ id: null, title: "", description: "" }); }}><Plus />{t("新建题库")}</Button><Button variant="outline" disabled={bankActionsUnavailable} onClick={() => run(pickImport)}><Upload />{t("导入")}</Button></>
+              <><Button variant="outline" size={compact ? "icon" : "default"} aria-label={t("刷新")} title={t("刷新")} disabled={busy || bankListLoading} onClick={() => setListRevision(value => value + 1)}>{compact ? <RefreshCw /> : t("刷新")}</Button><Button variant="outline" disabled={bankActionsUnavailable} onClick={event => { bankEditorTrigger.current = event.currentTarget; setOperationError(null); setBankEditor({ id: null, title: "", description: "" }); }}><Plus />{t("新建题库")}</Button>{!!banks.length && <Button size={compact ? "icon" : "default"} aria-label={t("导入文档")} title={t("导入文档")} disabled={bankActionsUnavailable} onClick={() => navigate("cloud")}><CloudUpload />{!compact && t("导入文档")}</Button>}</>
             )}
             {page === "banks" && banks.length > 1 && (
               compact ? <DropdownMenu><DropdownMenuTrigger asChild><Button ref={mergeTrigger} size="icon" variant="outline" disabled={bankActionsUnavailable} aria-label={t("更多题库操作")}><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => setMergeOpen(true)}>{t("合并题库")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : <Button ref={mergeTrigger} variant="outline" disabled={bankActionsUnavailable} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
@@ -500,7 +502,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             run={run}
             onAddExample={() => run(async () => { await api({ type: "add_example_bank" }); await reloadBanks(); })}
             onOpenSession={openSession}
-            onImport={() => run(pickImport)}
             onCloudImport={() => navigate("cloud")}
             onHistory={() => { history.setFilter("active"); navigate("history"); }}
             onOpenQuestions={bankId => navigate("questions", bankId)}
@@ -551,14 +552,13 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 else delete next[key];
                 return next;
               })}
-              onConfigureGrading={() => run(async () => { await flushRef.current(); setGradingReturn(session.id); setPage("service-settings"); })}
+              onConfigureGrading={() => run(async () => { await flushRef.current(); setGradingReturn(session.id); setPage("settings"); })}
               onNextUnattempted={session.bankIds?.some(id => banks.some(b => b.id === id)) ? () => setPracticeSetup({ bank: null, bankIds: session.bankIds!.filter(id => banks.some(b => b.id === id)), filter: "unattempted" }) : undefined}
             />
           )}
           {(page === "cloud") && <CloudPage />}
-          {page === "service-settings" && <div className="max-w-3xl space-y-6"><ConnectionSettingsPanel key={settingsRevision} busy={busy} run={run} flushRef={flushRef} /></div>}
           {page === "settings" && (
-            <SettingsPage busy={busy} run={run} revision={settingsRevision} version={info?.version} flushRef={flushRef} onConfigure={() => navigate("service-settings")}
+            <SettingsPage busy={busy} run={run} revision={settingsRevision} version={info?.version} flushRef={flushRef}
               restoreOpen={restoreOpen} onRestoreOpenChange={setRestoreOpen}
               onPickImport={pickImport}
               onRestore={(recoverAssets, trigger) => openConfirm({

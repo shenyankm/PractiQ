@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "./import-test-setup";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import { Client } from "../../shared/cloud/api";
@@ -100,10 +100,12 @@ it("preserves an unsaved draft on a stale write and reloads the newer service re
 it("keeps malformed successful writes uncertain and never automatically replays them", async () => {
   const fetcher = vi.fn(async (_path: string, init: RequestInit) => json(init.method === "PUT" ? {} : initial));
   vi.stubGlobal("fetch", fetcher); const user = userEvent.setup();
-  render(<ImportSettingsPanel client={new Client()} />);
+  const flush={current:async()=>{}};
+  render(<ImportSettingsPanel client={new Client()} flushRef={flush} />);
   const field = await screen.findByLabelText("读取失败重试次数"); await user.clear(field); await user.type(field, "0");
   await screen.findByText(/导入设置响应无效/);
   expect(field).toHaveProperty("value", "0"); expect(screen.queryByText("设置已保存")).toBeNull();
+  await expect(flush.current()).rejects.toMatchObject({code:"IMPORT_SETTINGS_PENDING"});
   expect(fetcher.mock.calls.filter(([, init]) => init.method === "PUT")).toHaveLength(1);
 });
 
@@ -136,4 +138,62 @@ it("makes personal execution settings editable without an administrator", async 
   vi.stubGlobal("fetch", vi.fn(async () => json(initial)));
   render(<ImportSettingsPanel client={new Client()} />);
   expect(await screen.findByLabelText("腾讯识别并发上限")).toHaveProperty("disabled", false);
+});
+
+it("flushes an edit before navigation without waiting for the autosave timer", async () => {
+  const fetcher = vi.fn(async (_path: string, init: RequestInit) => json(init.method === "PUT"
+    ? { revision: newTaskId, settings: JSON.parse(init.body as string).settings } : initial));
+  vi.stubGlobal("fetch", fetcher);
+  const flushRef = { current: async () => {} };
+  const user = userEvent.setup(); render(<ImportSettingsPanel client={new Client()} flushRef={flushRef} />);
+  await user.click(await screen.findByRole("switch", { name: "AI 生成答案与解析" }));
+  await flushRef.current();
+  expect(fetcher.mock.calls.filter(([, init]) => init.method === "PUT")).toHaveLength(1);
+  expect(JSON.parse(fetcher.mock.calls.find(([, init]) => init.method === "PUT")![1].body as string).settings.generateAnswers).toBe(true);
+});
+
+it("waits for an in-flight autosave and restores a reverted draft before navigation", async () => {
+  let finish!: (response: Response) => void;
+  const writes: ImportSettingsSnapshot[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (_path: string, init: RequestInit) => {
+    if (init.method !== "PUT") return json(initial);
+    const value: ImportSettingsSnapshot = JSON.parse(init.body as string);
+    writes.push(value);
+    if (writes.length === 1) return new Promise<Response>(resolve => { finish = resolve; });
+    return json({ ...value, revision: taskId });
+  }));
+  const flushRef = { current: async () => {} };
+  const user = userEvent.setup(); render(<ImportSettingsPanel client={new Client()} flushRef={flushRef} />);
+  const field = await screen.findByLabelText("腾讯识别并发上限");
+  await user.clear(field); await user.type(field, "2");
+  await waitFor(() => expect(writes).toHaveLength(1));
+  await user.clear(field); await user.type(field, "5");
+  let navigated = false;
+  const flushed = flushRef.current().then(() => { navigated = true; });
+  await act(async () => { await Promise.resolve(); });
+  expect(navigated).toBe(false);
+  await act(async () => {
+    finish(json({ revision: newTaskId, settings: { ...initial.settings, tencentConcurrency: 2 } }));
+    await flushed;
+  });
+  expect(navigated).toBe(true);
+  expect(writes).toEqual([
+    { revision: taskId, settings: { ...initial.settings, tencentConcurrency: 2 } },
+    { revision: newTaskId, settings: initial.settings },
+  ]);
+});
+
+it("rejects navigation when an import setting is invalid or its save fails", async () => {
+  const fetcher = vi.fn(async (_path: string, init: RequestInit) => init.method === "PUT"
+    ? json({ detail: { code: "IMPORT_SETTINGS_CONFLICT" } }, 409) : json(initial));
+  vi.stubGlobal("fetch", fetcher);
+  const flushRef = { current: async () => {} };
+  const user = userEvent.setup(); render(<ImportSettingsPanel client={new Client()} flushRef={flushRef} />);
+  const field = await screen.findByLabelText("腾讯识别并发上限");
+  await user.clear(field);
+  await expect(flushRef.current()).rejects.toMatchObject({ code: "IMPORT_SETTINGS_INVALID" });
+  expect(fetcher.mock.calls.some(([, init]) => init.method === "PUT")).toBe(false);
+  await user.type(field, "2");
+  await expect(flushRef.current()).rejects.toMatchObject({ code: "IMPORT_SETTINGS_CONFLICT" });
+  expect(await screen.findByText("设置已在其他页面更新。请重新读取后再调整。")).toBeTruthy();
 });

@@ -216,7 +216,8 @@ export function AnswerInput({
         </div>
       );
     }
-    case "matching":
+    case "matching": {
+      const owners = new Map((a.matches || []).map(pair => [pair.right, pair.left]));
       return (
         <div className="@container/matching space-y-3">
           {itemIds(q, "left").map((item) => (
@@ -238,14 +239,14 @@ export function AnswerInput({
                   onChange({
                     matches: [
                       ...(a.matches || []).filter((p) => p.left !== item.id),
-                      { left: item.id, right: Number(value) },
+                      ...(value === "" ? [] : [{ left: item.id, right: Number(value) }]),
                     ],
                   })
                 }
               >
-                <NativeSelectOption value="" disabled>{t("选择对应项")}</NativeSelectOption>
+                <NativeSelectOption value="">{t("选择对应项")}</NativeSelectOption>
                 {itemIds(q, "right").map((right, index) => (
-                  <NativeSelectOption lang={materialLanguage(q)} key={right.id} value={String(right.id)}>
+                  <NativeSelectOption lang={materialLanguage(q)} key={right.id} value={String(right.id)} disabled={q.matchingVariant !== "many_to_one" && owners.has(right.id) && owners.get(right.id) !== item.id}>
                     {q.questionKind === "paragraph_matching" ? right.label || String(index+1) : right.content}
                   </NativeSelectOption>
                 ))}
@@ -254,6 +255,7 @@ export function AnswerInput({
           ))}
         </div>
       );
+    }
     default: {
       const words = q.questionKind === "writing" ? countEnglishWords(a.text || "") : 0;
       const range = q.minWords != null && q.maxWords != null ? t("要求：{0}–{1} 词", {0:q.minWords, 1:q.maxWords})

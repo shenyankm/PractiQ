@@ -1,6 +1,6 @@
 import { cloudLocale, t, useCloudLocale } from "./i18n";
 import { nativeBridge } from "./transport";
-import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type MutableRefObject } from "react";
 import { parsePages } from "./importSelection";
 import { Select, SelectOption } from "./components/ui/select";
 import { Upload, Play, RefreshCw, Download, Trash2, Server, ChevronLeft, ChevronRight, FileText, LoaderCircle, History, Settings, Pause, Square } from "lucide-react";
@@ -56,11 +56,11 @@ function pageFromHash(): Page | undefined {
   const hash = window.location.hash;
   if (!hash) return "import";
   if (["#task-detail", "#task-list-heading"].includes(hash)) return "records";
-  return pages.find(item => `#${item.id}` === hash)?.id;
+  return pages.find(item => item.id !== "settings" && `#${item.id}` === hash)?.id;
 }
 const dateLabel = (value: string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? t("时间未知") : date.toLocaleString(cloudLocale(), { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false }); };
 
-export default function App({ requestedTask, hideSkipLink = false, focusMain = false, serviceSettings }: { requestedTask?: {id:string}; hideSkipLink?: boolean; focusMain?: boolean; serviceSettings?: ReactNode } = {}) {
+export default function App({ requestedTask, hideSkipLink = false, focusMain = false, serviceSettings, settingsOnly = false, flushRef }: { requestedTask?: {id:string}; hideSkipLink?: boolean; focusMain?: boolean; serviceSettings?: ReactNode; settingsOnly?: boolean; flushRef?: MutableRefObject<() => Promise<void>> } = {}) {
   useCloudLocale();
   const Main = nativeBridge() ? "section" : "main";
   const FilePicker = nativeBridge() ? "div" : "label";
@@ -81,7 +81,8 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
     return false;
   }
   function refreshDetail() { if (leaveCorrection()) setDetailRevision(value => value + 1); }
-  const [page, setPage] = useState<Page>(() => requestedTask ? "records" : pageFromHash() ?? "import");
+  const [workspacePage, setPage] = useState<Page>(() => requestedTask ? "records" : pageFromHash() ?? "import");
+  const page = settingsOnly ? "settings" : workspacePage === "records" ? "records" : "import";
   // Wake the existing pollers on workspace changes without discarding their caches.
   const recordsVisible = useRef(page === "records");
   const listWake = useRef<(() => void) | null>(null);
@@ -276,7 +277,7 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
     const current = new Client();
     setClient(null); setCapabilities(null); setCapError(null);
     void Promise.all([current.capabilities(), current.importSettings()]).then(([supported, settings]) => {
-      if (current.active) { setClient(current); setCapabilities(supported); setImportSettings(settings); }
+      if (current.active) { setClient(current); setCapabilities(supported); setImportSettings(settings); setSettingsPending(false); }
     }).catch(error => { if (current.active) setCapError(errorText(error)); });
     return () => current.disconnect();
   }, [connectionRevision]);
@@ -325,7 +326,8 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
     });
   }
   const matchingCheckpoint = detailFresh && !previewError && preview?.checkpointId === detail?.checkpointId;
-  const canExport = !!detail && (detail.canExportCompleted || detail.state === "COMPLETED" && !!detail.result) && !!detail.checkpointId && matchingCheckpoint;
+  const hasImportableQuestions = !!detail?.result?.questions.length || !!preview?.units.some(unit => unit.questions.length);
+  const canExport = !!detail && (detail.canExportCompleted || detail.state === "COMPLETED" && !!detail.result) && !!detail.checkpointId && matchingCheckpoint && (!nativeBridge() || hasImportableQuestions);
   function act(action: Action) {
     if (!detail) return;
     void run(async current => { await current.control(detail, action); if (current.active) { setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice(t("操作已提交，正在读取服务端最新状态。")); } });
@@ -354,7 +356,7 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
               <p>{t("腾讯文档识别后，由 AI 整理题库。超限文件由服务端切分；大 Office 文件需要转换器。")}</p>
               <p>{t("在设置中开启“AI 生成答案与解析”后，仅补充缺失字段，保留原文已有或部分提供的答案。生成内容需人工核对，资料不足时仍留空，并与提取共享任务调用预算。")}</p>
               <p>{t("未启用去重时保留全部题目，并提示重复候选。AI 复核最多修正一轮，会增加调用与费用。")}</p>
-              <p>{t("下载的 ZIP 可在应用的“设置 → 导入与恢复 → 导入题库 ZIP”中追加。")}</p>
+              <p>{t("解析完成后可直接导入本地题库，保留题目、配图和待复核标记。")}</p>
               {capabilities.modelBudget && <><h3>{t("调用预算 · 每任务 ")}{capabilities.modelBudget.limit}{t(" 次")}</h3><p>{t("按完整预留计算，普通单元最多 ")}{Math.floor(capabilities.modelBudget.limit / capabilities.modelBudget.unitCalls)}{t(" 个，带上下文的视觉单元最多 ")}{Math.floor(capabilities.modelBudget.limit / capabilities.modelBudget.contextUnitCalls)}{t(" 个。混合任务共享预算；单元数量不等于页数，重试仍占用预算，剩余预算不足时可能仅有部分结果。")}</p></>}
             </div></details>
           </aside>}
@@ -389,10 +391,10 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
               <Progress task={detail} />
               {(detail.blocking.includes("MODEL_RESULT_UNKNOWN") || detail.unknownUsageCalls.length > 0) && <div className="notice" role="alert"><p>{t("模型请求已发送，但结果尚未确认。已保存的题目、检查点和用量记录仍保留。")}</p><p>{t("请先核对模型供应商的调用记录；继续解析或重试可能再次计费，不会自动重试未知调用。")}</p></div>}
               {detail.blocking.includes("RUN_DEADLINE_EXCEEDED") && <p className="notice" role="alert">{t("本轮解析已达到运行时限，已保存的进度仍保留。可按可用操作继续解析，后续模型调用可能计费。")}</p>}
-              <div className="task-actions" aria-label={t("当前任务操作")}>{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (!["pause", "interrupt"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{action === "pause" ? <Pause /> : action === "interrupt" ? <Square /> : action === "resume" ? <Play /> : <RefreshCw />}{t(actionLabels[action])}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { await downloadBlob(exported.blob, exported.name); setNotice(t("题库 ZIP 已下载。每次导出包含当前全部已完成内容，重复导入会创建独立题库。请在应用设置中追加导入。")); } }, false)}><Download />{t("下载题库 ZIP")}</Button></div>
-              {detail.state !== "COMPLETED" && <p className="text-sm text-muted-foreground">{t("暂停后可下载已完成题目，需有可用题目且检查点一致。")}</p>}
+              <div className="task-actions" aria-label={t("当前任务操作")}>{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (!["pause", "interrupt"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{action === "pause" ? <Pause /> : action === "interrupt" ? <Square /> : action === "resume" ? <Play /> : <RefreshCw />}{t(actionLabels[action])}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { await downloadBlob(exported.blob, exported.name); setNotice(nativeBridge() ? t("题库已导入，可前往“我的题库”开始练习。") : t("题库 ZIP 已下载。每次导出包含当前全部已完成内容，重复导入会创建独立题库。请在应用设置中追加导入。")); } }, false)}><Download />{nativeBridge() ? t("导入题库") : t("下载题库 ZIP")}</Button></div>
+              {detail.state !== "COMPLETED" && <p className="text-sm text-muted-foreground">{nativeBridge() ? t("暂停后可导入已完成题目，需有可用题目且检查点一致。") : t("暂停后可下载已完成题目，需有可用题目且检查点一致。")}</p>}
               <details className="task-secondary-actions"><summary>{t("其他任务操作")}</summary><p className="text-sm text-muted-foreground">{t("重新解析会重新提交腾讯识别并创建新的 AI 整理请求，可能再次计费；删除会移除此任务和检查点。已下载的题库不受影响。")}</p><div className="task-actions"><Button variant="outline" disabled={busy || !detailFresh || !detail.modelConfigured || detail.state === "EXPIRED"} onClick={() => void run(async current => { const receipt = await current.reparse(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice(t("新解析任务已创建。")); } })}><RefreshCw />{t("重新解析为新任务")}</Button><Button variant="destructive" disabled={busy || !detailFresh || ["RUNNING", "PENDING", "PAUSING"].includes(detail.state)} onClick={() => setDeleteTarget({ threadId: detail.threadId, fileName: detail.fileName })}><Trash2 />{t("删除任务")}</Button></div></details>
-              {!!detail.failures.length && <section className="notice"><h3>{t("失败单元")}</h3><ul>{detail.failures.map(failure => <li key={`${failure.stage}:${failure.index}`}>{failure.stage} · {failure.index} · {failure.code} · {failure.retryable ? t("可重试，剩余 {0} 次", failure.retriesRemaining ?? 0) : t("不可重试")}</li>)}</ul></section>}
+              {!!detail.failures.length && <section className="notice"><h3>{t("失败单元")}</h3><ul>{detail.failures.map(failure => <li key={`${failure.stage}:${failure.index}`}>{failure.stage} · {failure.index} · {failure.code}{failure.code === "AI_PROVIDER_BALANCE_REQUIRED" && <> · {t("模型供应商余额不足，请充值或更换后端模型配置后再手动重试。")}</>} · {failure.retryable ? t("可重试，剩余 {0} 次", failure.retriesRemaining ?? 0) : t("不可重试")}</li>)}</ul></section>}
               {(!detail.modelConfigured || !detail.resumeCompatible) && <p className="notice">{!detail.modelConfigured ? t("服务端模型未配置。") : t("当前模型配置与检查点不兼容。")}{t("继续、重试和接受部分结果暂不可用，现有结果仍可检查。")}</p>}
               <ErrorBoundary key={selected} fallback={<RenderFailure />}><Suspense fallback={<p>{t("正在加载结果检查视图…")}</p>}><ResultReview task={detail} preview={preview} client={client} unavailable={busy} onLeaveGuardChange={registerCorrectionGuard} onReparse={selection => { void run(async current => { const receipt = await current.reparse(detail.threadId, selection); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice(t("所选来源单元已创建新解析任务，原任务保留。")); } }); }} /></Suspense></ErrorBoundary>
               <Usage task={detail} />
@@ -401,11 +403,11 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
         </section>);
   return <div className="web-shell">
     {!hideSkipLink && <a className="skip-link" href="#main-content">{t("跳到主要内容")}</a>}
-    <aside className="web-sidebar" aria-label={t("导入管理侧边栏")}>
+    {!settingsOnly && <aside className="web-sidebar" aria-label={t("导入管理侧边栏")}>
       <a href="#import" className="brand" onClick={() => navigate("import")}><img src={logo} alt={t("PractiQ 小章鱼")} /><strong>PractiQ</strong></a>
-      <nav aria-label={t("工作区导航")}>{pages.map(({ id, label, icon: Icon }) => <a key={id} href={`#${id}`} aria-current={page === id ? "page" : undefined} onClick={() => navigate(id)}><Icon aria-hidden="true" />{t(label)}</a>)}</nav>
+      <nav aria-label={t("工作区导航")}>{pages.filter(item => item.id !== "settings").map(({ id, label, icon: Icon }) => <a key={id} href={`#${id}`} aria-current={page === id ? "page" : undefined} onClick={() => navigate(id)}><Icon aria-hidden="true" />{t(label)}</a>)}</nav>
       <div className="sidebar-connection"><Server aria-hidden="true" /><strong>{client ? t("服务已连接") : t("尚未连接服务")}</strong></div>
-    </aside>
+    </aside>}
     <div className="web-body"><Main id="main-content" tabIndex={-1} className="web-main" data-page={page} aria-label={pages.find(item => item.id === page)!.label}>
       {serviceSettings && <div hidden={page !== "settings"} className="settings-page mb-6">{serviceSettings}</div>}
       {!client ? <section aria-label={t("服务状态")} className="notice">{capError ? <><p role="alert">{capError}</p><Button variant="outline" onClick={() => setConnectionRevision(value => value + 1)}>{t("重试连接")}</Button></> : <p role="status">{t("正在读取服务状态…")}</p>}</section> : <>
@@ -433,7 +435,7 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
           {importContent}
         </div>
         <div hidden={page !== "records"} className="records-page"><CorrectionDraftRecovery scope={client.storageScope} excludeTaskId={!detailError && detail?.threadId === selected ? selected : undefined} onOpen={draft => selectTask(draft.taskId)} />{recordsContent}{detailContent}</div>
-        <div hidden={page !== "settings"} className="settings-page"><ImportSettingsPanel client={client} onSettingsChange={setImportSettings} onPendingChange={setSettingsPending} /></div>
+        {settingsOnly && <div className="settings-page"><ImportSettingsPanel client={client} onSettingsChange={setImportSettings} onPendingChange={setSettingsPending} flushRef={flushRef} /></div>}
       </>}
     </Main></div>
   </div>;

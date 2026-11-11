@@ -28,12 +28,12 @@ it("does not invoke aborted reads and discards aborted in-flight responses",asyn
  finish({value:{status:200,mediaType:"application/json",bytes:btoa("{}")},generation:1});
  await expect(response).rejects.toMatchObject({name:"AbortError"});
 });
-it("honors native export/save cancellation without claiming success",async()=>{
+it("rejects an invalid direct-import receipt without claiming success",async()=>{
  const bridge=nativeCloudBridge("https://first.test",1);setNativeBridge(bridge);
  vi.mocked(invoke).mockResolvedValue({value:false,generation:1} as never);
- await expect(new Client().exportBank(task)).rejects.toMatchObject({code:"DOWNLOAD_CANCELLED"});
+ await expect(new Client().exportBank(task)).rejects.toMatchObject({code:"INVALID_RESPONSE"});
  await expect(downloadBlob(new Blob(["draft"]),"draft.json")).rejects.toMatchObject({code:"DOWNLOAD_CANCELLED"});
- expect(vi.mocked(invoke).mock.calls.map(([,args])=>(args!.request as {type:string}).type)).toEqual(["download","save"]);
+ expect(vi.mocked(invoke).mock.calls.map(([,args])=>(args!.request as {type:string}).type)).toEqual(["import_bank","save"]);
 });
 it("disconnects old clients when their native origin changes",async()=>{
  setNativeBridge(nativeCloudBridge("https://first.test",1));const client=new Client();

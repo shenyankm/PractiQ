@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type MutableRefObject } from "react";
 import Portal from "../../shared/cloud/App";
 import { nativeBridge, setNativeBridge } from "../../shared/cloud/transport";
 import { cloudRequest, nativeCloudBridge, type CloudStatus } from "./cloudTransport";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { t } from "./i18n";
 import "../../shared/cloud/style.css";
 
-export function CloudPage() {
+export function CloudPage({ settingsOnly = false, flushRef }: { settingsOnly?: boolean; flushRef?: MutableRefObject<() => Promise<void>> } = {}) {
   const [revision, setRevision] = useState(0);
   const [connected, setConnected] = useState("");
   const [loading, setLoading] = useState(true);
@@ -37,6 +37,7 @@ export function CloudPage() {
     setBusy(true);
     setError("");
     try {
+      await flushRef?.current();
       await cloudRequest<CloudStatus>({ type: "configure", origin: origin.trim() });
       window.dispatchEvent(new Event("practiq-import-service-changed"));
       setRevision(current => current + 1);
@@ -51,12 +52,12 @@ export function CloudPage() {
     <p role="alert">{error || t("导入服务暂不可用，请重试。离线练习仍可使用。")}</p>
     <Button variant="outline" onClick={() => setRevision(value => value + 1)}>{t("重试")}</Button>
   </div>;
-  return <div className="cloud-portal embedded" key={`${connected}:${revision}`}>
-    <Portal serviceSettings={<section className="settings-panel" aria-labelledby="import-service-heading">
-      <h2 id="import-service-heading">{t("导入服务")}</h2>
-      <p className="mb-4 text-sm text-muted-foreground">{t("默认连接本机 Python 后端。文档解析在后端运行，离线练习不受影响。")}</p>
+  return <div className={`cloud-portal embedded${settingsOnly ? " embedded-settings" : ""}`} key={`${connected}:${revision}`}>
+    <Portal settingsOnly={settingsOnly} flushRef={flushRef} serviceSettings={settingsOnly && <section className="settings-panel" aria-labelledby="import-service-heading">
+      <h2 id="import-service-heading">{t("AI 服务")}</h2>
+      <p className="mb-4 text-sm text-muted-foreground">{t("文档导入和 AI 评分共用此后端，离线练习无需连接。")}</p>
       <form className="flex flex-wrap items-end gap-3" onSubmit={connect}>
-        <label className="flex min-w-64 flex-1 flex-col gap-2">{t("导入服务地址")}
+        <label className="flex min-w-64 flex-1 flex-col gap-2">{t("AI 服务地址")}
           <Input type="url" required value={origin} onChange={event => setOrigin(event.target.value)} disabled={busy} />
         </label>
         <Button type="submit" disabled={busy || !origin.trim() || origin.trim() === connected}>{busy ? t("正在保存…") : t("保存服务地址")}</Button>

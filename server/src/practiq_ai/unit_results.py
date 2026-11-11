@@ -3,6 +3,7 @@
 import json
 import re
 from copy import deepcopy
+from html import unescape
 from typing import Any, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -40,7 +41,7 @@ def missing_formulas(source: str, rendered: str) -> list[str]:
     """Compare literal math evidence, without solving or rewriting expressions."""
     if '$' not in source and r'\(' not in source and r'\[' not in source:
         return []
-    normalize = lambda text: re.sub(r'\s+|\\(?:quad|,)', '', text).replace(r'\geq', r'\ge').replace(r'\leq', r'\le')
+    normalize = lambda text: re.sub(r'\s+|\\(?:quad|,)', '', unescape(text)).replace(r'\geq', r'\ge').replace(r'\leq', r'\le')
     target = None
     closing = {'$': '$', '$$': '$$', r'\(': r'\)', r'\[': r'\]'}
     delimiter = None

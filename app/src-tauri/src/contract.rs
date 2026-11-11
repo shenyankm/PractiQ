@@ -45,6 +45,40 @@ pub(crate) fn grade_result(value: &Value) -> Result<()> {
     schema_check(schema, value, "gradeResult")
 }
 
+pub(crate) fn bank_import(value: &Value) -> Result<()> {
+    static SCHEMA: OnceLock<jsonschema::Validator> = OnceLock::new();
+    let schema = SCHEMA.get_or_init(|| {
+        let schemas: Value =
+            serde_json::from_str(include_str!("../contracts.json")).expect("bundled schemas");
+        jsonschema::validator_for(&schemas["bankImport"]).expect("bank import schema")
+    });
+    schema_check(schema, value, "bankImport")
+}
+
+fn assessment_max(input: &Value) -> Result<i64> {
+    let invalid = || crate::language::error("LOCAL_MODEL_RESPONSE_INVALID", json!({}));
+    let maximum = input["maxCents"]
+        .as_i64()
+        .filter(|n| (1..=100_000_000).contains(n))
+        .ok_or_else(invalid)?;
+    if input["question"]["scoringRubric"]
+        .as_str()
+        .is_some_and(|s| !s.is_empty())
+    {
+        if let Some(score) = input["question"]["sourceScore"]
+            .as_f64()
+            .filter(|score| *score > 0.0)
+        {
+            let cents = (score * 100.0).round_ties_even();
+            if !(1.0..=100_000_000.0).contains(&cents) {
+                return Err(invalid());
+            }
+            return Ok(cents as i64);
+        }
+    }
+    Ok(maximum)
+}
+
 pub(crate) fn grade_evidence(result: &Value, input: &Value) -> Result<()> {
     grade_result(result)?;
     let invalid = || crate::language::error("LOCAL_MODEL_RESPONSE_INVALID", json!({}));
@@ -68,7 +102,7 @@ pub(crate) fn grade_evidence(result: &Value, input: &Value) -> Result<()> {
         .or_else(|| result["maxCents"].as_i64())
         .ok_or_else(invalid)?;
     let total = result["maxCents"].as_i64().ok_or_else(invalid)?;
-    if maximum != crate::model_grading::assessment_max(input)? {
+    if maximum != assessment_max(input)? {
         return Err(invalid());
     }
     let awarded: i64 = criteria

@@ -159,7 +159,7 @@ pub(crate) fn pick(app: &AppHandle, state: &State, context: &Context) -> Result<
     current.sources.extend(additions);
     Ok(json!(result))
 }
-fn response_json(response: reqwest::blocking::Response) -> Result<Value> {
+pub(crate) fn response_json(response: reqwest::blocking::Response) -> Result<Value> {
     let status = response.status();
     let value = crate::ai::read_json(response, 1024 * 1024)?;
     if !status.is_success() {
