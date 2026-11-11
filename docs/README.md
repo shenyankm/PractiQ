@@ -1,6 +1,6 @@
 # PractiQ documentation
 
-PractiQ has an independent AI import service and Web frontend, plus an offline practice app for macOS. Start with the current guides below; dated reports describe only their recorded source and evidence, including retired Windows/Android targets.
+PractiQ has an independent personal Web and AI backend, plus an offline practice app for macOS. Start with the current guides below; dated reports describe only their recorded source and evidence, including retired Windows/Android targets.
 
 ## Directory map
 
@@ -62,7 +62,7 @@ The API guide owns task payloads and controls; the user import guide explains th
 | Prepare issues/PRs and choose checks | [Contributing](../CONTRIBUTING.md) |
 | Review daily practice, notes, duplicate import and backup reminder acceptance | [Offline learning features](evidence/2026-11-02-learning-features/README.md) |
 | Reproduce performance work-count and bounded timing checks | [Service I/O](../server/docs/performance-io.md), [document pipeline](../server/docs/performance-pipeline.md), [native data](../app/docs/performance-native.md), [frontend](../web/docs/performance.md) |
-| Reproduce current App/account/HTTP import, correction and native practice acceptance | [Current App workflow](evidence/2026-11-09-cloud-completion/README.md); [historical live workflow](history/performance/workflow-20261102.md) |
+| Reproduce connected App import and native practice acceptance | [Unified workflow acceptance](history/performance/workflow-20261102.md) |
 | Report vulnerabilities and review dependencies | [Security policy](../SECURITY.md) |
 | Review dependency risks and repository safeguards | [Dependency security](maintainers/dependency-security.md) |
 | Review outstanding workstream status | [Roadmap evidence](maintainers/roadmap-evidence.md) |
@@ -74,5 +74,3 @@ Fixture provenance and reproduction belong beside their inputs: [service-export]
 Historical descriptions of desktop AI import, embedded Python/LibreOffice, Linux app builds, earlier schemas, Agent Server, Redis or cloud object storage refer to retired versions. The current service uses PostgreSQL and RabbitMQ; SQLite belongs to offline App storage. Model substitutes, successful CI and old installer builds do not establish live-model, clean-machine, participant or signing acceptance. Follow current guides for setup; old commands may refer to removed scripts.
 
 Superseded review/fix journals and the duplicate theme-preview guide were removed; their source remains in Git history. On October 17, 2026, UI acceptance and local test screenshots were removed except for the three images used by the root English and Chinese README files. Application icons, test fixtures, source-document images, parsing artifacts and performance reports are retained. The [historical screenshot manifest](evidence/screenshots-removed-20261017.sha256) records all 88 removed tracked screenshot paths and SHA-256 values; recover those files from Git commit `6a0ea50`. Other historical manifests also retain original screenshot entries; those entries do not mean the images remain available in the checkout. Ignored `server/reports/checks/`, temporary files and expired Actions artifacts may be unavailable in a fresh checkout; recorded filenames and hashes identify prior evidence, not downloadable files or current passes.
-
-- [Administrator support and operations](guides/administration.md)

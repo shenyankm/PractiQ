@@ -188,11 +188,3 @@ async def test_merge_cancellation_drains_the_finalization_worker(monkeypatch):
     finally:
         released.set()
         await asyncio.gather(task, return_exceptions=True)
-
-
-@pytest.fixture(autouse=True)
-def substituted_account_admission(monkeypatch):
-    from practiq_ai import identity
-    monkeypatch.setattr(identity, 'reserve', AsyncMock())
-    monkeypatch.setattr(identity, 'record_call', AsyncMock())
-    monkeypatch.setattr(identity, 'release', AsyncMock())

@@ -2,31 +2,10 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { Markdown } from "../../shared/cloud/ResultReview";
-import Portal from "../../shared/cloud/AccountPortal";
 import { setCloudLocale, t } from "../../shared/cloud/i18n";
 import en from "../../shared/cloud/locales/en.json";
 import zhTW from "../../shared/cloud/locales/zh-TW.json";
-import { setAccount } from "../../shared/cloud/accountClient";
-afterEach(() => { cleanup(); setCloudLocale("zh-CN"); setAccount(null); vi.restoreAllMocks(); });
-it.each([['en', 'Sign in to PractiQ', 'Login email'], ['zh-TW', '登入 PractiQ', '登入電子郵件']] as const)("localizes cloud account entry in %s", async (locale, heading, label) => {
-  setCloudLocale(locale);
-  vi.stubGlobal('fetch', vi.fn(async () => Response.json({user:null,csrf:'test',registrationEnabled:true})));
-  render(<Portal />);
-  await screen.findByRole('heading',{name:heading});
-  expect(screen.getByLabelText(label)).toBeTruthy();
-});
-it('localizes the personal area navigation in English', async () => {
-  setCloudLocale('en');
-  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
-    if (String(input).includes('/api/auth/session')) return Response.json({ user: { id: 'u1', email: 'ada@example.test', name: 'Ada', role: 'user', enabled: true }, csrf: 'token', registrationEnabled: true });
-    return Response.json({});
-  }));
-  render(<Portal />);
-  expect(await screen.findByRole('button', { name: 'Import results' })).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Import workspace' })).toBeTruthy();
-  expect(screen.queryByRole('button', { name: '我的题库' })).toBeNull();
-});
-
+afterEach(() => { cleanup(); setCloudLocale("zh-CN");  vi.restoreAllMocks(); });
 it('keeps every cloud message and placeholder translated without touching source content', () => {
   for (const [key, value] of Object.entries(en)) {
     expect(value, key).toBeTruthy(); expect(zhTW[key as keyof typeof zhTW], key).toBeTruthy();

@@ -38,7 +38,7 @@ from openai import (
 )
 from pydantic import BaseModel, ValidationError
 
-from . import cost_budget, identity, telemetry
+from . import cost_budget, telemetry
 from .capacity import provider_slot
 from .config import is_loopback_host, load, require_model_config
 from .contracts import ModelCallUsage
@@ -518,8 +518,6 @@ async def structured_call[ResultT: BaseModel](
         outcome = "unknown"
         error_code = None
         provider_started = False
-        account_admitted = False
-        scope = f"task:{runtime.execution_info.thread_id}" if runtime and runtime.execution_info else cost_scope
         try:
             if message_input_chars(messages) > load().model_max_input_chars:
                 outcome = "rejected"
@@ -530,16 +528,8 @@ async def structured_call[ResultT: BaseModel](
             async with provider_slot(record, check=lambda: guard(runtime)):
                 await guard(runtime)
                 settings = load()
-                if scope:
-                    try:
-                        await identity.reserve(scope, str(call_key), 'modelCalls', record)
-                    except DocumentProcessingError as exc:
-                        if runtime and exc.code in {'USER_QUOTA_EXCEEDED', 'ACCOUNT_DISABLED'}:
-                            from langgraph.types import interrupt
-                            interrupt({'kind': 'pause', 'reason': exc.code})
-                        raise
-                    account_admitted = True
                 if settings.cost_enabled:
+                    scope = f"task:{runtime.execution_info.thread_id}" if runtime and runtime.execution_info else cost_scope
                     wire_bytes = len(json.dumps([messages_to_dict(messages), _model_schema(schema)], ensure_ascii=False).encode()) + 64 * len(messages)
                     record["estimatedCost"] = await cost_budget.reserve(scope, str(call_key), cost_budget.model_estimate(wire_bytes, settings), "model", runtime)
                 await reserve_model_call(runtime)
@@ -547,8 +537,6 @@ async def structured_call[ResultT: BaseModel](
                     await store_put(runtime, "calls", str(call_key), record)
                 if call_record_writer:
                     await call_record_writer(record)
-                if scope:
-                    await identity.record_call(str(call_key), record)
                 provider_started = True
                 telemetry.event("model_start", callKey=str(call_key), kind=call_kind,
                                 schema=schema.__name__, attempt=attempt, unitKey=CURRENT_UNIT.get(),
@@ -595,12 +583,8 @@ async def structured_call[ResultT: BaseModel](
                 raise DocumentProcessingError(error["status"], error["detail"], error["code"], usage) from None
             return {"error": error}
         finally:
-            if account_admitted and not provider_started:
-                await identity.release(str(call_key))
             if not provider_started and record["status"] == "started":
                 record.update(status="rejected", error=error_code or "MODEL_CALL_REJECTED", finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
-            if scope and provider_started:
-                await identity.record_call(str(call_key), record)
             if call_records is not None:
                 call_records.append(record)
             elapsed = time.monotonic() - started
@@ -620,8 +604,6 @@ async def structured_call[ResultT: BaseModel](
                 await call_record_writer(record)
         record.update(call_usage.model_dump(mode="json"), status="completed", usageStatus="known",
                       finishedAt=datetime.now(UTC).isoformat(), durationMs=round((time.monotonic() - started) * 1000, 3))
-        if scope:
-            await identity.record_call(str(call_key), record)
         if call_record_writer:
             await call_record_writer(record)
         result = {

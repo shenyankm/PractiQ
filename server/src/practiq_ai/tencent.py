@@ -20,7 +20,7 @@ import httpx
 from langgraph.runtime import Runtime
 from pydantic import BaseModel, Field, StrictInt, ValidationError, field_validator
 
-from . import cost_budget, identity, telemetry
+from . import cost_budget, telemetry
 from .config import Config, load
 from .contracts import (
     OFFICE_SOURCE_TYPES,
@@ -304,28 +304,12 @@ async def _parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key
             record = {"sourceSha256": reference.sha256, "resultType": RESULT_TYPES[source_type]}
             data["FileBase64"] = base64.b64encode(payload).decode()
         cost_key = hashlib.sha256(f"{info.thread_id}/{key}/{reference.sha256}".encode()).hexdigest()
-        page_count = estimated_pages or (1 if source_type == 'image' else config.max_document_pages)
-        try:
-            await identity.reserve(f"task:{info.thread_id}", cost_key, 'tencentCalls', record,
-                                   pages=page_count, allow_partial=estimated_pages is None and source_type != 'image')
-        except DocumentProcessingError as exc:
-            if exc.code in {'USER_QUOTA_EXCEEDED', 'FREE_PAGE_QUOTA_EXCEEDED', 'ACCOUNT_DISABLED'}:
-                from langgraph.types import interrupt
-                interrupt({'kind': 'pause', 'reason': exc.code})
-            raise
-        if 'pageLimit' in record:
-            data['FileEndPageNumber'] = record['pageLimit']
-        try:
-            estimate = await cost_budget.reserve(f"task:{info.thread_id}", cost_key,
-                                                cost_budget.page_estimate(record.get('pageLimit', page_count), config), "tencent", runtime)
-            if estimate is not None:
-                record["estimatedCost"] = estimate
-        except BaseException:
-            await identity.release(cost_key)
-            raise
+        estimate = await cost_budget.reserve(f"task:{info.thread_id}", cost_key,
+                                            cost_budget.page_estimate(estimated_pages or config.max_document_pages, config), "tencent", runtime)
+        if estimate is not None:
+            record["estimatedCost"] = estimate
         _status(record, "SUBMITTING")
         record["submittedAt"] = record["statusUpdatedAt"]
-        await identity.record_call(cost_key, record)
         await store_put(runtime, "tencent_jobs", key, record)
         try:
             with telemetry.measure("tencent_submit", {}, "durationMs"):
@@ -344,7 +328,6 @@ async def _parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key
         task_id = result.get("TaskId")
         if not isinstance(task_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", task_id):
             raise DocumentProcessingError(502, "Tencent submission returned no valid task ID", "TENCENT_SUBMISSION_UNKNOWN")
-        await identity.record_call(cost_key, {**record, 'taskId': task_id})
         record.update(taskId=task_id, requestId=diagnostic_value(result.get("RequestId")))
         _status(record, "Created")
         await store_put(runtime, "tencent_jobs", key, record)
@@ -380,12 +363,8 @@ async def _parse_job(reference: ArtifactReference, runtime: Runtime[Any], *, key
         if status == "Success":
             for name in ("FailedPages", "SuccessPageNum", "FailPageNum"):
                 record[name] = result.get(name)
-            reported_pages = (result.get('SuccessPageNum') or 0) + (result.get('FailPageNum') or 0)
-            if 'quotaPages' in record and reported_pages > 0:
-                record['quotaPages'] = min(record['quotaPages'], reported_pages)
         await store_put(runtime, "tencent_jobs", key, record)
         if status == "Success":
-            await identity.record_call(hashlib.sha256(f"{info.thread_id}/{key}/{reference.sha256}".encode()).hexdigest(), record)
             # Download bytes and the immutable copy coexist until storage completes.
             async with preparation(RESULT_LIMIT * 2):
                 payload = await _read(runtime, "tencent_download", partial(download_result, result.get("ResultUrl")))

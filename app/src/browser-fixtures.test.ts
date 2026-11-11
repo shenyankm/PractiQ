@@ -357,15 +357,12 @@ it("supports empty state creation and settings recovery",async()=>{
  await call({type:"add_example_bank"});
  expect((await call<QuestionPage>({type:"questions_page",bank_ids:[],search:"",mode:"",filter:"",offset:0,limit:20})).total).toBe(9);
  vi.resetModules();mode.value="unconfigured";
- expect((await call<SettingsResult>({type:"settings"})).hasServiceToken).toBe(false);
- await call({type:"save_settings",config:{service_url:"https://example.invalid"},service_token:"demo"});
- expect((await call<SettingsResult>({type:"settings"})).hasServiceToken).toBe(true);
- await call({type:"save_settings",config:{service_url:"https://example.invalid"},service_token:null});
- expect((await call<SettingsResult>({type:"settings"})).hasServiceToken).toBe(true);
- await call({type:"save_settings",config:{service_url:"https://example.invalid"},service_token:""});
- expect((await call<SettingsResult>({type:"settings"})).hasServiceToken).toBe(false);
- await call({type:"save_settings",config:{service_url:"https://other.example.invalid"},service_token:null});
- expect((await call<SettingsResult>({type:"settings"})).hasServiceToken).toBeNull();
+ expect(await call<SettingsResult>({type:"settings"})).toEqual({config:{service_url:null}});
+ for(const service_url of ["https://example.invalid", "https://other.example.invalid"]) {
+  await call({type:"save_settings",config:{service_url}});
+  expect(await call<SettingsResult>({type:"settings"})).toEqual({config:{service_url}});
+ }
+
 });
 it("paginates large data and exposes failure and loading scenarios without native fallback",async()=>{
  mode.value="many";
@@ -387,29 +384,15 @@ it("compares the selected preview bank and appends imports to that bank",async()
  const repeated=await api({type:"import",ticket:"preview-ticket",bank_id:"preview-bank-3",title:"Empty"});expect(repeated.duplicate).toBe(true);
 });
 
-it("previews cloud accounts without native IPC, stored credentials or paid work", async () => {
+it("previews a personal import workspace without accounts or paid work", async () => {
  const {invoke}=await import("../scripts/fixtures/transport");
  const status=await invoke<{value:{origin:string;generation:number}}>("cloud_request",{request:{type:"status"}});
  const context={...status.value};
- async function cloud(path:string,method="GET",body?:unknown) {
-  const reply=await invoke<{value:{status:number;bytes:string};generation:number}>("cloud_request",{request:{type:"fetch",path,method,body},context});
-  context.generation=reply.generation;
-  return {status:reply.value.status,data:JSON.parse(Buffer.from(reply.value.bytes,"base64").toString())};
- }
- expect(status.value.origin).toBe("https://preview.practiq.invalid");
- expect((await cloud("/api/auth/session")).data.user).toBeNull();
- const signedIn=await cloud("/api/auth/register","POST",{email:"demo@example.test",password:"throwaway-preview-password"});
- expect(signedIn.data.user).toMatchObject({email:"demo@example.test",name:"演示用户"});
- expect(JSON.stringify(signedIn)).not.toContain("throwaway-preview-password");
- expect((await cloud("/api/me/usage")).data.remainingPages).toBe(50);
- expect((await cloud("/api/me/plans")).data.checkoutEnabled).toBe(false);
- expect((await cloud("/api/document-tasks","POST",{})).status).toBe(409);
- await cloud("/api/me/profile","PATCH",{currentPassword:"preview-password",name:"New name"});
- expect((await cloud("/api/auth/session")).data.user.name).toBe("New name");
- await cloud("/api/auth/logout","POST");
- expect((await cloud("/api/auth/session")).data.user).toBeNull();
- expect((await cloud("/api/me/usage")).status).toBe(401);
- await expect(invoke("cloud_request",{request:{type:"checkout"},context})).rejects.toEqual({code:"CLOUD_PREVIEW_UNAVAILABLE"});
+ const read=await invoke<{value:{status:number;bytes:string}}>("cloud_request",{request:{type:"fetch",path:"/api/import-capabilities",method:"GET"},context});
+ expect(read.value.status).toBe(200);
+ expect(JSON.parse(Buffer.from(read.value.bytes,"base64").toString()).sourceTypes).toContain("docx");
+ const rejected=await invoke<{value:{status:number}}>("cloud_request",{request:{type:"fetch",path:"/api/document-tasks",method:"POST",body:{}},context});
+ expect(rejected.value.status).toBe(409);
 });
 
 it("configures an isolated preview origin explicitly and rejects stale origin contexts",async()=>{
@@ -418,6 +401,6 @@ it("configures an isolated preview origin explicitly and rejects stale origin co
  expect(await invoke("cloud_request",{request:{type:"status"}})).toMatchObject({value:{origin:null}});
  const connected=await invoke<{value:{origin:string;generation:number}}>("cloud_request",{request:{type:"configure",origin:"https://demo.example.test"}});
  expect(connected.value.origin).toBe("https://demo.example.test");
- await expect(invoke("cloud_request",{request:{type:"fetch",path:"/api/auth/session"},context:{origin:"https://other.test",generation:1}})).rejects.toEqual({code:"CLOUD_ACCOUNT_CHANGED"});
+ await expect(invoke("cloud_request",{request:{type:"fetch",path:"/api/import-capabilities"},context:{origin:"https://other.test",generation:1}})).rejects.toEqual({code:"CLOUD_SERVICE_CHANGED"});
  await expect(invoke("cloud_request",{request:{type:"configure",origin:"https://user:password@bad.example.test"}})).rejects.toEqual({code:"CLOUD_ORIGIN_INVALID"});
 });

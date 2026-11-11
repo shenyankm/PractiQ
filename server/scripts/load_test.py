@@ -2,19 +2,15 @@
 
 import argparse
 import asyncio
-import getpass
 import hashlib
 import json
 import math
-import os
 import re
-import stat
 import statistics
 import subprocess
 import sys
 import time
 from collections import Counter
-from contextlib import AsyncExitStack
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -35,31 +31,6 @@ METRIC_SAMPLES = {
     "practiq_workers_available": "practiq_workers_available",
     "practiq_provider_inflight": "provider_inflight",
 }
-
-
-def metrics_token(path: Path) -> str:
-    try:
-        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-    except OSError:
-        raise ValueError('Metrics credential must be an owner-only regular file') from None
-    with os.fdopen(descriptor) as stream:
-        info = os.fstat(stream.fileno())
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
-            raise ValueError('Metrics credential must be an owner-only regular file')
-        raw = stream.read(130)
-    value = raw.strip()
-    if len(raw) > 129 or not re.fullmatch(r'[A-Za-z0-9_-]{43,128}', value):
-        raise ValueError('Invalid metrics credential')
-    return value
-
-
-async def login(client: httpx.AsyncClient, email: str, password: str) -> None:
-    response = await client.get('/api/auth/session')
-    response.raise_for_status()
-    response = await client.post('/api/auth/login', json={'email': email, 'password': password},
-                                 headers={'X-CSRF-Token': response.json()['csrf']})
-    response.raise_for_status()
-    client.headers['X-CSRF-Token'] = response.json()['csrf']
 
 
 def percentile(values: list[float], percentile_value: int) -> float:
@@ -89,9 +60,7 @@ async def monitor(
 ) -> None:
     while not done.is_set():
         started = time.perf_counter()
-        health = client.build_request('GET', '/ok')
-        health.headers.pop('Authorization', None)
-        response = await client.send(health)
+        response = await client.get("/ok")
         response.raise_for_status()
         health_latencies.append(time.perf_counter() - started)
         metrics = await client.get("/api/metrics")
@@ -158,8 +127,7 @@ async def wait_for_run(
 
 
 async def run(args: argparse.Namespace) -> dict[str, Any]:
-    token = metrics_token(args.metrics_token_file)
-    password = getpass.getpass('Load-test account password: ')
+    headers = {}
     limits = httpx.Limits(
         max_connections=args.submit_concurrency + 20,
         max_keepalive_connections=args.submit_concurrency,
@@ -171,17 +139,14 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
     done = asyncio.Event()
     async with httpx.AsyncClient(
         base_url=args.base_url.rstrip("/"),
+        headers=headers,
         limits=limits,
         timeout=timeout,
-        trust_env=False, follow_redirects=False,
+        trust_env=urlsplit(args.base_url).hostname not in {"localhost", "127.0.0.1", "::1"},
     ) as client, httpx.AsyncClient(
         base_url=args.base_url.rstrip('/'),
-        headers={'Authorization': 'Bearer ' + token},
-        timeout=timeout, trust_env=False, follow_redirects=False,
-    ) as metrics_client, AsyncExitStack() as cleanup:
-        await login(client, args.email, password)
-        del password
-        cleanup.push_async_callback(client.post, '/api/auth/logout')
+        timeout=timeout, trust_env=urlsplit(args.base_url).hostname not in {'localhost', '127.0.0.1', '::1'},
+    ) as metrics_client:
         service_code = None
         service_configuration = None
         if args.environment == "production":
@@ -323,8 +288,6 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", required=True)
-    parser.add_argument('--email', required=True, help='Existing load-test user; password is prompted without echo')
-    parser.add_argument('--metrics-token-file', type=Path, required=True, help='Owner-only file containing AI_METRICS_TOKEN')
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--input", type=Path)
     source.add_argument("--text")
@@ -341,11 +304,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--completion-timeout", type=float, default=1_800)
     parser.add_argument("--pid", type=int)
     args = parser.parse_args()
-    origin = urlsplit(args.base_url)
-    if (origin.username or origin.password or origin.query or origin.fragment or origin.path not in {'', '/'}
-            or not origin.hostname or origin.scheme not in {'http', 'https'}
-            or origin.scheme == 'http' and origin.hostname not in {'localhost', '127.0.0.1', '::1'}):
-        parser.error('Use an HTTPS origin or loopback HTTP origin without credentials, paths or query parameters')
     if args.environment in {"container", "production"} and not args.image_digest:
         parser.error("container/production evidence requires --image-digest")
     if args.environment == "production" and (urlsplit(args.base_url).scheme != "https" or not args.input):

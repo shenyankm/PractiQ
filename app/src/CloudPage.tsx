@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import Portal from "../../shared/cloud/AccountPortal";
+import Portal from "../../shared/cloud/App";
 import { nativeBridge, setNativeBridge } from "../../shared/cloud/transport";
 import { cloudRequest, nativeCloudBridge, type CloudStatus } from "./cloudTransport";
 import { errorMessage } from "./api";
@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { t } from "./i18n";
 import "../../shared/cloud/style.css";
 
-export function CloudPage({ initialPage = "workspace" }: { initialPage?: "workspace" | "account" | "plans" } = {}) {
+export function CloudPage() {
   const [revision, setRevision] = useState(0);
   const [connected, setConnected] = useState("");
   const [unconfigured, setUnconfigured] = useState(false);
@@ -30,7 +30,7 @@ export function CloudPage({ initialPage = "workspace" }: { initialPage?: "worksp
       const existing = nativeBridge();
       setNativeBridge(existing?.origin === value.origin ? existing : nativeCloudBridge(value.origin, value.generation));
       setConnected(value.origin);
-    }).catch(() => { /* The account page shows a recoverable service state. */ })
+    }).catch(cause => { if (active) setError(errorMessage(cause, false)); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; setNativeBridge(null); };
   }, [revision]);
@@ -44,7 +44,7 @@ export function CloudPage({ initialPage = "workspace" }: { initialPage?: "worksp
       if (value.origin) {
         setOrigin(value.origin);
         setEditing(false);
-        window.dispatchEvent(new Event("practiq-cloud-account-changed"));
+        window.dispatchEvent(new Event("practiq-import-service-changed"));
         setRevision(current => current + 1);
       }
     } catch (cause) {
@@ -53,27 +53,11 @@ export function CloudPage({ initialPage = "workspace" }: { initialPage?: "worksp
       setBusy(false);
     }
   }
-  async function forgetLocalSession() {
-    const bridge = nativeBridge();
-    if (!bridge || busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      await bridge.forgetSession();
-      setLoading(true);
-      window.dispatchEvent(new Event("practiq-cloud-account-changed"));
-      setRevision(current => current + 1);
-    } catch (cause) {
-      setError(errorMessage(cause, false));
-    } finally {
-      setBusy(false);
-    }
-  }
-  if (loading) return <p role="status">{t("读取账户状态…")}</p>;
+  if (loading) return <p role="status">{t("读取服务配置…")}</p>;
   if (unconfigured || editing) return <Card className="mx-auto max-w-3xl">
     <CardHeader>
       <CardTitle><h2>{editing ? t("更改云端服务地址") : t("连接云端服务")}</h2></CardTitle>
-      <CardDescription>{t("文档识别、解析和模型调用均在云端进行。离线练习和题库导入无需登录。")}</CardDescription>
+      <CardDescription>{t("文档识别、解析和模型调用在自托管服务中进行。离线练习无需连接服务。")}</CardDescription>
     </CardHeader>
     <CardContent className="space-y-4">
       <form className="flex flex-wrap items-end gap-3" onSubmit={connect}>
@@ -84,7 +68,7 @@ export function CloudPage({ initialPage = "workspace" }: { initialPage?: "worksp
       </form>
       {error && <p role="alert" className="text-destructive">{error}</p>}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{t("连接后即可登录、注册或管理云端导入任务；地址保存在本机，可随时重新连接。")}</p>
+        <p className="text-sm text-muted-foreground">{t("连接后即可导入文档。地址保存在本机，可随时更改。")}</p>
         <div className="flex gap-2">
           {editing && <Button type="button" variant="ghost" disabled={busy} onClick={() => { setEditing(false); setError(""); }}>{t("取消")}</Button>}
           {!editing && <Button type="button" variant="ghost" disabled={busy} onClick={() => setRevision(value => value + 1)}>{t("重试")}</Button>}
@@ -93,13 +77,14 @@ export function CloudPage({ initialPage = "workspace" }: { initialPage?: "worksp
     </CardContent>
   </Card>;
   if (!connected) return <div className="flex flex-col items-start gap-4 py-8">
-    <p role="status">{t("账户服务暂不可用，请稍后重试。离线练习仍可使用。")}</p>
+    <p role="alert">{error || t("导入服务暂不可用，请重试。离线练习仍可使用。")}</p>
     <Button variant="outline" onClick={() => setRevision(value => value + 1)}>{t("重试")}</Button>
   </div>;
   return <div className="space-y-3">
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+    <div className="flex items-center justify-between gap-3"><span className="truncate text-sm text-muted-foreground">{connected}</span><Button variant="outline" onClick={() => { setError(""); setOrigin(connected); setEditing(true); }}>{t("更改云端服务地址")}</Button></div>
     <div className="cloud-portal embedded" key={`${connected}:${revision}`}>
-      <Portal embedded initialPage={initialPage} onChangeService={() => { setError(""); setOrigin(connected); setEditing(true); }} onForgetSession={forgetLocalSession} />
+      <Portal />
     </div>
   </div>;
 }

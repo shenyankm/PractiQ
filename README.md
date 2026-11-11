@@ -16,6 +16,10 @@ Turn documents into question banks, then practise and take mock exams offline on
 
 PractiQ works in English, Simplified Chinese and Traditional Chinese, with light and dark themes, seven basic question types and English listening, reading, cloze, translation and writing. Practice records stay on your device, with no account and no cloud sync. AI import sends documents to your self-hosted service, Tencent Cloud and your configured model provider; optional AI grading sends grading content to the selected endpoint.
 
+
+You can also use **Document import** in the App: connect your self-hosted personal service, select a document, and explicitly start import. No registration or administrator setup is needed. Grading connections remain separate in **Settings → AI service**.
+
+
 ## Screenshots
 
 These screenshots were captured on **2026-10-29** from the desktop browser preview at [`af7ab2ff`](https://github.com/shenyankm/PractiQ/commit/af7ab2ff3bf4a392103b403d73b70f0d1a5cd533), in English with hand-written sample banks and practice records. All data is held in memory; no credentials, uploads or model calls were used. Click an image to view it at full size.
@@ -40,24 +44,24 @@ Export a bank from its card menu to share its questions without your answers or 
 
 ## Import documents with AI
 
-Use **Account → Import workspace** in the macOS App to upload documents to the independently hosted AI service:
+Import documents in the independent personal Web or macOS App using your self-hosted AI backend:
 
-1. [Start the service](#self-host-the-import-service), connect its origin in the App, then register or sign in. Offline practice still needs no login.
+1. [Start the service](#self-host-the-import-service) and open its root URL for the personal Web, or connect the service URL under **Document import** in the App. No login is required.
 2. Choose up to 10 files and select **Start import**. Choosing files does not upload or parse them.
 3. Review the questions, images and anything flagged for review, then download a question-bank ZIP.
 4. In the desktop app, open **Settings → Import and restore → Import bank ZIP**.
 
 The service reads **PDF, TXT, Markdown, PNG/JPEG, DOC, DOCX, PPT, PPTX, XLS and XLSX** with Tencent Cloud's [asynchronous multimodal document parsing](https://cloud.tencent.com/document/api/866/139312). New CSV imports are not supported. Tencent's [billing guide](https://cloud.tencent.com/document/product/866/17619) lists a one-time **1,000-page free allowance**, valid for one year; check eligibility and remaining quota in your Tencent account. Parsing and model calls are billed separately.
 
-By default, import extracts supplied answers and explanations. To fill missing answers or explanations, enable **AI 生成答案与解析** in the App cloud workspace settings, wait for it to save, then explicitly select **Start import**. Existing answers are preserved; generated content is marked for review and shares the task's model-call budget.
+By default, import extracts supplied answers and explanations. To fill missing answers or explanations, enable **AI 生成答案与解析** in the import settings, wait for it to save, then explicitly select **Start import**. Existing answers are preserved; generated content is marked for review and shares the task's model-call budget.
 
 Reading and downloading results never calls a model. Resuming, retrying or parsing again may cost money at your model provider. Download what you want to keep within **180 days**; a task expiring never affects banks you already imported. See the [import task guide](docs/guides/import-tasks.md).
 
 ## Grade short answers with AI
 
-Sign in to your cloud account through **Document import** or **Settings → Plans and allowance**, then explicitly start AI grading. Provider configuration stays on the service. If login is missing or expired, **Connect cloud account** returns you to the same grading question after login without automatically retrying. Offline practice and local scoring need no account.
+Open **Settings → AI service**, choose **Direct model API** and enter an OpenAI-compatible Chat Completions API address (including the `/v1` or other base path your provider requires), model ID and your own API key. Offline practice and local scoring need none of this.
 
-Grading needs a reference answer or rubric, may cost money, and sends the current question, materials, images and your answer to the cloud service and its configured provider. Each action makes at most one request, and an unknown result is never resent automatically. Keys stay in the system credential store and out of backups. See the [practice guide](docs/guides/practice-guide.md) for limits and retry rules.
+Grading needs a reference answer or rubric, may cost money, and sends the current question, materials, images and your answer to the provider you chose. Each action makes at most one request, and an unknown result is never resent automatically. Keys stay in the system credential store and out of backups. See the [practice guide](docs/guides/practice-guide.md) for limits and retry rules.
 
 Ordinary practice supports explicit grading after submitting the current short answer; tests and exams still require paper submission. New results show individual scoring points and verified reference/answer quotations. Practice uses a 100-point scale if no source maximum was supplied. Independent human-labelled grading-quality acceptance remains pending.
 
@@ -79,11 +83,10 @@ Desktop data lives in `v4/` with SQLite schema 11. Full backups use container ve
 
 ## Self-host the import service
 
-Document import needs the self-hosted AI service. It requires Python 3.14+, uv, Node.js 22.12+, PostgreSQL, RabbitMQ, Tencent parsing credentials and a model endpoint supporting the Responses API with text, images and structured output. Keep the service on loopback. The [installation guide](docs/guides/installation.md), [account deployment guide](server/docs/accounts.md) and [Tencent setup guide](server/docs/tencent-document-parser.md) cover setup and upgrades; configure your own providers, with provider charges paid directly. Optional Alipay payments are disabled by default; only verified production catalog orders grant expiring page allowances. See [plans](docs/guides/plans.md).
+Document import needs the self-hosted AI service. It requires Python 3.14+, uv, Node.js 22.12+, PostgreSQL, RabbitMQ, Tencent parsing credentials and a model endpoint supporting the Responses API with text, images and structured output. Keep the service on loopback. The [installation guide](docs/guides/installation.md), [personal-use guide](server/docs/personal-use.md) and [Tencent setup guide](server/docs/tencent-document-parser.md) cover setup and upgrades; configure your own providers, with charges paid directly and no PractiQ billing.
 
 ## Documentation and development
 
-Start with the [documentation index](docs/README.md). It links the [question model](docs/reference/question-model.md), [document task API](server/docs/document-tasks.md), [operations](server/docs/operations.md) and contributor guides. Run `make app-check`, `make web-check` or `make verify` for the part you changed; Playwright covers interactions in all three app languages with mocked native commands and no model calls:
 
 ```sh
 cd app
@@ -96,14 +99,3 @@ npm run test:browser
 Report reproducible bugs or propose improvements through [GitHub Issues](https://github.com/shenyankm/PractiQ/issues/new/choose). Follow [the contribution guide](CONTRIBUTING.md) for changes and [the security policy](SECURITY.md) for private vulnerability reports.
 
 Project source uses the [MIT license](LICENSE). Bundled dependencies retain their [upstream notices](app/licenses/README.md).
-
-## App accounts and administrator Web
-
-The macOS App includes customer login/registration, account security, cloud uploads,
-personal tasks/results, usage, banks and orders. All document recognition and model
-work remain on the independent service. New users receive 50 free recognition pages
-in total. The Web frontend contains only administration at `/admin`; public user
-pages have been removed. Service schema 8 requires an explicit backed-up offline upgrade; practice schema 11 is unchanged.
-See [App cloud workflow](docs/guides/cloud-service.md) and
-[account setup and recovery](server/docs/accounts.md). Email is currently an
-unverified login identifier; recovery requires an administrator-issued code.

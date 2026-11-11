@@ -1,5 +1,5 @@
 import { t } from "./i18n";
-import { accountHeaders, accountStorageScope, sessionExpired, storageKey } from "./accountClient";
+import { storageScope, storageKey } from "./serviceStorage";
 import type { ArtifactReference, DocumentCorrections, DocumentCorrectionSave, DocumentReference, DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList, DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentReparseSelection, DocumentAnswerMatches, DocumentAnswerProposal, DocumentAnswerSource, DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot } from "./contracts.generated";
 import { validPages, validReparseSelection } from "./importSelection";
 import { IMPORT_SOURCE_TYPES } from "./contracts.generated";
@@ -113,22 +113,19 @@ export async function withDeadline<T>(milliseconds: number, signals: AbortSignal
 
 /** Same-origin personal-service client. Its lifetime ends on disconnect; mutations are never retried here. */
 export class Client {
-  constructor(readonly administrative = false) {}
-  readonly storageScope = accountStorageScope();
+  readonly storageScope = storageScope();
   private readonly native = nativeBridge();
   private readonly session = new AbortController();
   private readonly intents = new Map<string, string>();
-  get active() { return !this.session.signal.aborted && this.storageScope === accountStorageScope() && this.native === nativeBridge(); }
+  get active() { return !this.session.signal.aborted && this.storageScope === storageScope() && this.native === nativeBridge(); }
   disconnect() { this.session.abort(); this.intents.clear(); }
   private async request<T>(path: string, init: RequestInit, read: (response: Response, signal: AbortSignal) => Promise<T>, signal?: AbortSignal) {
     if (!this.active || signal?.aborted) throw new DOMException(t("请求已取消"), "AbortError");
     if (!path.startsWith("/api/") || path.startsWith("//")) throw new ApiError(t("服务返回了无效地址。"), "INVALID_URL");
     const headers = new Headers(init.headers);
-    accountHeaders(headers);
-    if (this.administrative && (path.startsWith('/api/document-tasks') || path.startsWith('/api/artifacts/') || path === '/api/import-settings')) path = path.replace('/api/', '/api/admin/');
     const signals = [this.session.signal];
     if (signal) signals.push(signal);
-    const pathname = path.split("?")[0].replace("/api/admin/", "/api/");
+    const pathname = path.split("?")[0];
     const upload = pathname === "/api/uploads" || pathname === "/api/uploads/content";
     // Upload transport and POST artifact reads do not create tasks.
     const mutation = !!init.method && !["GET", "HEAD"].includes(init.method) && !upload && pathname !== "/api/artifacts/read";
@@ -137,24 +134,19 @@ export class Client {
     return withDeadline(timeout, signals, async requestSignal => {
       let response: Response;
       try {
-        response = await (this.native ? this.native.fetch.bind(this.native) : serviceFetch)(path, { ...init, headers, cache: "no-store", credentials: "same-origin", redirect: "error", signal: requestSignal });
+        response = await (this.native ? this.native.fetch.bind(this.native) : serviceFetch)(path, { ...init, headers, cache: "no-store", credentials: "omit", redirect: "error", signal: requestSignal });
       } catch {
         if (!this.active || signal?.aborted) throw new DOMException(t("请求已取消"), "AbortError");
         throw new ApiError(upload ? uploadRetry : mutation ? t("连接中断，操作结果尚未确认。请先查询原任务，再决定是否重试。") : t("无法连接服务。请检查服务状态，再手动重试读取。"), "NETWORK_ERROR");
       }
       try {
         if (!response.ok) {
-          if (response.status === 401) sessionExpired();
           let code = `HTTP_${response.status}`;
           try {
             const body = JSON.parse(new TextDecoder().decode(await readBytes(response, 64 * 1024, requestSignal))) as { detail?: { code?: string } };
             if (body.detail?.code && /^[A-Z0-9_]{1,64}$/.test(body.detail.code)) code = body.detail.code;
           } catch { /* Error bodies may be empty, text, or validation arrays. */ }
           const known: Record<string, string> = {
-            USER_QUOTA_EXCEEDED: t("每日调用额度已用尽，请等待新加坡时间次日零点或联系管理员调整额度，然后手动继续。"),
-            FREE_PAGE_QUOTA_EXCEEDED: t("可用识别页数不足。请前往“套餐与额度”查看免费与付费余额，购买套餐或加量包后手动继续。"),
-            USER_TASK_LIMIT: t("进行中的任务已达到个人上限，请等待任务停止或完成后再手动提交。"),
-            ACCOUNT_DISABLED: t("账户已停用，请联系管理员。"),
 
             DOCUMENT_TOO_LARGE: t("文件超过服务限制，请选择较小的文件。"),
             UNSUPPORTED_FILE: t("服务不支持此文件格式，请更换文件。"),

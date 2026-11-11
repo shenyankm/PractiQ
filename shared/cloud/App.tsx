@@ -25,18 +25,16 @@ const formatLabels: Record<Capabilities["sourceTypes"][number], string> = { pdf:
 const formatGroups: Record<Capabilities["sourceTypes"][number], string> = { pdf: "PDF", text: "TXT", markdown: "Markdown", ppt: "PPT", pptx: "PPT", image: "图片", doc: "Word", docx: "Word", xls: "Excel", xlsx: "Excel" };
 const fileLabels: Record<FileItem["state"], string> = { ready: "尚未提交", hashing: "校验文件", uploading: "上传文件", starting: "创建任务", created: "任务已创建", failed: "提交失败" };
 const errorText = (error: unknown) => error instanceof ApiError ? error.message : t("读取或操作失败，请手动重试。");
-const authFailure = (error: unknown) => error instanceof ApiError && [401, 403].includes(error.status);
+const accessFailure = (error: unknown) => error instanceof ApiError && [401, 403].includes(error.status);
 const pollRetryDelay = (failures: number) => Math.min(30_000, 3000 * 2 ** Math.min(failures - 1, 4)) * (0.8 + Math.random() * 0.2);
 const sizeLabel = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
 
 function Progress({ task }: { task: DocumentTaskDetail }) {
   useCloudLocale();
-  const quotaBlocked = task.blocking.some(value => value === 'USER_QUOTA_EXCEEDED' || value && typeof value === 'object' && 'reason' in value && value.reason === 'USER_QUOTA_EXCEEDED');
-  const pagesBlocked = task.blocking.some(value => value === 'FREE_PAGE_QUOTA_EXCEEDED' || value && typeof value === 'object' && 'reason' in value && value.reason === 'FREE_PAGE_QUOTA_EXCEEDED');
   const jobs = task.parserJobs || [];
   const active = ["RUNNING", "PENDING", "PAUSING"].includes(task.state);
   const uncertain = jobs.some(job => job.status === "Unknown" || (job.status === "SUBMITTING" && !job.taskId && !active));
-  return <>{pagesBlocked && <p className="notice" role="status">{t("可用识别页数不足，本次识别未提交。请前往“套餐与额度”查看余额，购买套餐或加量包后手动继续。已保存结果仍可查看和下载。")}</p>}{quotaBlocked && <p className="notice" role="status">{t("每日调用额度已用尽。额度按新加坡时间零点重置；恢复后请手动继续任务，也可联系管理员调整额度。")}</p>}{!!jobs.length && <section aria-label={t("腾讯文档识别")}><p role="status">{t("腾讯文档识别：已保存 ")}{jobs.filter(job => job.resultSaved).length}{t(" 个任务结果 · 处理中 ")}{jobs.filter(job => ["STAGING", "Created", "Processing"].includes(job.status) || (active && job.status === "SUBMITTING")).length}{t(" 个任务")}</p>
+  return <>{!!jobs.length && <section aria-label={t("腾讯文档识别")}><p role="status">{t("腾讯文档识别：已保存 ")}{jobs.filter(job => job.resultSaved).length}{t(" 个任务结果 · 处理中 ")}{jobs.filter(job => ["STAGING", "Created", "Processing"].includes(job.status) || (active && job.status === "SUBMITTING")).length}{t(" 个任务")}</p>
     {uncertain && <p className="notice" role="alert">{t("上次腾讯提交结果尚未确认。请先核对腾讯云记录；重新解析会创建新任务并可能再次计费。任务 ID 与请求 ID 可在任务诊断中查看。")}</p>}
     {jobs.some(job => ["REJECTED", "Failed"].includes(job.status)) && <p className="notice">{t("腾讯文档识别失败。请核对任务诊断，修正问题后再重新解析。")}</p>}
   </section>}<div className="progress-grid">{(["chunks", "visuals"] as const).map(kind => {
@@ -191,7 +189,7 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
       } catch (error) {
         delay = pollRetryDelay(++failures);
         if (!controller.signal.aborted) setListError(errorText(error));
-        stopped = authFailure(error);
+        stopped = accessFailure(error);
       } finally {
         reading = false;
         if (!controller.signal.aborted) { setListLoading(false); if (!stopped && recordsVisible.current && !document.hidden) timer = setTimeout(() => void poll(), delay); }
@@ -220,9 +218,9 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
           const [current, review] = await Promise.allSettled([client!.detail(selected!, controller.signal), client!.preview(selected!, controller.signal, false)]);
           if (controller.signal.aborted || !recordsVisible.current || document.hidden) return;
           if (current.status === "fulfilled") { currentDetail = current.value; setDetail(current.value); setDetailError(null); setDetailFresh(true); }
-          else { failed = true; setDetailError(errorText(current.reason)); setDetailFresh(false); stopped = authFailure(current.reason); }
+          else { failed = true; setDetailError(errorText(current.reason)); setDetailFresh(false); stopped = accessFailure(current.reason); }
           if (review.status === "fulfilled") { currentPreview = review.value; setPreview(review.value); setPreviewError(null); }
-          else { failed = true; currentPreview = null; setPreview(null); setPreviewError(errorText(review.reason)); stopped ||= authFailure(review.reason); }
+          else { failed = true; currentPreview = null; setPreview(null); setPreviewError(errorText(review.reason)); stopped ||= accessFailure(review.reason); }
           return;
         }
         if (!force && currentDetail.state === "COMPLETED") {
@@ -243,13 +241,13 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
           } catch (error) {
             failed = true;
             if (!controller.signal.aborted) { currentPreview = null; setPreview(null); setPreviewError(errorText(error)); }
-            stopped = authFailure(error);
+            stopped = accessFailure(error);
           }
         }
       } catch (error) {
         failed = true;
         if (!controller.signal.aborted) { setDetailError(errorText(error)); setDetailFresh(false); }
-        stopped = authFailure(error);
+        stopped = accessFailure(error);
       } finally {
         reading = false;
         failures = failed ? failures + 1 : 0;

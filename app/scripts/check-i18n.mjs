@@ -14,7 +14,7 @@ const test=base.extend({observedCalls:[async ({page},use)=>{
   let lang=localStorage.getItem('test-language');
   const banks=[{id:'one',title:'原始题库 — Original bank',description:'Imported content stays unchanged',count:fixture.questions.length,createdAt:1},{id:'two',title:'Mathematics',description:'',count:0,createdAt:1}];
   const questions=fixture.questions.map((q,i)=>({id:String(i),bankId:'one',bankTitle:banks[0].title,question:q,groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null}));
-  let settings={config:{service_url:'https://initial-service.example.test'},hasServiceToken:false};
+  let settings={config:{service_url:'https://initial-service.example.test'}};
   window.__TAURI_INTERNALS__={invoke:async(command,args)=>{
    const request = args?.request;
    await window.__recordMockCall({command,request});
@@ -35,8 +35,7 @@ const test=base.extend({observedCalls:[async ({page},use)=>{
     case 'settings':return settings;
     case 'test_settings':return null;
     case 'save_settings': {
-     const hasServiceToken=request.service_token===null ? (request.config.service_url===settings.config.service_url ? settings.hasServiceToken:null):!!request.service_token.trim();
-     settings={config:request.config,hasServiceToken};return settings;
+     settings={config:request.config};return settings;
     }
     case 'pick_import':return null;
     case 'preview_paper': {
@@ -223,7 +222,7 @@ test('trilingual sidebar preserves alignment, keyboard navigation and language p
   await expect(page.locator('#app-sidebar')).toHaveCSS('width','208px');
   assert.deepEqual(await sidebarPositions(),expandedPositions,'Sidebar rows and icons stay aligned after expanding');
   await expectNoOverflow(page,names.locale+' expanded');
-  await expect(page.locator('main').getByRole('button',{name:names.locale==='en'?'Configure':names.locale==='zh-TW'?'設定':'配置',exact:true})).toHaveCount(0);
+  await expect(page.locator('main').getByRole('button',{name:names.locale==='en'?'Configure':names.locale==='zh-TW'?'設定':'配置',exact:true})).toHaveCount(1);
   await expect(page.getByLabel(names.locale==='en'?'AI service URL':names.locale==='zh-TW'?'AI 服務位址':'AI 服务地址',{exact:true})).toHaveCount(0);
  }
  await page.getByRole('button',{name:'語言',exact:true}).click();
@@ -262,7 +261,7 @@ test('trilingual sidebar preserves alignment, keyboard navigation and language p
  await expect(page.getByRole('menu')).toBeHidden();
 });
 
-test('offline ZIP entry and account-only settings never submit documents or start model work',async ({page,observedCalls})=>{
+test('offline ZIP entry and personal grading settings never submit documents or start model work',async ({page,observedCalls})=>{
  await expect(page.locator('aside').getByRole('button',{name:'Import',exact:true})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Start import',exact:true})).toHaveCount(0);
  expect(observedCalls.filter(c=>c.request.type==='pick_import')).toHaveLength(0);
@@ -279,12 +278,12 @@ test('offline ZIP entry and account-only settings never submit documents or star
  await page.keyboard.press('Escape');
  await expect(page.getByRole('menu')).toBeHidden();
 
- await expect(page.getByRole('button',{name:'Configure',exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Configure',exact:true})).toHaveCount(1);
  await expect(page.getByLabel('AI service URL',{exact:true})).toHaveCount(0);
  await expect(page.getByLabel('API Key',{exact:true})).toHaveCount(0);
- await expect(page.getByRole('button',{name:'View allowance',exact:true})).toBeVisible();
- expect(observedCalls.filter(c=>['settings','save_settings','test_settings'].includes(c.request.type))).toEqual([]);
- await expectNoOverflow(page,'account-only settings');
+ await expect(page.getByRole('button',{name:'View allowance',exact:true})).toHaveCount(0);
+ expect(observedCalls.filter(c=>['save_settings','test_settings'].includes(c.request.type))).toEqual([]);
+ await expectNoOverflow(page,'personal grading settings');
  expect(observedCalls.filter(c=>c.command!=='request').every(c=>c.command==='cloud_request' && c.request.type==='status')).toBe(true);
 });
 

@@ -1,6 +1,5 @@
 import { errorMessage } from "./api";
 import { invoke } from "./transport";
-import { sessionExpired } from "../../shared/cloud/accountClient";
 import { ApiError } from "../../shared/cloud/api";
 import type { NativeBridge, SourceFile } from "../../shared/cloud/transport";
 import type { DocumentReference } from "./contracts.generated";
@@ -15,7 +14,6 @@ export async function cloudRequest<T>(request: Record<string, unknown>, context?
   }
   catch (value) {
     const error = value as { code?: string; message?: string };
-    if (["LOGIN_REQUIRED", "ACCOUNT_DISABLED"].includes(error.code || "")) sessionExpired();
     throw new ApiError(errorMessage(error, false), error.code || "CLOUD_UNAVAILABLE");
   }
 }
@@ -30,7 +28,6 @@ export function nativeCloudBridge(origin: string, generation = 0): NativeBridge 
   return {
     origin,
     confirm: message => call<boolean>({ type: "confirm", message }),
-    forgetSession: () => call<void>({ type: "forget_session" }),
     async fetch(path, init) {
       init.signal?.throwIfAborted();
       const response = await call<{ status: number; mediaType: string; bytes: string }>({ type: "fetch", path, method: init.method || "GET", body: typeof init.body === "string" ? JSON.parse(init.body) : null });
@@ -41,6 +38,5 @@ export function nativeCloudBridge(origin: string, generation = 0): NativeBridge 
     upload: ticket => call<DocumentReference>({ type: "upload", ticket }),
     download: (path, name) => call<boolean>({ type: "download", path, name }),
     save: (bytes, name) => call<boolean>({ type: "save", bytes: encode(bytes), name }),
-    checkout: async (requestId, orderId, productId) => { await call({ type: "checkout", request_id: requestId, order_id: orderId ?? null, product_id: productId ?? null }); },
   };
 }

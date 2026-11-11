@@ -1,6 +1,8 @@
+// @vitest-environment jsdom
+import { storageKey } from "../../shared/cloud/serviceStorage";
 import { describe, expect, it, vi } from "vitest";
 import { Client, ApiError, MAX_BANK_ZIP_BYTES, downloadBlob, fileFormat, readBytes, sha256, sourceLimit, validateFiles } from "../../shared/cloud/api";
-import { capabilities, task, taskId, runId, newTaskId } from "./test-fixtures";
+import { capabilities, task, taskId, runId, newTaskId } from "../../shared/cloud/test-fixtures";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 const receipt = { threadId: taskId, requestId: taskId, runId, accepted: true };
@@ -200,7 +202,7 @@ describe("source selection and bounded upload", () => {
     for (const [url, init] of fetcher.mock.calls) {
       expect(url).not.toContain("fake-service-token");
       expect(new Headers(init.headers).get("Authorization")).toBeNull();
-      expect(init).toMatchObject({ credentials: "same-origin", redirect: "error", cache: "no-store" });
+      expect(init).toMatchObject({ credentials: "omit", redirect: "error", cache: "no-store" });
     }
     client.disconnect();
   });
@@ -529,7 +531,7 @@ it("recovers an uncertain reparse after reload and clears only its confirmed req
   await restored.reparse(taskId);
   expect(JSON.parse(fetcher.mock.calls.at(-1)![1].body as string)).toEqual({ requestId: requests[0].requestId });
   expect(restored.pendingReparses()).toEqual([]);
-  expect(localStorage.getItem("practiq-reparse-intents-v1")).toBeNull();
+  expect(localStorage.getItem(storageKey("practiq-reparse-intents-v1"))).toBeNull();
   await restored.reparse(taskId);
   expect(JSON.parse(fetcher.mock.calls.at(-1)![1].body as string).requestId).not.toBe(requests[0].requestId);
 });
@@ -543,7 +545,7 @@ it("requires an explicit recovery clear and preserves the original ID if clearin
   remove.mockRestore();
   await new Client().retryReparse(request.requestId);
   expect(client.pendingReparses()).toEqual([]);
-  localStorage.setItem("practiq-reparse-intents-v1", JSON.stringify([request]));
+  localStorage.setItem(storageKey("practiq-reparse-intents-v1"), JSON.stringify([request]));
   const calls = vi.mocked(fetch).mock.calls.length;
   client.forgetReparse(request.requestId);
   expect(client.pendingReparses()).toEqual([]);
@@ -568,13 +570,13 @@ it.each([
   JSON.stringify([{ threadId: taskId, requestId: runId }, { threadId: taskId, requestId: newTaskId }]),
   JSON.stringify(Array.from({ length: 51 }, (_, index) => ({ threadId: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`, requestId: `10000000-0000-4000-8000-${String(index).padStart(12, "0")}` }))),
 ])("retains invalid or ambiguous reparse records and refuses new submissions: %s", async raw => {
-  localStorage.setItem("practiq-reparse-intents-v1", raw);
+  localStorage.setItem(storageKey("practiq-reparse-intents-v1"), raw);
   const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
   const client = new Client();
   expect(() => client.pendingReparses()).toThrow("重新解析恢复记录");
   await expect(client.reparse(taskId)).rejects.toMatchObject({ code: "RECOVERY_STORAGE_UNAVAILABLE" });
   expect(fetcher).not.toHaveBeenCalled();
-  expect(localStorage.getItem("practiq-reparse-intents-v1")).toBe(raw);
+  expect(localStorage.getItem(storageKey("practiq-reparse-intents-v1"))).toBe(raw);
 });
 
 it("bounds pending reparse records and rejects invalid or disconnected targets without writing", async () => {
@@ -585,7 +587,7 @@ it("bounds pending reparse records and rejects invalid or disconnected targets w
   await expect(client.reparse(taskId)).rejects.toMatchObject({ name: "AbortError" });
   expect(localStorage.length).toBe(0);
   const pending = Array.from({ length: 50 }, (_, index) => ({ threadId: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`, requestId: `10000000-0000-4000-8000-${String(index).padStart(12, "0")}` }));
-  localStorage.setItem("practiq-reparse-intents-v1", JSON.stringify(pending));
+  localStorage.setItem(storageKey("practiq-reparse-intents-v1"), JSON.stringify(pending));
   await expect(new Client().reparse(taskId)).rejects.toMatchObject({ code: "RECOVERY_STORAGE_UNAVAILABLE" });
   expect(fetcher).not.toHaveBeenCalled();
   expect(new Client().pendingReparses()).toEqual(pending);
@@ -614,11 +616,11 @@ it("persists only verified file metadata even if an upload response has extra fi
 });
 
 it.each(["not JSON", "{}", '[{}]', '[{"requestId":"bad"}]'])("rejects malformed recovery metadata without posting: %s", raw => {
-  localStorage.setItem("practiq-import-intents-v1", raw);
+  localStorage.setItem(storageKey("practiq-import-intents-v1"), raw);
   const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
   expect(() => new Client().pendingImports()).toThrow("原提交恢复记录");
   expect(fetcher).not.toHaveBeenCalled();
-  expect(localStorage.getItem("practiq-import-intents-v1")).toBe(raw);
+  expect(localStorage.getItem(storageKey("practiq-import-intents-v1"))).toBe(raw);
 });
 
 it("reselecting a pending source after reload keeps the original deduplication option", async () => {

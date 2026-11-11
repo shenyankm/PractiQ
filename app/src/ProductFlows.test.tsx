@@ -66,10 +66,10 @@ it("keeps desktop navigation focused on offline practice without AI import reque
   expect(screen.queryByRole("button", { name: "从文档解析题目" })).toBeNull();
   await userEvent.click(screen.getByRole("button", { name: "设置" }));
   await screen.findByRole("heading", { name: "学习数据备份" });
-  expect(screen.queryByRole("button", { name: "配置" })).toBeNull();
-  expect(screen.queryByText("AI 服务", { exact: true })).toBeNull();
+  expect(screen.getByRole("button", { name: "配置" })).toBeTruthy();
+  expect(screen.getByText("AI 服务", { exact: true })).toBeTruthy();
   expect(screen.queryByLabelText("模型 ID")).toBeNull();
-  expect(vi.mocked(api).mock.calls.some(([request]) => ["settings", "save_settings", "test_settings"].includes(request.type))).toBe(false);
+  expect(vi.mocked(api).mock.calls.some(([request]) => ["save_settings", "test_settings"].includes(request.type))).toBe(false);
   const { invoke } = await import("@tauri-apps/api/core");
   expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "ai_request" || command === "office_request")).toBe(false);
 });
@@ -122,7 +122,7 @@ function setup(question = row, failReview = false) {
       case "info": return { version: "test", dataDirectory: "/tmp/test" } as never;
       case "backup_status": return {lastBackupAt:null,newAttempts:0,changedNotes:0,due:false} as never;
       case "import_duplicates": return {groups:[],check:"test-comparison"} as never;
-      case "settings": return { config: { service_url: null }, hasServiceToken: false } as never;
+      case "settings": return { config: { service_url: null } } as never;
       case "pick_import": return null as never;
       case "question_stats": return { count: 0, types: {}, feasibleCounts: [] } as never;
       default: throw new Error(`Unexpected request: ${request.type}`);
@@ -184,7 +184,7 @@ it("offers cloud parsing from the empty bank list without replacing offline impo
   });
   render(<App />);
   await userEvent.click(await screen.findByRole("button", { name: "从云端解析文档" }));
-  expect(await screen.findByText("账户服务暂不可用，请稍后重试。离线练习仍可使用。")).toBeTruthy();
+  expect(await screen.findByRole("alert")).toBeTruthy();
   expect(api).not.toHaveBeenCalledWith({ type: "pick_import" });
 });
 

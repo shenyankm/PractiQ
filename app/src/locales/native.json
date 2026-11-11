@@ -1019,11 +1019,6 @@
     "en": "Grading input or digest is invalid.",
     "zh-TW": "評分輸入或摘要不合法。"
   },
-  "INVALID_SERVICE_TOKEN": {
-    "zh-CN": "AI 服务令牌无效。",
-    "en": "AI service token is invalid.",
-    "zh-TW": "AI 服務權杖無效。"
-  },
   "REQUEST_TOO_LARGE": {
     "zh-CN": "请求体过大。",
     "en": "Request body is too large.",
@@ -1038,16 +1033,6 @@
     "zh-CN": "请配置 AI 服务地址。",
     "en": "Configure an AI service URL.",
     "zh-TW": "請設定 AI 服務位址。"
-  },
-  "LOCAL_SERVICE_TOKEN_REQUIRED": {
-    "zh-CN": "请配置 AI 服务访问令牌。",
-    "en": "Configure an AI service access token.",
-    "zh-TW": "請設定 AI 服務存取權杖。"
-  },
-  "LOCAL_SERVICE_TOKEN_INVALID": {
-    "zh-CN": "AI 服务访问令牌格式无效。",
-    "en": "Invalid AI service access token format.",
-    "zh-TW": "AI 服務存取權杖格式無效。"
   },
   "LOCAL_DOCUMENT_UNAVAILABLE": {
     "zh-CN": "无法读取授权文件或创建临时副本，请重新选择文件。",
@@ -1124,11 +1109,6 @@
     "zh-TW": "請輸入 HTTPS 服務根位址；本機開發可使用 HTTP。",
     "en": "Enter an HTTPS service origin; HTTP is allowed for loopback development."
   },
-  "CLOUD_ACCOUNT_CHANGED": {
-    "zh-CN": "云端连接或账号已变化，请重新读取登录状态。",
-    "zh-TW": "雲端連線或帳號已變更，請重新讀取登入狀態。",
-    "en": "The service or account changed. Reload the login status."
-  },
   "CLOUD_UNAVAILABLE": {
     "zh-CN": "云端连接不可用，请稍后手动重试。",
     "zh-TW": "雲端連線無法使用，請稍後手動重試。",
@@ -1143,11 +1123,6 @@
     "zh-CN": "云端连接配置未能保存，请检查磁盘权限。",
     "zh-TW": "雲端連線設定無法儲存，請檢查磁碟權限。",
     "en": "Cloud settings could not be saved. Check disk permissions."
-  },
-  "CLOUD_CREDENTIAL_INVALID": {
-    "zh-CN": "本机登录凭证无法读取，请清除本机登录状态后重新登录。",
-    "zh-TW": "本機登入憑證無法讀取，請清除本機登入狀態後重新登入。",
-    "en": "The local login credential is unreadable. Forget local login and sign in again."
   },
   "CLOUD_RESPONSE_INVALID": {
     "zh-CN": "云端响应未通过校验，操作未确认；请查询原记录。",
@@ -1233,5 +1208,15 @@
     "zh-CN": "请选择有效的套餐或加量包。",
     "en": "Choose a valid plan or page add-on.",
     "zh-TW": "請選擇有效的方案或加購頁數包。"
+  },
+  "CLOUD_SERVICE_CHANGED": {
+    "zh-CN": "导入服务已变更，请重新读取后再操作。",
+    "en": "The import service changed. Reload before continuing.",
+    "zh-TW": "匯入服務已變更，請重新讀取後再操作。"
+  },
+  "LOCAL_MODEL_KEY_INVALID": {
+    "zh-CN": "模型 API Key 格式无效。",
+    "en": "The model API key format is invalid.",
+    "zh-TW": "模型 API Key 格式無效。"
   }
 }

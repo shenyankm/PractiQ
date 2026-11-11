@@ -20,11 +20,11 @@ it("binds queued native requests to their origin without regressing session gene
 });
 it("does not invoke aborted reads and discards aborted in-flight responses",async()=>{
  const bridge=nativeCloudBridge("https://first.test",1), controller=new AbortController();
- controller.abort();await expect(bridge.fetch("/api/auth/session",{signal:controller.signal})).rejects.toMatchObject({name:"AbortError"});
+ controller.abort();await expect(bridge.fetch("/api/import-capabilities",{signal:controller.signal})).rejects.toMatchObject({name:"AbortError"});
  expect(invoke).not.toHaveBeenCalled();
  let finish:(value:unknown)=>void=()=>{};
  vi.mocked(invoke).mockImplementation(()=>new Promise(resolve=>{finish=resolve;}) as never);
- const active=new AbortController();const response=bridge.fetch("/api/auth/session",{signal:active.signal});active.abort();
+ const active=new AbortController();const response=bridge.fetch("/api/import-capabilities",{signal:active.signal});active.abort();
  finish({value:{status:200,mediaType:"application/json",bytes:btoa("{}")},generation:1});
  await expect(response).rejects.toMatchObject({name:"AbortError"});
 });
@@ -46,10 +46,4 @@ it("awaits the native confirmation result instead of treating its Promise as con
  vi.mocked(invoke).mockResolvedValue({value:false,generation:1} as never);
  expect(await nativeCloudBridge("https://cloud.test",1).confirm("Keep the draft?" )).toBe(false);
  expect(invoke).toHaveBeenCalledExactlyOnceWith("cloud_request",{request:{type:"confirm",message:"Keep the draft?"},context:{origin:"https://cloud.test",generation:1}});
-});
-
-it("passes a selected catalog SKU through the typed native checkout command",async()=>{
- vi.mocked(invoke).mockResolvedValue({value:null,generation:2} as never);
- await nativeCloudBridge("https://cloud.test",2).checkout("11111111-1111-4111-8111-111111111111",undefined,"plus");
- expect(invoke).toHaveBeenCalledExactlyOnceWith("cloud_request",{request:{type:"checkout",request_id:"11111111-1111-4111-8111-111111111111",order_id:null,product_id:"plus"},context:{origin:"https://cloud.test",generation:2}});
 });

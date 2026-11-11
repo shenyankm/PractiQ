@@ -36,7 +36,7 @@ async def cleanup(db: Database) -> int:
     if not load().maintenance:
         raise RuntimeError('Cleanup requires AI_MAINTENANCE_MODE=true')
     async with exclusive(db):
-        tasks = await db.rows("SELECT thread_id FROM document_tasks t WHERE owner_id IS NOT NULL AND expires_at <= now() AND NOT EXISTS (SELECT 1 FROM document_runs r WHERE r.thread_id=t.thread_id AND r.status IN ('pending','running'))")
+        tasks = await db.rows("SELECT thread_id FROM document_tasks t WHERE expires_at <= now() AND NOT EXISTS (SELECT 1 FROM document_runs r WHERE r.thread_id=t.thread_id AND r.status IN ('pending','running'))")
         retained = {row['thread_id'] for row in await db.rows('SELECT thread_id FROM document_tasks')}
         # Interrupted API deletion can leave state after its task record was committed away.
         async with db.checkpointer.lock, db.connections[0].cursor() as cursor:
@@ -85,24 +85,6 @@ async def run(action: str, run_id: str | None = None, *, thread_id: str | None =
             async with exclusive(db):
                 await db.initialize()
             print('Initialized dedicated PostgreSQL service database')
-        elif action == 'bootstrap-admin':
-            import getpass
-            from uuid import uuid4
-
-            from .contracts import AccountCredentials
-            from .identity import password_hash
-            try:
-                value = AccountCredentials(email=input('Administrator email: ').strip(), password=getpass.getpass('Password (12+ characters): '))
-            except ValueError:
-                raise ValueError('Invalid email or password length (12-128 characters)') from None
-            if getpass.getpass('Repeat password: ') != value.password:
-                raise ValueError('Passwords differ')
-            encoded = await password_hash(value.password)
-            async with exclusive(db), db.transaction() as conn:
-                await db.check_schema()
-                await conn.execute("INSERT INTO auth_users(id,email,password_hash,role) VALUES(%s,%s,%s,'admin')", (str(uuid4()), value.email.lower(), encoded))
-                await conn.execute("INSERT INTO auth_audit(actor,action,target) VALUES('operator','bootstrap_admin',%s)", (value.email.lower(),))
-            print('Administrator created; no models executed')
         elif action == 'upgrade-db':
             if backup_bundle is None:
                 raise ValueError('upgrade-db requires --backup-bundle with a verified matching offline backup')
@@ -145,7 +127,7 @@ def main():
 
     from .config import SERVER_ROOT
     parser = argparse.ArgumentParser()
-    parser.add_argument('action', choices=['bootstrap-admin', 'init-db', 'upgrade-db', 'replay-run', 'cleanup-state', 'verify-source', 'repair-source'])
+    parser.add_argument('action', choices=['init-db', 'upgrade-db', 'replay-run', 'cleanup-state', 'verify-source', 'repair-source'])
     parser.add_argument('--run-id')
     parser.add_argument('--thread-id')
     parser.add_argument('--source', type=Path)

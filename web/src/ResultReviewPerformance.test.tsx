@@ -1,9 +1,10 @@
+// @vitest-environment jsdom
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import ResultReview, { Markdown } from "../../shared/cloud/ResultReview";
 import { Client } from "../../shared/cloud/api";
-import { preview, question, task } from "./test-fixtures";
+import { preview, question, task } from "../../shared/cloud/test-fixtures";
 
 const { parse } = vi.hoisted(() => ({ parse: vi.fn() }));
 vi.mock("react-markdown", () => ({ default: ({ children }: { children: string }) => {

@@ -78,13 +78,8 @@ class FakeModel(BaseChatModel):
 def tencent_provider(monkeypatch, pages: list[dict[str, Any]] | Callable[[dict[str, Any], bytes], list[dict[str, Any]]] | None = None):
     """Replace only Tencent HTTP; plain-text fixtures echo the actual input bytes."""
     import base64
-    from unittest.mock import AsyncMock
 
-    from practiq_ai import identity, tencent
-    # Engine fixtures substitute tenant admission; account integration tests use PostgreSQL.
-    monkeypatch.setattr(identity, 'reserve', AsyncMock())
-    monkeypatch.setattr(identity, 'record_call', AsyncMock())
-    monkeypatch.setattr(identity, 'release', AsyncMock())
+    from practiq_ai import tencent
 
     monkeypatch.setenv("AI_TENCENT_SECRET_ID", "synthetic-id")
     monkeypatch.setenv("AI_TENCENT_SECRET_KEY", "synthetic-key")

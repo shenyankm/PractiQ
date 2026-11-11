@@ -1,5 +1,5 @@
 import { t } from "./i18n";
-import { accountStorageScope, storageKey } from "./accountClient";
+import { storageScope, storageKey } from "./serviceStorage";
 import type { DocumentAnswerSource, DocumentCorrectionSave, ParsedQuestion } from "./contracts.generated";
 
 export type EditorDraft = { original: ParsedQuestion; question: ParsedQuestion; answer: string; initialAnswer: string };
@@ -29,7 +29,7 @@ function identity(value: Pick<CorrectionDraft, "taskId" | "checkpointId" | "ques
 // shortcut: one mutable draft per question; add tab-specific drafts if simultaneous editing is needed.
 function mutableDrafts(scope: string) { return decode(localStorage.getItem(storageKey(key, scope)) ?? "[]"); }
 function sameEditor(a: CorrectionDraft, b: CorrectionDraft) { return identity(a) === identity(b) && a.revision === b.revision && JSON.stringify(a.editor) === JSON.stringify(b.editor) && JSON.stringify(a.answerSource ?? null) === JSON.stringify(b.answerSource ?? null); }
-export function correctionDrafts(scope = accountStorageScope()): CorrectionDraft[] {
+export function correctionDrafts(scope = storageScope()): CorrectionDraft[] {
   try {
     const mutable = mutableDrafts(scope), pending: CorrectionDraft[] = [];
     for (let index = 0; index < localStorage.length; index++) {
@@ -52,7 +52,7 @@ function write(values: CorrectionDraft[], scope: string) {
   if (values.length) localStorage.setItem(storageKey(key, scope), raw); else localStorage.removeItem(storageKey(key, scope));
   changed();
 }
-export function putCorrectionDraft(value: CorrectionDraft, scope = accountStorageScope()) {
+export function putCorrectionDraft(value: CorrectionDraft, scope = storageScope()) {
   try {
     if (value.pending) {
       // Separate immutable keys keep one tab from losing another tab's unconfirmed request.
@@ -70,7 +70,7 @@ export function putCorrectionDraft(value: CorrectionDraft, scope = accountStorag
     write([...mutableDrafts(scope).filter(v => identity(v) !== identity(value)), value], scope);
   } catch { throw unavailable(); }
 }
-export function removeCorrectionDraft(value: Pick<CorrectionDraft, "taskId" | "checkpointId" | "questionIndex"> & { requestId?: string }, scope = accountStorageScope()) {
+export function removeCorrectionDraft(value: Pick<CorrectionDraft, "taskId" | "checkpointId" | "questionIndex"> & { requestId?: string }, scope = storageScope()) {
   try {
     const raw = value.requestId ? localStorage.getItem(scopedPrefix(scope) + value.requestId) : null;
     const confirmed = raw ? decode(`[${raw}]`)[0] : undefined;

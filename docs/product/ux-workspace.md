@@ -33,7 +33,7 @@ Run the project UI checks and browser suites:
 ```sh
 npm --prefix app run check:ui
 npm --prefix app run test:browser
-make web-check web-build
+make app-check app-build
 ```
 
 Focused checks cover bank creation through the existing command, local filtering, feasible quick counts, persistent connection feedback, untitled ZIP append with a valid bank-title fallback, unchanged checkpoint data, and passive file removal. Browser checks include 375px, 768px and 1440px workflow captures, answer-card focus, light/dark token contrast, 200% root text sizing, and the existing responsive, reduced-motion, bilingual and dirty-editor suites.

@@ -13,7 +13,6 @@ from practiq_ai.middleware import DEFAULT_JSON_BODY_BYTES, JsonBodyLimitMiddlewa
 from practiq_ai.webapp import app
 
 
-@pytest.mark.usefixtures("business_http")
 @pytest.mark.parametrize('suffix', ['', '/control', '/reparse'])
 @pytest.mark.parametrize('content_length', [None, DEFAULT_JSON_BODY_BYTES + 1, 1])
 @pytest.mark.parametrize('legacy_header', [False, True])
@@ -44,7 +43,6 @@ async def test_task_mutations_keep_stream_limits_without_authentication(
     assert reads == ([DEFAULT_JSON_BODY_BYTES, 1] if not oversized_header else [])
 
 
-@pytest.mark.usefixtures("business_http")
 @pytest.mark.parametrize('streamed', [False, True])
 @pytest.mark.parametrize('legacy_header', [False, True])
 async def test_reparse_accepts_limit_sized_json_without_authentication(monkeypatch, streamed, legacy_header):

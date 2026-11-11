@@ -223,7 +223,6 @@ export type Request =
   | {
       type: "save_settings" | "test_settings";
       config: ServiceConfig;
-      service_token: string | null;
       api_key?: string | null;
     }
   | {
@@ -471,7 +470,6 @@ export interface ServiceConfig {
 export interface SettingsResult {
   config: ServiceConfig;
   /** null means unchecked; only explicit credential operations inspect the token. */
-  hasServiceToken: boolean | null;
   hasApiKey?: boolean | null;
 }
 
@@ -483,7 +481,6 @@ export function missingServiceSettings(settings: SettingsResult): string[] {
   ].filter((field): field is string => !!field);
   return [
     !settings.config.service_url?.trim() && t("AI 服务地址"),
-    settings.hasServiceToken === false && t("AI 服务访问令牌"),
   ].filter((field): field is string => !!field);
 }
 

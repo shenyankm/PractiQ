@@ -72,7 +72,6 @@ def test_office_modes_are_rejected_and_new_routing_keeps_source_identity():
         DocumentTaskCreate(requestId=request_id, document=normal, officeMode='text')
 
 
-@pytest.mark.usefixtures("business_http")
 @pytest.mark.parametrize('mode', ['pdf', 'text'])
 async def test_http_create_rejects_legacy_office_mode_before_admission(monkeypatch, mode):
     create = AsyncMock()

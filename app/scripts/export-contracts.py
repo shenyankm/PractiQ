@@ -6,8 +6,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'server/src'))
 from practiq_ai.contracts import (
-    AdministrationFilter, AdministrationAllowanceChange, AdministrationCredentialRevoke, AdministrationUserDetail, AdministrationCall, AdministrationUsageBucket, AdministrationUsageSummary, AdministrationTaskSummary, AdministrationTaskList, AdministrationMonitoring, AdministrationOperations, AccountPlan, PlanProduct, PlanBalance, PageGrant, AdministrationPaymentOrder, PaymentOrder, PaymentOffer, PaymentForm, PaymentRefund, PaymentCreate,
-    AccountOperation, AccountSecret, AccountResetLink, AccountSessionInfo, AccountTokenInfo, AdministrationUser, AccountUsage, AdministrationAudit, AccountCall, AccountCredentials, AccountChange, AccountUser, AccountSession, AccountReset, AccountLimits, AdministrationSettings, AdministrationUserChange, AccountTokenCreate, AccountPasswordConfirm,  # noqa: E402
     AnswerMode, BankImportDiagnostic, COMPOSITE_MODES, QUESTION_KIND_MODES, DocumentParseResult, DocumentProcessing,
     DocumentSourceType, DocumentTaskControl, DocumentTaskCreate, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
     DocumentTaskReceipt, DocumentTaskReparse, DocumentTaskReview, DocumentTaskSummary, DocumentUploadRequest,
@@ -63,7 +61,7 @@ def ts_type(node):
     raise ValueError(f'Unsupported schema type: {node}')
 
 schema = DocumentParseResult.model_json_schema(mode='serialization')
-wire_models = (AdministrationFilter, AdministrationAllowanceChange, AdministrationCredentialRevoke, AdministrationUserDetail, AdministrationCall, AdministrationUsageBucket, AdministrationUsageSummary, AdministrationTaskSummary, AdministrationTaskList, AdministrationMonitoring, AdministrationOperations, AccountPlan, PlanProduct, PlanBalance, PageGrant, AdministrationPaymentOrder, PaymentOrder, PaymentOffer, PaymentForm, PaymentRefund, PaymentCreate, AccountOperation, AccountSecret, AccountResetLink, AccountSessionInfo, AccountTokenInfo, AdministrationUser, AccountUsage, AdministrationAudit, AccountCall, AccountCredentials, AccountChange, AccountUser, AccountSession, AccountReset, AccountLimits, AdministrationSettings, AdministrationUserChange, AccountTokenCreate, AccountPasswordConfirm, BankImportDiagnostic, DocumentTaskSummary, DocumentTaskReview, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
+wire_models = (BankImportDiagnostic, DocumentTaskSummary, DocumentTaskReview, DocumentTaskDetail, DocumentTaskHead, DocumentTaskList,
                DocumentTaskCreate, DocumentTaskControl, DocumentTaskReparse, DocumentTaskReceipt,
                DocumentUploadRequest, DocumentUploadResponse, ImportCapabilities, ImportSettingsSnapshot, GradeResult, DocumentCorrectionSave, DocumentCorrections, DocumentAnswerMatches, DocumentAnswerProposal)
 definitions = {}
@@ -94,8 +92,8 @@ lines.append('export const IMPORT_SOURCE_TYPES = ' + json.dumps(list(get_args(Im
 lines.append('export const COMPOSITE_MODES: readonly string[] = ' + json.dumps(sorted(COMPOSITE_MODES)) + ';')
 lines.append('export const COMPOSITE_FILTERS: readonly string[] = ' + json.dumps(sorted(COMPOSITE_MODES | {k for k, v in QUESTION_KIND_MODES.items() if v in COMPOSITE_MODES})) + ';')
 generated = '\n'.join(lines) + '\n'
-for types_path in (path.parents[1] / 'src' / 'contracts.generated.ts', path.parents[2] / 'web/src/contracts.generated.ts'):
-    write_changed(types_path, generated, 'Shared client types changed: run app/scripts/export-contracts.py')
+write_changed(path.parents[1] / 'src' / 'contracts.generated.ts', generated, 'Client types changed: run app/scripts/export-contracts.py')
+write_changed(path.parents[2] / 'web/src/contracts.generated.ts', '// Canonical client schemas are generated from the service contract.\nexport * from \"../../app/src/contracts.generated\";\n', 'Web client types changed: run app/scripts/export-contracts.py')
 
 metadata_path = path.parent / 'src/question_metadata.rs'
 filter_modes = sorted({'', 'single', 'multiple', *get_args(AnswerMode), *QUESTION_KIND_MODES})

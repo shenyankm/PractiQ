@@ -1,10 +1,11 @@
+// @vitest-environment jsdom
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import ResultReview from "../../shared/cloud/ResultReview";
 import { ApiError, Client } from "../../shared/cloud/api";
 import type { DocumentCorrections } from "./contracts.generated";
-import { preview, question, task } from "./test-fixtures";
+import { preview, question, task } from "../../shared/cloud/test-fixtures";
 
 const original = question({ id: "ordinary", parentId: null, optionSourceId: null, answerMode: "true_false", choiceVariant: null, questionTypeId: null, stem: "Original question", sourceText: "Original question", confidence: .8 });
 const detail = { ...task, status: "SUCCEEDED" as const, result: { ...task.result!, questions: [original], groups: [] } };

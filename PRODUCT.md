@@ -28,18 +28,18 @@ Situation & Job: 持有试卷、讲义、笔记、PPT、教材等非结构化或
 
 - **运行平台**：macOS 14+ (Apple Silicon)，基于 Tauri 2 构建的桌面原生级视窗环境。
 - **关键用户流程**：
-  1. *导入流程*：在客户端“云服务”界面上传文档至独立的 AI 导入服务（基于腾讯云多模态解析），解析完成后核对有标记的题目，下载 ZIP 题库包并导入本地。
+  1. *导入流程*：在独立 Web 或 App 的“文档导入”界面上传文档至独立的 AI 导入服务（基于腾讯云多模态解析），解析完成后核对有标记的题目，下载 ZIP 题库包并导入本地。
   2. *练习流程*：题库筛选 -> 选择练习模式（即时反馈练习、自由自测、严格限时模考） -> 快捷答题卡作答 -> 本地客观题快速判分 / 经配置的可选主观题 AI 评分 -> 错题与解析审阅。
   3. *复习流程*：按题型、错题原因、标记收藏等维度筛选复习，记录自拟笔记，追踪 7 天 / 30 天学习统计曲线。
   4. *数据流转*：题库 ZIP 分享导出、包含全量练习快照与配图的本地备份还原。
-- **管理后台**：面向服务管理员的独立 Web 管理端（`/admin`），负责用户权限、额度分配与任务审计，不包含普通终端用户入口。
+- **个人导入工作台**：独立 Web 与 App 共用导入、核对与下载流程，无登录、用户管理、套餐或支付。服务由使用者独立部署。
 
 ## Capabilities and Constraints
 
 - **前端架构**：Tauri 2 + React 19 + TypeScript + Vite + Tailwind CSS + shadcn/ui + Rust + SQLite (schema 11, 存储于 `v4/` 目录)。
 - **服务端架构**：Python 3.14+ LangGraph / FastAPI / PostgreSQL / RabbitMQ / 腾讯云异步多模态解析接口。
 - **离线边界**：本地做题、题库浏览、客观题判分与错题本严禁与外部服务强绑定，网络不可用时所有本地功能必须完整运行。
-- **凭证安全约束**：用户配置的模型 API 密钥与服务访问令牌严格存储于 macOS Keychain，严禁写入 SQLite 数据库、备份文件、前端本地存储或调试日志。
+- **凭证安全约束**：用户配置的模型 API 密钥严格存储于 macOS Keychain，严禁写入 SQLite 数据库、备份文件、前端本地存储或调试日志。
 - **媒体与资源不可变性**：题目关联图片采用 SHA-256 内容寻址命名并本地持久化，数据库仅引用已落盘校验的文件。
 - **题型与内容覆盖**：原生支持 7 种基础题型（单选题、多选题、判断题、填空题、简答题、材料问答题、复合题），以及听力、完型、阅读理解、翻译、写作等复合场景。
 
@@ -47,13 +47,13 @@ Situation & Job: 持有试卷、讲义、笔记、PPT、教材等非结构化或
 
 - **产品命名**：PractiQ
 - **视觉符号**：章鱼（Octopus）品牌图标资产（`app/src-tauri/icons/icon.png`）。
-- **Color and tone:** Calm, focused, and professional. Use Academic Cobalt (light `#1d4ed8`, dark `#60a5fa`) on cool paper (`#f8fafc`) or dark ink (`#090d16`), retaining the octopus mark. App and administrator Web share `shared/theme.css`; `DESIGN.md` defines typography and component rules.
+- **Color and tone:** Calm, focused, and professional. Use Academic Cobalt (light `#1d4ed8`, dark `#60a5fa`) on cool paper (`#f8fafc`) or dark ink (`#090d16`), retaining the octopus mark. The App and personal Web use `shared/theme.css`; `DESIGN.md` defines typography and component rules.
 - **图标与组件规范**：全局统一使用 `lucide-react`，界面控件使用 shadcn/ui 桌面风格组件，保持高度一致的桌面端排版与无障碍设计。
 - **多语言适配**：原生支持简体中文、繁体中文、英文三语实时切换。
 
 ## Evidence on Hand
 
-- **真实代码实现**：macOS 客户端位于 `app/`，AI 导入微服务位于 `server/`，管理后台位于 `web/`，公共契约与组件位于 `shared/`。
+- **真实代码实现**：macOS 客户端位于 `app/`，AI 导入服务位于 `server/`，独立个人 Web 位于 `web/`，公共契约与组件位于 `shared/`。
 - **视觉截屏与设计资产**：`docs/assets/screenshots/` 下的各模块真实截图，应用图标 `app/src-tauri/icons/icon.png`。
 - **典型题库样本**：`app/fixtures/sample.zip`（标准题型）、`app/fixtures/composite.zip`（复合题型）、`app/fixtures/all-types.zip`（全题型套件）。
 - **质量验证套件**：Playwright 浏览器交互测试与三语回归套件（`app/tests/`），Python 后端完整单元与集成测试（`server/tests/`）。

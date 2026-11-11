@@ -1,19 +1,21 @@
-import { useEffect, useRef, useState } from "react";
-import { Download, ArchiveRestore, ChevronRight } from "lucide-react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { Download, ArchiveRestore } from "lucide-react";
 import { api, type BackupStatus } from "./api";
 import { date, message, t } from "./i18n";
 import { ErrorNotice } from "./OperationFeedback";
 import { toast } from "./notifications";
+import { ConnectionSettingsPanel } from "./ConnectionSettings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-export function SettingsPage({ busy, run, revision, version, onQuota, onPickImport, onRestore, restoreOpen, onRestoreOpenChange }: {
+export function SettingsPage({ busy, run, flushRef, revision, version, onConfigure, onPickImport, onRestore, restoreOpen, onRestoreOpenChange }: {
   busy: boolean;
   run: (job: () => Promise<void>) => void;
+  flushRef: ComponentProps<typeof ConnectionSettingsPanel>["flushRef"];
   revision: number;
   version: string | undefined;
-  onQuota: () => void;
+  onConfigure: () => void;
   onPickImport: () => Promise<void>;
   onRestore: (recoverAssets: boolean, trigger: HTMLButtonElement | null) => void;
   restoreOpen: boolean;
@@ -27,10 +29,7 @@ export function SettingsPage({ busy, run, revision, version, onQuota, onPickImpo
     return ()=>{active=false;};
   },[revision,backupRevision]);
   return <div className="mx-auto max-w-3xl space-y-6">
-    <Card><CardHeader className="flex flex-row items-center justify-between gap-4">
-      <CardTitle><h2>{t("套餐与额度")}</h2></CardTitle>
-      <Button variant="outline" disabled={busy} onClick={onQuota}>{t("查看额度")}<ChevronRight /></Button>
-    </CardHeader></Card>
+    <ConnectionSettingsPanel key={revision} busy={busy} run={run} onConfigure={onConfigure} flushRef={flushRef} />
     <Card>
       <CardHeader>
         <CardTitle><h2>{t("学习数据备份")}</h2></CardTitle>
@@ -54,7 +53,7 @@ export function SettingsPage({ busy, run, revision, version, onQuota, onPickImpo
         </div>
         <details className="text-sm text-muted-foreground">
           <summary className="cursor-pointer">{t("备份范围与注意事项")}</summary>
-          <p className="mt-2">{t("包含题库、图片、收藏、作答和评分记录。不包含原始文档、云端任务及登录凭据；在其他设备恢复后需重新登录。请定期保存到其他位置。")}</p>
+          <p className="mt-2">{t("包含题库、图片、收藏、作答和评分记录。不包含原始文档、云端任务和模型密钥。请定期保存到其他位置。")}</p>
         </details>
       </CardContent>
     </Card>

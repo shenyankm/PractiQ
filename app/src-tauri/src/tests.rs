@@ -186,9 +186,13 @@ fn desktop_ai_requests_only_accept_explicit_grading() {
 #[test]
 fn service_settings_requests_reject_legacy_provider_fields() {
     for kind in ["save_settings", "test_settings"] {
-        assert!(serde_json::from_value::<crate::Request>(json!({"type":kind,"config":{"service_url":"http://127.0.0.1:8123"},"service_token":null})).is_ok());
+        assert!(serde_json::from_value::<crate::Request>(
+            json!({"type":kind,"config":{"service_url":"http://127.0.0.1:8123"}})
+        )
+        .is_ok());
         assert!(serde_json::from_value::<crate::Request>(json!({"type":kind,"config":{"base_url":"https://provider.example/v1","model_id":"legacy"},"api_key":"old-key"})).is_err());
         assert!(serde_json::from_value::<crate::Request>(json!({"type":kind,"config":{"service_url":"http://127.0.0.1:8123","model_id":"urn:practiq:ai-service:v1"},"service_token":null})).is_err());
+        assert!(serde_json::from_value::<crate::Request>(json!({"type":kind,"config":{"service_url":"http://127.0.0.1:8123"},"service_token":"retired"})).is_err());
     }
 }
 #[test]

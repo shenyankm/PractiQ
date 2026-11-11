@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { expect, it } from "vitest";
 import { parsePages, validPages, validReparseSelection } from "../../shared/cloud/importSelection";
 

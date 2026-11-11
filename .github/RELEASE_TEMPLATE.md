@@ -5,7 +5,7 @@
 
 ## Highlights
 
-<!-- Replace with user-visible additions and fixes. Introduce the App import workspace and offline practice workflows for the first release. -->
+<!-- Replace with user-visible additions and fixes. Introduce the separate Web import and offline practice workflows for the first release. -->
 
 @CHANGES@
 
@@ -15,7 +15,7 @@
 | --- | --- | --- | --- | --- | --- |
 | macOS | macOS 14+, Apple Silicon | `PractiQ_@VERSION@_macos_arm64.dmg` | Record evidence | Unsigned / not notarized | Pending |
 
-These are offline practice clients. They contain no Python AI service or LibreOffice runtime. Document upload and task controls run in the macOS App; normalization, task progress, review storage and bank ZIP generation belong to the independent AI service. The Web frontend is administration-only. Explicit AI grading calls a user-configured OpenAI-compatible model directly, or the separately deployed service in service mode.
+These are offline practice clients. They contain no Python AI service or LibreOffice runtime. Document upload, normalization, task progress, review and bank ZIP download belong to the independent AI service's Web frontend. Explicit AI grading calls a user-configured OpenAI-compatible model directly, or the separately deployed service in service mode.
 
 Linux is an independent AI-service deployment and CI host, not an application target. GitHub Source code attachments are source, not installers. Record the actual tested OS versions and installation steps.
 
@@ -47,7 +47,7 @@ The independent service accepts PDF, TXT, Markdown, PNG/JPEG, Word (.doc/.docx),
 - [ ] All final installers passed version, checksum, notices and absence-of-embedded-engines checks; record exact hashes.
 - [ ] Each advertised platform passed clean-machine installation, upgrade/uninstall, file selection, practice, submission, audio, credentials and backup restore; record OS, date, outcome and evidence.
 - [ ] macOS Developer ID signing/notarization status was verified. An unsigned test candidate must disclose this and cannot be labeled Stable.
-- [ ] App import/review/export and desktop ZIP import/offline practice were verified against declared versions; deployed Office fidelity was checked where advertised.
+- [ ] Independent-service Web import/review/export and desktop ZIP import/offline practice were verified against declared versions; deployed Office fidelity was checked where advertised.
 - [ ] Frozen-candidate live parsing/grading, failure injection and representative manual review were recorded, with failures and limitations disclosed.
 - [ ] Highlights, installation steps, known limitations and comparison link are complete; remove placeholder comments.
 - [ ] Download every draft attachment and confirm its size, SHA-256 and acceptance evidence match.

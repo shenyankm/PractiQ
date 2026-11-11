@@ -14,7 +14,6 @@ from PIL import Image
 from psycopg.types.json import Jsonb
 from pydantic import Field, PrivateAttr, model_validator
 
-from . import identity
 from .config import database_uri, load
 from .contracts import (
     GradeResult,
@@ -25,9 +24,6 @@ from .contracts import (
 )
 from .errors import DocumentProcessingError
 from .llm import get_model, structured_call
-
-# Single-process liveness is transient; durable unfinished receipts remain unknown after restart.
-active_requests: set[str] = set()
 
 
 class GradeImage(StrictModel):
@@ -136,8 +132,8 @@ def _feedback_language(locale: str) -> str:
 def _claim(request: GradeRequest):
     with _database() as db:
         # Concurrent requests wait for the first claim's commit, then observe its receipt.
-        claimed = db.execute("INSERT INTO grades(id,digest,response,owner_id) VALUES(%s,%s,NULL,%s) ON CONFLICT(id) DO NOTHING RETURNING id",
-                             (str(request.requestId), request.inputDigest, identity.owner.get())).fetchone()
+        claimed = db.execute("INSERT INTO grades VALUES(%s,%s,NULL) ON CONFLICT(id) DO NOTHING RETURNING id",
+                             (str(request.requestId), request.inputDigest)).fetchone()
         if claimed:
             return None
         row = db.execute("SELECT digest,response FROM grades WHERE id=%s", (str(request.requestId),)).fetchone()
@@ -186,15 +182,6 @@ async def grade(request: GradeRequest) -> dict:
     previous = await asyncio.to_thread(_claim, request)
     if previous is not None:
         return previous
-    request_id = str(request.requestId)
-    active_requests.add(request_id)
-    try:
-        return await _grade(request)
-    finally:
-        active_requests.remove(request_id)
-
-
-async def _grade(request: GradeRequest) -> dict:
     english = request.feedbackLocale == "en"
     traditional = request.feedbackLocale == "zh-TW"
     q = request.question

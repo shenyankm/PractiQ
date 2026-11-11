@@ -18,6 +18,10 @@
 
 本文件採用台灣繁體中文用語；應用程式提供繁體中文介面，下列操作名稱以繁體中文介面為準。
 
+
+也可以從 App 的**文件匯入**連線自架個人服務，選擇文件後點選**開始匯入**。不需註冊或管理員設定；主觀題評分在**設定 → AI 服務**另外設定。
+
+
 ## 螢幕截圖
 
 以下截圖於 **2026-10-29** 使用原始碼 [`af7ab2ff`](https://github.com/shenyankm/PractiQ/commit/af7ab2ff3bf4a392103b403d73b70f0d1a5cd533) 的桌面介面瀏覽器預覽拍攝，介面為英文，題庫與練習紀錄皆為人工編寫的範例。所有資料只存放在記憶體中，未輸入憑證、上傳檔案或呼叫模型。點選圖片即可查看原始大小。
@@ -42,16 +46,16 @@
 
 ## 使用 AI 匯入文件
 
-在 macOS App 的**個人中心 → 匯入工作區**中上傳文件，識別、解析與模型呼叫仍由雲端服務完成：
+文件匯入可在獨立個人 Web 或 macOS App 中進行，解析使用自架 AI 後端：
 
-1. [啟動服務](#自架匯入服務)，在 App 中連線服務位址並登入或註冊。離線練習仍無需登入。
+1. [啟動服務](#自架匯入服務)，開啟服務首頁使用獨立 Web，或在 App 的**文件匯入**中連線服務位址，不需登入。
 2. 一次最多選擇 10 份檔案，點選**开始导入**。僅選擇檔案不會上傳或解析。
 3. 檢查題目、圖片與需要複核的內容，再下載題庫 ZIP。
 4. 在桌面應用程式中開啟**設定 → 匯入與還原 → 匯入題庫 ZIP**。
 
 服務透過騰訊雲的[非同步多模態文件解析](https://cloud.tencent.com/document/api/866/139312)讀取 **PDF、TXT、Markdown、PNG/JPEG、DOC、DOCX、PPT、PPTX、XLS 及 XLSX**，不支援新建 CSV 匯入。騰訊雲[計費說明](https://cloud.tencent.com/document/product/866/17619)列有首次啟用的一次性 **1,000 頁免費額度，有效期限一年**；領取資格與剩餘額度以騰訊雲帳號為準。文件解析與模型呼叫分別計費。
 
-預設僅擷取原文已有的答案與解析。如需補充缺漏內容，在 App 的雲端工作區設定中開啟**AI 生成答案与解析**，等待儲存成功，再點選**开始导入**。原有答案會保留，生成內容標記為待核對，並共用匯入作業的模型呼叫預算。
+預設僅擷取原文已有的答案與解析。如需補充缺漏內容，在App設定中開啟**AI 生成答案与解析**，等待儲存成功，再點選**开始导入**。原有答案會保留，生成內容標記為待核對，並共用匯入作業的模型呼叫預算。
 
 查看與下載結果不會呼叫模型；接續、重試或重新解析可能產生供應商費用。請在 **180 天**內下載需要保留的結果，匯入作業到期不影響已匯入的題庫。詳見[匯入任務指南（英文）](docs/guides/import-tasks.md)。
 
@@ -81,11 +85,10 @@ PractiQ 仍在開發中。建置通過不代表已完成簽章、乾淨環境驗
 
 ## 自架匯入服務
 
-文件匯入需要自行架設的 AI 服務，需要 Python 3.14+、uv、Node.js 22.12+、PostgreSQL、RabbitMQ、騰訊雲解析憑證，以及支援 Responses API、文字與圖片輸入和結構化輸出的模型端點。服務應綁定本機回環位址。[安裝指南（英文）](docs/guides/installation.md)、[個人自架服務指南（英文）](server/docs/personal-use.md)與[騰訊雲設定指南](server/docs/tencent-document-parser.md)說明部署與升級；供應商設定由你提供，費用直接支付給供應商，營運方可選擇啟用雲端方案收款，預設關閉。
+文件匯入需要自行架設的 AI 服務，需要 Python 3.14+、uv、PostgreSQL、RabbitMQ、騰訊雲解析憑證，以及支援 Responses API、文字與圖片輸入和結構化輸出的模型端點。服務應綁定本機回環位址。[安裝指南（英文）](docs/guides/installation.md)、[個人自架服務指南（英文）](server/docs/personal-use.md)與[騰訊雲設定指南](server/docs/tencent-document-parser.md)說明部署與升級；供應商設定由你提供，費用直接支付給供應商，PractiQ 不提供計費。
 
 ## 文件與開發
 
-先看[文件索引（英文）](docs/README.md)，其中有[題型模型（英文）](docs/reference/question-model.md)、[文件任務 API（英文）](server/docs/document-tasks.md)、[部署與維運（英文）](server/docs/operations.md)與貢獻指南。依改動的部分執行 `make app-check`、`make web-check` 或 `make verify`；Playwright 涵蓋應用程式的三語互動，使用模擬的原生命令，不會呼叫模型：
 
 ```sh
 cd app
@@ -98,7 +101,3 @@ npm run test:browser
 請透過 [GitHub Issues](https://github.com/shenyankm/PractiQ/issues/new/choose) 回報可重現的問題或提出改善建議。程式碼與文件貢獻請閱讀[貢獻指南（英文）](CONTRIBUTING.md)，安全漏洞請依[安全政策（英文）](SECURITY.md)私下回報。
 
 專案原始碼採用 [MIT 授權條款](LICENSE)，內建相依套件保留各自的[上游授權聲明（英文）](app/licenses/README.md)。
-
-Web 僅保留管理後台；使用者帳號、額度、作業、結果和訂單均在 App 中操作。新使用者共有 50 頁免費識別額度，不按日恢復。電子郵件暫不驗證，忘記密碼需向管理員取得一次性重設碼。詳見[雲端服務指南（英文）](docs/guides/cloud-service.md)。
-
-方案與額度：Free 註冊贈送共計 50 頁；Plus ¥39／100 頁／30 天，Pro ¥99／300 頁／30 天，加購包 ¥19.90／50 頁／365 天。手動購買，不自動續費；僅經驗證的正式付款發放獨立權益，支付預設關閉。服務 schema 8 需離線備份升級，本機練習不受影響。詳見[方案規則](docs/guides/plans.md)。

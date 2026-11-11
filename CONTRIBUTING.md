@@ -62,14 +62,13 @@ Keep `origin` as your fork's push target and use `upstream` to fetch project upd
 
 ### Set up the affected components
 
-Install only what your change needs. App/Web development requires Node.js 22.12+. Service work, shared-contract generation, and package preparation use an existing Python 3.14+ interpreter and uv. Select it with `AI_PYTHON=/path/to/python3.14`; do not create a project `.venv`.
+Install only what your change needs. App development requires Node.js 22.12+. Service work, shared-contract generation, and package preparation use an existing Python 3.14+ interpreter and uv. Select it with `AI_PYTHON=/path/to/python3.14`; do not create a project `.venv`.
 
 Run the relevant commands from the repository root:
 
 | Area | Install and develop |
 | --- | --- |
 | Practice app — macOS | `make app-install`, then `make app-dev AI_PYTHON=/path/to/python3.14` |
-| Administrator Web | `make web-install`, then `make web-dev` |
 | AI service | `make install-locked AI_PYTHON=/path/to/python3.14`; follow the [installation guide's service setup](docs/guides/installation.md#install-the-ai-import-service-optional) for configuration and `make server-dev AI_PYTHON=/path/to/python3.14` |
 
 See the [installation requirements](docs/guides/installation.md#before-you-start) for native toolchains. Service integration and recovery tests need Docker for disposable PostgreSQL/RabbitMQ instances; pure tests must not start Docker. Model-substitute tests need no real model credentials or running AI service.
@@ -80,12 +79,11 @@ Shared-contract checks need the locked service dependencies, even when the AI se
 
 | Area | Responsibility |
 | --- | --- |
-| `app/` | macOS Tauri/React practice app with Rust and SQLite, plus optional customer accounts and native uploads to the independent cloud service. Offline practice/ZIP import remain login-free; cloud import/recovery and subjective grading require explicit actions. |
-| `web/` | Administrator-only Web for user policy, task inspection/recovery, provider usage and audits. Customer UI lives in the App; all document processing remains in the service. |
+| `app/` | Offline Tauri/React practice app with Rust and SQLite, targeting macOS. Imports bank ZIPs and supports explicit model/service connection checks; only explicit AI grading or retry starts model work. |
 | `server/` | Python/LangGraph document processing and grading, with PostgreSQL state, RabbitMQ delivery, and local file storage. |
-| `shared/` | Frontend code used by both App and Web; validate both consumers when affected. |
+| `shared/` | Frontend code used by App and Web; validate both consumers when affected. |
 
-App packages contain no Python or LibreOffice runtime. Passive reads, polling, export, and backup must not start model work. Document-import provider credentials stay in the service environment; direct App grading uses the user's API key held only in the native credential store. The service supports email/password accounts, server-side ownership and administrator checks, plus the optional fixed cloud-plan catalog and verified Alipay fulfillment. Payments remain disabled by default; follow the [account deployment guide](server/docs/accounts.md) and [plan rules](docs/guides/plans.md). Follow the [service recovery guide](server/docs/rabbitmq.md) when changing durable state or delivery.
+App packages contain no Python or LibreOffice runtime. Passive reads, polling, export, and backup must not start model work. Document-import provider credentials stay in the service environment; direct App grading uses the user's API key held only in the native credential store; the service remains a personal self-hosted deployment without user management or built-in billing. Follow the [service recovery guide](server/docs/rabbitmq.md) when changing durable state or delivery.
 
 Preserve review flags, immutable practice and score snapshots, resource checksums, and the database/backup compatibility and recovery rules in [AGENTS.md](AGENTS.md). Do not delete existing data or credentials to make a change work.
 
@@ -103,7 +101,6 @@ When shared AI contracts change, run `/path/to/python3.14 app/scripts/export-con
 
 - `app/src-tauri/contracts.json`
 - `app/src/contracts.generated.ts`
-- `web/src/contracts.generated.ts`
 - `app/src-tauri/src/question_metadata.rs`
 
 The exporter supports `--check` for parity verification. Do not edit generated contracts by hand.
@@ -115,21 +112,19 @@ Choose checks for every affected area, from the repository root. Install the loc
 | Change | Checks |
 | --- | --- |
 | AI service | `make verify`: lockfile, Ruff, Pyright, evaluation fixtures, tests with 90% coverage, PostgreSQL/RabbitMQ recovery probes, package build and archive source/lock integrity |
-| Shared AI contracts | Regenerate all four files above; run `make verify`, `make web-check`, and the applicable app checks below |
-| Administrator Web | `make web-check web-build`: types, lint, coverage, fake-HTTP browser interactions, and static build |
 | Practice app UI, including touch layouts | `npm --prefix app run check:ui` and `npm --prefix app run test:browser`: types, lint, coverage, and desktop/touch browser checks |
 | App native commands, storage, or recovery | `make app-check` on macOS. Verify affected native flows |
 | Service Office conversion | Focused Office/normalization tests and `make verify`; verify fidelity with the actual deployed engine separately using the [Office guide](server/docs/desktop-office.md) |
 | macOS resources or packaging | Focused package/release regressions and `make app-check`; on macOS run `make app-package-check`. |
 | Locked dependencies | `make audit` for Python; `make audit-rust` for Cargo; `npm --prefix app audit --audit-level=high` and/or `npm --prefix web audit --audit-level=high` for affected npm lockfiles. Follow the [dependency security guide](docs/maintainers/dependency-security.md) for pinned tools and other ecosystems |
-| Service image | `make image-check` builds Web assets and the Docker image without publishing |
+| Service image | `make image-check` builds the API Docker image without publishing |
 | Documentation and contribution templates | Verify claims against source, local links and command syntax; parse changed YAML and check form fields and required inputs |
 
 `make app-check` verifies generated contracts, fixtures, frontend types/lint/unit tests, host Rust tests, formatting, and Clippy. It does not run Playwright or collect frontend coverage; use the separate UI/browser commands when relevant. Other app targets are unsupported; Linux service/CI work follows its own documented checks.
 
 Native command changes also pass the [native IPC fixture checks](app/docs/native-ipc-contracts.md): Rust produces settings, pagination, grading and restore payloads, and the frontend consumes the same committed samples. Regenerate them explicitly after an intentional contract change and review both consumers.
 
-`make verify` does not include dependency audits, Web checks, or an image build. Run those separately when affected. Service reports remain in `server/reports/checks/`, including on test failure. Use fresh report paths for package checks and retain first failures.
+`make verify` does not include dependency audits, App checks, or an image build. Run those separately when affected. Service reports remain in `server/reports/checks/`, including on test failure. Use fresh report paths for package checks and retain first failures.
 
 Before `make audit-rust`, install the `cargo-audit` version pinned in the [App workflow](.github/workflows/app.yml); the command audits the complete lockfile and verifies all supported target graphs. Follow the dependency security guide for retained advisory limits and manual toolchain updates.
 
@@ -139,8 +134,8 @@ CI selects work using [shared path rules](server/scripts/ci_scope.py):
 
 | Changed paths | Heavy CI jobs |
 | --- | --- |
-| App frontend or native code | App quality and macOS package; skip Service/Web checks |
-| Web frontend, service implementation, or service-only scripts | Service/Web checks and service image; skip App quality and all native builds |
+| App frontend or native code | App quality and macOS package; skip Service checks |
+| App import workspace, service implementation, or service-only scripts | Service checks and service image; skip App quality and all native builds |
 | Shared frontend code, AI contracts, shared fixtures, or build/check dependencies used by both components | Both workflows |
 | Release notes configuration or release template | App workflow |
 | Any workflow YAML, shared CI actions, scope selector, rulesets, or dependency-update configuration | Both workflows; cross-check selectors and privileged workflow safeguards |
@@ -173,7 +168,7 @@ Record evidence for the final release candidate before publication:
 - [ ] Confirm version, date, download URL, artifact hashes, OS/architecture, and signing/notarization status.
 - [ ] Run the applicable service, app, browser, and final-package checks for that candidate.
 - [ ] Verify installation, sample import, practice, submission, and backup restore on a clean target system.
-- [ ] Capture App import/review and ZIP import/practice/score workflows, plus administrator Web inspection, identifying their separate candidates.
+- [ ] Capture App import/review and App ZIP import/practice/score workflows, identifying their separate candidates.
 - [ ] Record separately authorized live parsing/grading examples, failures, and consented user feedback.
 
 Report macOS native checks separately from browser mocks. Historical reports and model substitutes do not establish clean-machine acceptance or live-model accuracy. Keep unchecked items explicit; grading requires a reference answer or rubric.
@@ -189,3 +184,7 @@ Verify Office fidelity against the exact independently deployed engine with reta
 Follow [SECURITY.md](SECURITY.md) for private reporting and supported development versions. Keep credentials, personal data, and exploit details out of public issues.
 
 New contributors can start with the [bounded fixture tasks and handover checklist](docs/maintainers/contributor-handover.md). Roles remain opt-in; task listings grant no repository or secret access. For consented feedback and sanitized results, follow the [trial protocol](docs/acceptance/desktop-user-trial.md); recruitment and participation require separate authorization.
+
+### Personal Web checks
+
+The independent `web/` frontend is the personal import workspace. Use `make web-install web-dev` for local development and `make web-check web-build` for types, lint, component coverage, browser interactions and static assets. Shared import UI changes require App and Web checks. `make image-check` builds the personal Web before the service image. Accounts, administration, plans, payments and service-token fields are retired; do not restore them.

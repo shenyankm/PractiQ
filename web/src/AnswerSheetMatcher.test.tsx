@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
@@ -5,7 +6,7 @@ import ResultReview from "../../shared/cloud/ResultReview";
 import { AnswerSheetMatcher } from "../../shared/cloud/AnswerSheetMatcher";
 import { ApiError, Client } from "../../shared/cloud/api";
 import type { DocumentAnswerMatches } from "./contracts.generated";
-import { capabilities, newTaskId, preview, question, task, summary } from "./test-fixtures";
+import { capabilities, newTaskId, preview, question, task, summary } from "../../shared/cloud/test-fixtures";
 
 const target = question({ id: "target", parentId: null, optionSourceId: null, stem: "1. First", answerMode: "short_answer", sourceText: "1. First", answerPayload: null });
 const detail = { ...task, status: "SUCCEEDED" as const, result: { ...task.result!, questions: [target], groups: [] } };

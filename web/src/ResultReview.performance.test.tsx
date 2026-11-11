@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { StrictMode } from "react";
@@ -7,7 +8,7 @@ import { expect, it, vi } from "vitest";
 import ResultReview from "../../shared/cloud/ResultReview";
 import { Client } from "../../shared/cloud/api";
 import type { DocumentTaskReview } from "./contracts.generated";
-import { preview, question, task } from "./test-fixtures";
+import { preview, question, task } from "../../shared/cloud/test-fixtures";
 
 function fixture(count: number) {
   const questions = Array.from({ length: count }, (_, index) => question({

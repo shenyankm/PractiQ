@@ -40,12 +40,6 @@ def payload(**changes):
 async def setup(monkeypatch,tmp_path,disposable_databases):
     from tests.db_support import new_database
     db = await new_database()
-    from unittest.mock import AsyncMock
-
-    from practiq_ai import identity
-    monkeypatch.setattr(identity, 'reserve', AsyncMock())
-    monkeypatch.setattr(identity, 'record_call', AsyncMock())
-    monkeypatch.setattr(identity, 'release', AsyncMock())
     monkeypatch.setenv('DATABASE_URI', db.uri)
     monkeypatch.setattr(grading,"load",lambda:SimpleNamespace(maintenance=False))
     monkeypatch.setattr(grading,"get_model",lambda: "unified")
@@ -112,11 +106,7 @@ def test_process_kill_during_grading_correction_preserves_usage_on_restart(setup
 import asyncio, sys
 from pathlib import Path
 from types import SimpleNamespace
-from practiq_ai import capacity, grading, llm, identity
-from unittest.mock import AsyncMock
-identity.reserve = AsyncMock()
-identity.record_call = AsyncMock()
-identity.release = AsyncMock()
+from practiq_ai import capacity, grading, llm
 from tests.support import FakeModel
 
 root = Path(sys.argv[1])
@@ -419,7 +409,6 @@ def png_image():
     return raw, {"sha256": hashlib.sha256(raw).hexdigest(), "data": "data:image/png;base64," + base64.b64encode(raw).decode()}
 
 
-@pytest.mark.usefixtures("business_http")
 async def test_grading_image_validation_runs_in_worker_and_keeps_event_loop_live(setup, monkeypatch):
     _, visual = png_image()
     started, release = threading.Event(), threading.Event()
@@ -518,7 +507,6 @@ async def test_cancelled_image_validation_retains_upload_slot_until_worker_finis
     assert webapp._uploads[asyncio.get_running_loop()] == 0
 
 
-@pytest.mark.usefixtures("business_http")
 async def test_grade_verifies_each_image_once_and_replay_preserves_usage(setup, monkeypatch):
     _, visual = png_image()
     verified, calls = [], []
@@ -635,7 +623,6 @@ async def test_traditional_chinese_failures_use_traditional_copy(setup, monkeypa
     assert response["error"] == "結果未知；請檢查紀錄後明確重新評分"
 
 
-@pytest.mark.usefixtures("business_http")
 def test_grading_endpoint_digest_and_limits_without_token(setup,monkeypatch):
     seen = []
     async def fake(request):
@@ -657,17 +644,13 @@ def test_grading_endpoint_digest_and_limits_without_token(setup,monkeypatch):
     assert len(seen) == 1
 
 
-@pytest.mark.usefixtures("business_http")
 def test_grading_http_conflict_and_maintenance_keep_english_diagnostics(setup, monkeypatch):
     async def forbidden(*args, **kwargs):
         pytest.fail("Rejected grading requests must not call the model")
     monkeypatch.setattr(grading, "structured_call", forbidden)
     monkeypatch.setenv("AI_SERVICE_TOKEN", "test-token")
     request = wire(payload(feedbackLocale="en"))
-    from uuid import NAMESPACE_URL, uuid5
-    verified = grading.GradeWireRequest.model_validate(request).verified_request()
-    verified = verified.model_copy(update={'requestId': uuid5(NAMESPACE_URL, f"practiq/grade/None/{verified.requestId}")})
-    assert grading._claim(verified) is None
+    assert grading._claim(grading.GradeWireRequest.model_validate(request).verified_request()) is None
     changed = {**request, "payload": request["payload"].replace("液体变成气体", "changed")}
     changed["inputDigest"] = grading.digest_payload(changed["payload"])
     client = TestClient(webapp.app, headers={"Authorization": "Bearer test-token"})
@@ -699,7 +682,6 @@ async def test_exhausted_provider_failure_is_unknown_and_replay_does_not_call(se
     assert len(calls) == 2
 
 
-@pytest.mark.usefixtures("business_http")
 def test_wire_numbers_and_unicode_are_hashed_before_parsing(setup, monkeypatch):
     seen=[]
     async def fake(request):

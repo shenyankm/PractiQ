@@ -1,6 +1,6 @@
 # Release policy
 
-PractiQ releases deliver the offline practice application for macOS only. AI source import, Office conversion and parsing run in the independently deployed service. Customers upload and review in the macOS App; the Web frontend is administration-only. Explicit client grading calls a user-configured OpenAI-compatible model directly, or the separately deployed service in service mode.
+PractiQ releases deliver the offline practice application for macOS only. AI source import, Office conversion and parsing run in the independently deployed service. Users upload and review in the macOS App or the personal App import workspace; both use the independent single-person service without accounts or billing. Explicit client grading calls a user-configured OpenAI-compatible model directly, or the separately deployed service in service mode.
 The service keeps its own source version; record it separately without claiming
 it is deployed by a client installer. Linux remains an independent-service and
 CI host, not a client release target. Do not publish separate platform tags,

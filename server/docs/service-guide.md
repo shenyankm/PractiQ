@@ -32,7 +32,7 @@ target. Verify the selected platform's native installation; wheels are not
 guaranteed for every supported interpreter/platform combination.
 
 For a host without those build tools, use `make image-check` with Docker and
-the Web build prerequisites instead. `Dockerfile.server` builds dependencies
+a browser frontend build instead. `Dockerfile.server` builds dependencies
 in a digest-pinned `python:3.15-bookworm` image containing the C toolchain and
 uses a separately pinned Rust toolchain. The production image is the slim
 Python 3.15 runtime, includes libyaml for the compiled PyYAML extension, and
@@ -46,8 +46,6 @@ Provision an empty dedicated PostgreSQL database and its owner. Configure the mo
 ```sh
 make install-locked AI_PYTHON=/path/to/python3.14
 make init-db AI_PYTHON=/path/to/python3.14
-make web-install
-make web-build
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
@@ -63,7 +61,7 @@ Typed-text duplicate proof additionally requires explicitly local serialized bod
 
 Complete verified original-source trees are also compared separately to identify repeated source records whose parsed versions are not strictly identical. These matches only add a source-review warning and review flags to surviving copies; they never authorize removal. Explicit removal still uses the original strict business-field and source-evidence checks. Warnings and quality counts are rebuilt after any safe removal so they refer to the remaining copies.
 
-The default address is `127.0.0.1:8090`. `GET /ok` checks liveness; `GET /ready` checks readiness. Writable local and production deployments require PostgreSQL and RabbitMQ. Read-only mode can serve existing state without the broker. Initialization accepts only an empty database and does not read or migrate old Agent Server data. A single service process holds an exclusive lock. Restarting reconciles eligible unfinished runs for broker redelivery; unknown paid-call results require explicit recovery. Manually paused tasks and tasks awaiting review remain waiting. Existing service schemas 1 through 7 require an offline `make upgrade-db`; see the [upgrade/recovery guide](rabbitmq.md).
+The default address is `127.0.0.1:8090`. `GET /ok` checks liveness; `GET /ready` checks readiness. Writable local and production deployments require PostgreSQL and RabbitMQ. Read-only mode can serve existing state without the broker. Initialization accepts only an empty database and does not read or migrate old Agent Server data. A single service process holds an exclusive lock. Restarting reconciles eligible unfinished runs for broker redelivery; unknown paid-call results require explicit recovery. Manually paused tasks and tasks awaiting review remain waiting. Existing personal service schemas 1–5 require an offline `make upgrade-db`; see the [upgrade/recovery guide](rabbitmq.md).
 
 `LLM_MODEL` is required for model-enabled deployments and structures saved Tencent parsing evidence into questions. New TXT, Markdown, PDF, image, Word, PPT and Excel imports all require `AI_TENCENT_SECRET_ID` and `AI_TENCENT_SECRET_KEY`; new CSV imports are unsupported. Word, PPT and Excel within `AI_TENCENT_INPUT_MAX_BYTES` are submitted directly. Oversized Office sources use the existing isolated LibreOffice adapter for pagination before Tencent parsing; there is no user-selectable conversion mode. PDFium retains PDF page images for review and crops. See the [Tencent integration guide](tencent-document-parser.md) for recovery and current rollout limits. Set `AI_READ_ONLY=1` to read saved results without model configuration; unfinished tasks remain stopped and new paid work is rejected.
 
@@ -75,11 +73,12 @@ in the trusted service environment; [Tencent parser setup](tencent-document-pars
 describes the all-input URL transport, private permissions, limits and cleanup.
 Local directories remain authoritative and are used without COS in the default mode.
 
+Build the independent personal Web with `make web-install web-build`; the AI service serves its static assets at `/` (`AI_WEB_DIR` may override the directory). For development, `make web-dev` starts the loopback frontend proxy. No registration, administrator setup or application access token is required. The macOS App can also connect to this service under **Document import**; Python, PostgreSQL and RabbitMQ remain in the independent service deployment.
+
 ## Import workflow
 
-Open the administrator Web at the service root (or `/admin`), or run `make web-dev` for its loopback development proxy. Administrator routes require a signed-in administrator account. Customers upload and review documents in the App, not the Web; provider credentials and Office executable paths stay in the service environment. File selection in the App is passive; Start import authorizes upload, normalization and parsing. The desktop uses the resulting ZIP offline and calls the service only for explicit grading.
 
-Connecting the App to the service origin validates the account session and loads capabilities. On failure, the entered origin remains in the form for an explicit retry with the connection button.
+Connecting validates the token and loads capabilities in one request. On failure, the token remains in the form for an explicit retry with the connection button.
 
 `GET /api/import-capabilities` is same-origin and reports supported source types, the configured `sourceMaxBytes`, Office availability/modes and model configuration. When Office is available, `officeSourceMaxBytes` is the smaller of `sourceMaxBytes` and the converter's 25 MiB ceiling; otherwise it is null. Upload metadata, binary upload and task admission reject oversized sources before reading their content or queuing work. Non-Office formats retain the configured `sourceMaxBytes`. Read-only deployments can serve existing results without a configured model; new model work returns `MODEL_NOT_CONFIGURED`.
 
@@ -210,7 +209,7 @@ convenience. Service quality jobs have a 30-minute timeout; a newer run cancels
 an older run for the same workflow/ref. JUnit, coverage XML, and probe
 JSON/Markdown go to `server/reports/checks/`. Each verification replaces only
 those four generated reports. CI retains available service reports for 14 days
-and Web check artifacts for 7 days, including on test failure. Recovery probes
+and App check artifacts for 7 days, including on test failure. Recovery probes
 provide regression evidence, not complete production crash-recovery acceptance.
 
 Automated tests do not call real models. The [evaluation guide](evaluation.md) and historical reports remain available; historical failures do not establish a current quality baseline.
@@ -277,7 +276,7 @@ The extractor delivers binary page images and a bounded manifest. The parent rea
 
 Returned `page` values are zero-based. Automated tests do not call real models; recognition quality requires separate acceptance.
 
-Word/Excel uploads use [Tencent recognition](tencent-document-parser.md); XLS and oversized Office inputs require the deployed converter. XLSX preparation exposes hidden sheets in a derived copy; original references remain task identity. Unsupported historical graph identifiers still return `TASK_FORMAT_UNSUPPORTED` and are excluded from scheduling without deleting old data. Desktop ZIP import accepts AI JSON schema 3; full restore requires backup container 4 and database schema 11. See [task errors](document-tasks.md) for details.
+Word/Excel uploads use [Tencent recognition](tencent-document-parser.md); Only oversized Office inputs require the deployed converter; small XLS inputs also go directly to Tencent. XLSX preparation exposes hidden sheets in a derived copy; original references remain task identity. Unsupported historical graph identifiers still return `TASK_FORMAT_UNSUPPORTED` and are excluded from scheduling without deleting old data. Desktop ZIP import accepts AI JSON schema 3; full restore requires backup container 4 and database schema 11. See [task errors](document-tasks.md) for details.
 
 ## Long-running task controls
 
@@ -301,4 +300,4 @@ Python extracts, associates, and exports `schemaVersion: 3` JSON. Rust validates
 
 English question kinds include listening, reading, word-bank, cloze, grammar fill, sentence selection, paragraph matching, translation, and writing. Parsing extracts only supplied content; the desktop attaches listening audio locally. See the [English question model](../../docs/reference/question-model.md#english-question-types) for fields, passage dialogs, and playback rules.
 
-Configure your own provider; customer accounts, page allowances and the optional Alipay catalog have their own APIs. See [account deployment and upgrade](accounts.md) and [plans](../../docs/guides/plans.md).
+Configure your own provider; there are no account, point or payment APIs. See [personal deployment and upgrade](personal-use.md).

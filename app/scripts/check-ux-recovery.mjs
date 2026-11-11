@@ -33,7 +33,6 @@ for (const width of [1280, 390]) for (const theme of ['light', 'dark']) {
         globalThis.backupReads = (globalThis.backupReads || 0) + 1;
         if (!globalThis.backupReadAvailable) throw new Error('Synthetic backup status failure');
       }
-      if (command === 'request' && ['settings','save_settings','test_settings'].includes(args?.request?.type)) throw new Error('Provider configuration is not a user setting');
     `);
     await page.goto('/');
     await navigate(page, '设置');
@@ -184,18 +183,12 @@ for (const width of [1280, 360]) {
     await record.getByRole('button', { name: '核对评分', exact: true }).click();
     await expect(score).toHaveValue('2');
     await page.getByRole('button', { name: '核对上次评分结果', exact: true }).click();
-    await expect(page.getByText('登录云端账户后即可评分，无需配置模型。')).toBeVisible();
-    await expect(page.getByRole('button', { name: '配置 AI 服务', exact: true })).toHaveCount(0);
-    await expect(page.getByLabel('AI 服务地址', { exact: true })).toHaveCount(0);
     await expect(score).toHaveValue('2');
     await expect(reason).toHaveValue('Checked rubric');
-    await page.screenshot({ path: testInfo.outputPath(`managed-grading-unavailable-${width}.png`) });
     expect(await page.evaluate(() => globalThis.auditGradingCalls)).toBe(1);
-    await page.getByRole('button', { name: '连接云端账户', exact: true }).click();
-    await page.getByLabel('登录邮箱', { exact: true }).fill('learner@example.test');
-    await page.getByLabel('密码', { exact: true }).fill('native-test-password');
-    await page.getByRole('button', { name: '登录', exact: true }).click();
-    await expect(page.getByText('可用识别额度', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '配置 AI 服务', exact: true }).click();
+    await expect(page.getByLabel('AI 服务地址', { exact: true })).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`personal-grading-settings-${width}.png`) });
     await page.getByRole('button', { name: '返回评分', exact: true }).click();
     await expect(score).toHaveValue('2');
     await expect(reason).toHaveValue('Checked rubric');
@@ -350,15 +343,13 @@ for (const width of [1280, 360]) {
 }
 
 
-test('settings omits provider controls while keeping backups available', async ({ page }, testInfo) => {
+test('personal settings provide grading configuration and backups without account controls', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 960, height: 820 });
-  await inject(page, `if (command === 'request' && ['settings', 'save_settings', 'test_settings'].includes(args?.request?.type)) throw new Error('Settings must not access provider configuration');`);
   await page.goto('/'); await navigate(page, '设置');
   await expect(page.getByRole('heading', { name: '学习数据备份', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '配置', exact: true })).toHaveCount(0);
-  await expect(page.getByText('AI 服务', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '配置', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '导出备份', exact: true })).toBeVisible();
-  await page.screenshot({ path: testInfo.outputPath('settings-without-provider-controls.png') });
+  await page.screenshot({ path: testInfo.outputPath('personal-settings.png') });
 });
 
 for (const width of [1280, 360]) {

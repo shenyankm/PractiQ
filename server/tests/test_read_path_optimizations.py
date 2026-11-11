@@ -123,7 +123,6 @@ async def saved_read(monkeypatch):
     return thread, snapshot, read
 
 
-@pytest.mark.usefixtures("business_http")
 async def test_http_reads_preserve_validated_models_and_default_json(saved_read):
     thread, snapshot, _ = saved_read
     before = deepcopy(snapshot.values)
@@ -147,7 +146,6 @@ async def test_model_reads_still_validate_saved_content(saved_read):
         await task_api.review_task_model(thread)
 
 
-@pytest.mark.usefixtures("business_http")
 async def test_metadata_preview_omits_only_merged_result_and_validates_query(saved_read):
     thread, snapshot, read = saved_read
     before = deepcopy(snapshot.values)

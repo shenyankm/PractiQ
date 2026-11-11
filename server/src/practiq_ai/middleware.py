@@ -41,13 +41,10 @@ class JsonBodyLimitMiddleware:
         # Bound every task mutation; binary uploads own their streaming/body limits.
         if (scope['type'] != 'http' or scope['method'] not in {'POST', 'PUT', 'PATCH', 'DELETE'}
                 or not (scope['path'].rstrip('/') in {'/api/uploads', '/api/artifacts/read', '/api/document-tasks', '/api/subjective-grades', '/api/import-settings'}
-                        or scope['path'] == '/payments/notify'
-                        or scope['path'].startswith(('/api/document-tasks/', '/api/auth/', '/api/me/', '/api/admin/')))):
+                        or scope['path'].startswith('/api/document-tasks/'))):
             await self.app(scope, receive, send)
             return
         maximum = GRADING_JSON_BODY_BYTES if scope['path'].rstrip('/') == '/api/subjective-grades' else self.maximum
-        if scope['path'] == '/payments/notify':
-            maximum = 64 * 1024
         try:
             headers = dict(scope['headers'])
             if int(headers.get(b'content-length', b'0')) > maximum:
@@ -121,6 +118,4 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
                 and not request.url.path.startswith('/api/')
                 and request.method in {'GET', 'HEAD'}):
             response.headers['Content-Security-Policy'] = WEB_CONTENT_SECURITY_POLICY
-        if request.url.path in {'/payments', '/payments/return'}:
-            response.headers['Content-Security-Policy'] = (WEB_CONTENT_SECURITY_POLICY.replace("form-action 'self'", "form-action https://openapi-sandbox.dl.alipaydev.com https://openapi.alipay.com"))
         return response

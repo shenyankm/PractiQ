@@ -4,13 +4,13 @@ All new source imports still use Tencent recognition followed by the existing qu
 
 ## Page ranges
 
-The App Start form accepts one-based page numbers such as `1,3-5`; blank means all pages. `DocumentTaskCreate.pages` contains 1–2,000 positive page numbers, canonicalized to sorted unique values. TXT/Markdown have no pages and reject this option. Images use page 1; multi-page sources keep original page references, including split image tiles. The service checks known PDF/image bounds before Tencent submission and checks retained page evidence before structuring. Office page bounds are known only after recognition.
+The Web Start form accepts one-based page numbers such as `1,3-5`; blank means all pages. `DocumentTaskCreate.pages` contains 1–2,000 positive page numbers, canonicalized to sorted unique values. TXT/Markdown have no pages and reject this option. Images use page 1; multi-page sources keep original page references, including split image tiles. The service checks known PDF/image bounds before Tencent submission and checks retained page evidence before structuring. Office page bounds are known only after recognition.
 
 This option limits question structuring. Tencent can still recognize the entire source, and its charges may reflect the whole source. It does not add a local recognition fallback, crop Office documents before submission, or guarantee lower Tencent charges. Unknown creation recovery reuses the original range and document role. A local pre-submission validation rejection leaves these options editable, so TXT/Markdown page-range mistakes can be corrected without reselecting the file.
 
 ## Reparse selected sources
 
-Choose questions in a completed result, then use **重新解析所选题目的来源**. The App derives their existing source-unit references and sends an explicit reparse request:
+Choose questions in a completed result, then use **重新解析所选题目的来源**. The Web derives their existing source-unit references and sends an explicit reparse request:
 
 ```json
 {"requestId":"<new UUID>","selection":{"checkpointId":"<current checkpoint>","units":[{"stage":"vision_parse","index":1}]}}

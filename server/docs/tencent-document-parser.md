@@ -101,14 +101,11 @@ Word and PPT originals within the per-job limit are submitted directly after
 container validation. XLSX preparation exposes hidden and very-hidden sheets in
 an immutable derived copy, preserving all other ZIP members and the original
 source. Live recognition of the synthetic prepared workbook returned both sheets.
-Legacy XLS within the direct-submission limit also goes directly to Tencent
-(`FileType=4`), without a local converter. Oversized Office inputs use the existing
-isolated LibreOffice PDF adapter before Tencent recognition. Its Calc
-`SinglePageSheets` and Impress hidden-slide settings retain hidden sheets/slides
-in conversion. Without a converter, capabilities retain XLS and cap all Office
-uploads at their direct-submission limits. Direct XLS hidden-sheet fidelity still
-requires source-aligned live acceptance; it is not inferred from XLSX preparation
-or historical converted-XLS checks. Excel output still requires original
+XLS originals within the per-job limit also go directly to Tencent. Oversized
+Office inputs use the existing isolated LibreOffice adapter to produce reviewable
+PDF pages before Tencent recognition. Its `SinglePageSheets` export includes hidden
+sheets; PPT/PPTX use Impress PDF export. Without a configured converter,
+capabilities cap all Office uploads at their direct-submission limit. Excel output still requires original
 workbook review for cell and merged-layout fidelity. Native table JSON retains cells and fields, with uniquely
 matched XML table layouts preserving merged spans; no page coordinates are invented. Original source bytes and
 checksums remain authoritative. TXT and Markdown are validated as UTF-8 before

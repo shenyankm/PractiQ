@@ -11,7 +11,7 @@ from practiq_ai import manage, runtime, task_api
 from practiq_ai.contracts import DocumentReference, DocumentTaskCreate
 from practiq_ai.database import utcnow
 from practiq_ai.execution import namespace
-from tests.db_support import new_database, setup_api, strip_identity_schema
+from tests.db_support import new_database, setup_api
 
 pytestmark = pytest.mark.usefixtures('disposable_databases')
 
@@ -28,7 +28,6 @@ async def test_upgrade_retains_history_receipts_files_deadlines_and_only_stages_
     monkeypatch.setenv('DATABASE_URI', db.uri)
     deadline = utcnow() + timedelta(seconds=100)
     ids = {}
-    await strip_identity_schema(db)
     async with db.transaction() as conn:
         for state in ('pending', 'running', 'waiting', 'interrupted', 'error', 'success', 'cancelled', 'unknown', 'paused'):
             tid, rid = str(uuid4()), str(uuid4())
@@ -82,7 +81,6 @@ async def test_startup_recovers_upgrade_interrupted_after_schema_commit(monkeypa
     service.accepting = True
     receipt = await task_api.create_task(DocumentTaskCreate(requestId=uuid4(), document=DocumentReference.model_validate(reference)))
     deadline = utcnow() + timedelta(seconds=100)
-    await strip_identity_schema(db)
     async with db.transaction() as conn:
         await conn.execute("UPDATE document_runs SET status='running',deadline=%s WHERE run_id=%s", (deadline, receipt['runId']))
         await conn.execute('DROP TABLE document_outbox')

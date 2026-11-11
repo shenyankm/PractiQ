@@ -1,8 +1,10 @@
+// @vitest-environment jsdom
+import { storageKey } from "../../shared/cloud/serviceStorage";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, expect, it, vi } from "vitest";
 import App from "../../shared/cloud/App";
-import { capabilities, newTaskId, preview, question, runId, summary, task, taskId } from "./test-fixtures";
+import { capabilities, newTaskId, preview, question, runId, summary, task, taskId } from "../../shared/cloud/test-fixtures";
 import type { DocumentTaskDetail, ImportSettingsSnapshot } from "./contracts.generated";
 
 beforeEach(() => window.history.replaceState(null, "", "/"));
@@ -125,7 +127,7 @@ it("offers an uncertain reparse after remount without replaying it and recovers 
 });
 
 it("lets a user inspect the original task and explicitly clear a reparse hint without submitting", async () => {
-  localStorage.setItem("practiq-reparse-intents-v1", JSON.stringify([{ threadId: taskId, requestId: runId }]));
+  localStorage.setItem(storageKey("practiq-reparse-intents-v1"), JSON.stringify([{ threadId: taskId, requestId: runId }]));
   const http = fakeHTTP(); const user = userEvent.setup();
   render(<App />); await connect(user);
   await user.click(await screen.findByRole("button", { name: "查看原任务" }));
@@ -135,11 +137,11 @@ it("lets a user inspect the original task and explicitly clear a reparse hint wi
   await screen.findByText("本机重新解析恢复记录已清除，服务端任务不受影响。");
   expect(screen.queryByRole("region", { name: "未确认的重新解析" })).toBeNull();
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
-  expect(localStorage.getItem("practiq-reparse-intents-v1")).toBeNull();
+  expect(localStorage.getItem(storageKey("practiq-reparse-intents-v1"))).toBeNull();
 });
 
 it("retains malformed reparse hints and blocks a new reparse without HTTP", async () => {
-  localStorage.setItem("practiq-reparse-intents-v1", '[{"threadId":"bad"}]');
+  localStorage.setItem(storageKey("practiq-reparse-intents-v1"), '[{"threadId":"bad"}]');
   const http = fakeHTTP(); const user = userEvent.setup();
   render(<App />); await connect(user);
   expect(await screen.findByText(/无法读取本机的重新解析恢复记录/)).toBeTruthy();
@@ -147,7 +149,7 @@ it("retains malformed reparse hints and blocks a new reparse without HTTP", asyn
   await user.click(screen.getByRole("button", { name: "重新解析为新任务" }));
   await screen.findByText(/无法读取本机的重新解析恢复记录/);
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
-  expect(localStorage.getItem("practiq-reparse-intents-v1")).toBe('[{"threadId":"bad"}]');
+  expect(localStorage.getItem(storageKey("practiq-reparse-intents-v1"))).toBe('[{"threadId":"bad"}]');
 });
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -968,7 +970,7 @@ it("sidebar navigation preserves selected files and settings drafts without star
   expect(screen.getByRole("link", { name: "开始导入" }).getAttribute("aria-current")).toBe("page");
   await user.upload(screen.getByLabelText("选择文档"), new File(["unchanged"], "pending.txt"));
   await user.click(screen.getByRole("link", { name: "设置" }));
-  const concurrency = await screen.findByLabelText("腾讯识别并发上限"); expect(concurrency).toHaveProperty("disabled", true);
+  const concurrency = await screen.findByLabelText("腾讯识别并发上限"); expect(concurrency).toHaveProperty("disabled", false);
   await user.click(screen.getByRole("link", { name: "导入记录" }));
   expect(await screen.findByRole("table", { name: "文档导入记录" })).toBeTruthy();
   expect(screen.getByRole("columnheader", { name: "待复核" })).toBeTruthy();
@@ -1120,14 +1122,4 @@ it.each(["txt", "md"])("allows fixing a locally rejected page range without rese
   await screen.findByText(/任务已创建。/);
   const creates = http.calls.filter(call => call.url === "/api/document-tasks" && call.method === "POST");
   expect(creates).toHaveLength(1); expect(creates[0].body?.pages).toBeUndefined();
-});
-
-it.each(['USER_QUOTA_EXCEEDED', 'FREE_PAGE_QUOTA_EXCEEDED'])("explains %s without automatically resuming paid work", async (reason) => {
-  const http = fakeHTTP({ ...task, state: "PAUSED", blocking: [{ kind: "pause", reason }], allowedActions: ["resume"] });
-  const user = userEvent.setup();
-  render(<App />); await connect(user);
-  await user.click(screen.getByRole("link", { name: "导入记录" }));
-  await user.click(await screen.findByRole("button", { name: "sample.docx" }));
-  expect(await screen.findByText(reason === 'USER_QUOTA_EXCEEDED' ? /每日调用额度已用尽/ : /可用识别页数不足，本次识别未提交/)).toBeTruthy();
-  expect(http.calls.every(call => call.method === 'GET')).toBe(true);
 });

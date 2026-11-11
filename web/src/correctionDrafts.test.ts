@@ -1,6 +1,8 @@
+// @vitest-environment jsdom
+import { storageKey } from "../../shared/cloud/serviceStorage";
 import { expect, it } from "vitest";
 import { correctionDrafts, putCorrectionDraft, removeCorrectionDraft, type CorrectionDraft } from "../../shared/cloud/correctionDrafts";
-import { question, task } from "./test-fixtures";
+import { question, task } from "../../shared/cloud/test-fixtures";
 
 function draft(): CorrectionDraft {
   const q = question();
@@ -32,8 +34,8 @@ it("rejects malformed stored input and oversized drafts without erasing the prev
   const original = draft(); putCorrectionDraft(original);
   expect(() => putCorrectionDraft({ ...original, editor: { ...original.editor, answer: "x".repeat(4 * 1024 * 1024) } })).toThrow();
   expect(correctionDrafts()).toEqual([original]);
-  localStorage.setItem("practiq.correction-drafts.v1", "broken");
+  localStorage.setItem(storageKey("practiq.correction-drafts.v1"), "broken");
   expect(() => correctionDrafts()).toThrow();
   expect(() => putCorrectionDraft(original)).toThrow();
-  expect(localStorage.getItem("practiq.correction-drafts.v1")).toBe("broken");
+  expect(localStorage.getItem(storageKey("practiq.correction-drafts.v1"))).toBe("broken");
 });

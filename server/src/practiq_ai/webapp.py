@@ -11,17 +11,13 @@ from weakref import WeakKeyDictionary
 
 from anyio import CancelScope
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
-from fastapi.exceptions import RequestValidationError
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from psycopg import Error as DatabaseError
 from starlette.responses import StreamingResponse
 from starlette.types import Receive, Scope, Send
 
-from practiq_ai import identity, task_api
-from practiq_ai.account_api import router as account_router
-from practiq_ai.account_middleware import AccountMiddleware, private_validation_error
-from practiq_ai.admin_api import router as admin_router
+from practiq_ai import task_api
 from practiq_ai.bank_export import ZIP_CHUNK_BYTES
 from practiq_ai.config import load, require_model_config
 from practiq_ai.contracts import (
@@ -47,7 +43,6 @@ from practiq_ai.contracts import (
     ImportCapabilities,
     ImportSettingsSnapshot,
     OfficeMode,
-    document_source_key,
     document_source_limit,
 )
 from practiq_ai.errors import DocumentProcessingError
@@ -56,7 +51,6 @@ from practiq_ai.extractors.isolated import _thread_io
 from practiq_ai.grading import GradeWireRequest, grade
 from practiq_ai.llm import import_call_allowance
 from practiq_ai.middleware import JsonBodyLimitMiddleware, SecurityHeadersMiddleware
-from practiq_ai.payment_api import router as payment_router
 from practiq_ai.storage import get_object_store
 from practiq_ai.telemetry import configure_logging, registry
 from practiq_ai.tencent import submission_limit
@@ -71,27 +65,14 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     service = runtime.Service(Database())
     await service.start()
     runtime.current = service
-    payment_worker = None
     try:
-        if os.environ.get('ALIPAY_ENABLED') == 'true':
-            from . import payments
-            payments.load()
-            payment_worker = asyncio.create_task(payments.reconcile_loop(), name='alipay-reconciliation')
         yield
     finally:
-        if payment_worker is not None:
-            payment_worker.cancel()
-            await asyncio.gather(payment_worker, return_exceptions=True)
         await service.stop(timeout=60)
         runtime.current = None
 
 
 app = FastAPI(lifespan=lifespan)
-app.include_router(admin_router)
-app.include_router(account_router)
-app.include_router(payment_router)
-app.add_exception_handler(RequestValidationError, private_validation_error)
-app.add_middleware(AccountMiddleware)
 app.add_middleware(JsonBodyLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 _uploads: WeakKeyDictionary[asyncio.AbstractEventLoop, int] = WeakKeyDictionary()
@@ -248,7 +229,6 @@ async def _task_response[ResultT](operation: Awaitable[ResultT]) -> ResultT:
 
 @app.post("/api/document-tasks", status_code=202, response_model=DocumentTaskReceipt)
 async def create_document_task(request: DocumentTaskCreate) -> dict[str, Any]:
-    await identity.require_upload(request.document)
     return await _task_response(task_api.create_task(request))
 
 
@@ -346,10 +326,7 @@ async def upload_document(request: DocumentUploadRequest) -> DocumentUploadRespo
     try:
         store = await asyncio.to_thread(get_object_store)
         await store.require_available()
-        assert request.sha256 is not None
-        key = document_source_key(request.sourceType, request.sha256)
-        owned = await identity.db().rows('SELECT 1 FROM auth_uploads WHERE user_id=%s AND object_key=%s', (identity.owner.get(), key))
-        return await store.prepare_document(request) if owned else await store.prepare_document(request, check_existing=False)
+        return await store.prepare_document(request)
     except DocumentProcessingError as exc:
         raise HTTPException(
             status_code=exc.status_code,
@@ -394,9 +371,7 @@ async def upload_content(request: Request, metadata: Annotated[DocumentUploadReq
         await store.require_available()
         try:
             async with asyncio.timeout(load().upload_timeout_seconds):
-                reference = await store.put_document_stream(request.stream(), metadata, check_existing=False)
-                await identity.grant(reference)
-                return reference
+                return await store.put_document_stream(request.stream(), metadata)
         except TimeoutError as exc:
             raise DocumentProcessingError(408, "Upload reception timed out", "UPLOAD_TIMEOUT") from exc
     except DatabaseError as exc:
@@ -434,8 +409,6 @@ async def subjective_grade(request: GradeWireRequest) -> dict:
         raise
     except ValueError as exc:
         raise HTTPException(422, {"code": "GRADING_INPUT_INVALID", "message": "Grading input or digest is invalid", "params": {}}) from exc
-    from uuid import NAMESPACE_URL, uuid5
-    verified = verified.model_copy(update={'requestId': uuid5(NAMESPACE_URL, f"practiq/grade/{identity.owner.get()}/{verified.requestId}")})
     return await _task_response(grade(verified))
 
 
@@ -445,10 +418,6 @@ class WebStaticFiles(StaticFiles):
             # Unknown/removed API routes keep their existing 404 semantics even
             # when the optional frontend is mounted at the root.
             raise HTTPException(404, "Not Found")
-        if path.rstrip('/') in {'register', 'reset-password', 'payments'}:
-            raise HTTPException(404, 'Not Found')
-        if path.rstrip('/') in {'admin', 'login'}:
-            path = 'index.html'
         return await super().get_response(path, scope)
 
 

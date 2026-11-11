@@ -361,7 +361,6 @@ async def test_identical_questions_on_different_pages_are_preserved(monkeypatch)
     assert set(files.put_kinds) == {"page", "ocr-page", "tencent-result", "unit-result"}
 
 
-@pytest.mark.usefixtures("business_http")
 async def test_recovery_provider_uses_real_model_http_protocol(tmp_path):
     import httpx2
     from langchain_core.messages import HumanMessage
@@ -524,7 +523,6 @@ async def test_quality_flags_are_visible_without_blocking_default_policy(monkeyp
     assert len(model.calls) == 1
 
 
-@pytest.mark.usefixtures("business_http")
 async def test_recovery_provider_invalid_calls_survive_provider_restart(tmp_path):
     import httpx2
     from langchain_core.messages import HumanMessage

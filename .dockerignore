@@ -12,6 +12,7 @@ server/**
 !server/licenses/**
 !server/src/
 !server/src/**
+
 !web/
 web/**
 !web/dist/

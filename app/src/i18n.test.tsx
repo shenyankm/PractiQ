@@ -40,9 +40,9 @@ beforeEach(() => {
       case "questions_page": return {items:[],total:0,offset:0} as never;
       case "question_stats": return {count:0,types:{}};
       case "info": return { version: "test", dataDirectory: "/test" };
-      case "save_settings": return {config:request.config,hasServiceToken:false};
+      case "save_settings": return {config:request.config};
       case "backup_status": return {lastBackupAt:null,newAttempts:0,changedNotes:0,due:false} as never;
-      case "settings": return { config: { service_url: null }, hasServiceToken: false };
+      case "settings": return { config: { service_url: null } };
       default: throw new Error(`Unexpected command: ${request.type}`);
     }
   });
@@ -333,7 +333,7 @@ it.each(["en", "zh-CN"] as const)("imports offline ZIP and keeps settings free o
     const r = (args as {request:{type:string}}).request;
     if (r.type === "pick_import") return {ticket:"ticket",title:"原文 filename",count:1,reviewCount:0,assetCount:0,missingAssets:[],warnings:[],status:"SUCCEEDED"};
     if (r.type === "import") return {bankId:"bank",count:1,duplicate:false};
-    if (r.type === "save_settings") return {config:(r as unknown as {config:unknown}).config,hasServiceToken:true};
+    if (r.type === "save_settings") return {config:(r as unknown as {config:unknown}).config};
     if (r.type === "test_settings") return null;
     return original(command,args);
   });

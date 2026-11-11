@@ -1,29 +1,14 @@
-# Multi-user service update
-
-The current schema-8 service uses customer accounts in the macOS App and an administrator-only Web. The App is an upload/control/review client; all recognition and import processing stay on this service. See the [App cloud workflow](../../docs/guides/cloud-service.md).
-See [accounts and deployment](accounts.md) for current setup and recovery, including
-restricted metrics credentials and authenticated load-test setup. New customer
-workflow acceptance uses the built App with an explicit native-IPC substitute;
-the administrator Web has no upload entry.
-Optional service-only Alipay web payments and the explicit offline upgrade procedure are
-documented in [Alipay payments](alipay.md). They are disabled by default. Only verified production catalog orders issue
-separate expiring page grants; historical/sandbox receipts do not. The offline App
-remains independent. See [plans](../../docs/guides/plans.md).
-The personal-mode description below is historical and applies to the previous schema-5 deployment only; retain its database and storage separately.
-
 # Personal self-hosted use
 
 PractiQ is an open-source personal document importer and offline practice app. There are no users, phone accounts, account tokens, products, point balances, recharge, checkout or billing APIs. You configure your own model provider and pay that provider directly. Model usage, unknown results, per-task call budgets, provider limits and explicit recovery remain available.
 
 ## Access
 
-The personal service has no application access token or login page. Open the Web
-page to read capabilities and use the import workspace; native clients do not
-need an Authorization header. Legacy `AI_SERVICE_TOKEN` values are ignored.
+The independent Web opens directly into the personal import workspace without an application access token or login page. Build it with `make web-install web-build`, then start the AI service and open its root URL. The macOS App also offers **Document import** for native selection/upload and review. Legacy `AI_SERVICE_TOKEN` values are ignored; existing files and credentials are not deleted. `AI_WEB_DIR` selects the built personal Web assets when needed.
 
 Keep the service on loopback. If you expose it through a private HTTPS proxy,
 configure access control at that proxy. Cross-origin browser API requests are
-rejected; the Web client uses same-origin requests without cookies or credentials.
+rejected; the App import client uses same-origin requests without cookies or credentials.
 Model and Tencent credentials remain on the service. Opening or reloading the
 page only reads service state and never starts paid work.
 
@@ -31,28 +16,24 @@ Only Start import, resume, retry, parse again and explicit grading authorize mod
 
 ## Fresh installation
 
-Follow the [service guide](service-guide.md). Initialize an empty dedicated PostgreSQL database with `make init-db`; new service schema 5 contains only task, checkpoint, Store, delivery and grading state. Use a dedicated storage directory and RabbitMQ vhost. The App remains on SQLite schema 11 with v4 data and unchanged ZIP/backup formats.
+Follow the [service guide](service-guide.md). Initialize an empty dedicated PostgreSQL database with `make init-db`; new service schema 9 contains only task, checkpoint, Store, delivery and grading state. Use a dedicated storage directory and RabbitMQ vhost. The App remains on SQLite schema 11 with v4 data and unchanged ZIP/backup formats.
 
 ## Existing deployments
 
 No live data or private configuration is changed by the source update. Stop the old AI process and any legacy checkout, disable checkout startup, and back up the complete database, matching storage and private configuration before changing deployment versions. Preserve legacy payment evidence and ledgers for your own reconciliation; this version does not process them.
 
-Normal startup rejects service schemas 1–4. Explicit offline `make upgrade-db` upgrades complete schemas 1–4 to 5, retaining task IDs, receipts, checkpoints, grading records, files and historical tables. Schema 1 also receives the existing transactional outbox. Legacy account/payment tables and columns are left untouched and are no longer used by the runtime. The maintenance lock still fences an old checkout binary during upgrade/backup.
+Normal startup rejects service schemas 1–5. Explicit offline `make upgrade-db` upgrades complete schemas 1–5 to 9, retaining task IDs, receipts, checkpoints, grading records, files and historical tables. Schema 1 also receives the existing transactional outbox. Legacy account/payment tables and columns are left untouched and are no longer used by the runtime. The maintenance lock still fences an old checkout binary during upgrade/backup.
 
 If schema 3/4 contains any account-owned document tasks, upload records or pending/unknown accounting calls, upgrade refuses without mutation, including when the call's task has already been deleted. Missing historical account tables or mixed schema 1/2 account state also prevent upgrade. Archive the old database and storage together and initialize a new personal database, storage directory and RabbitMQ vhost. Export needed question-bank ZIPs using the original deployment first. Customer tasks, sources, shared content-addressed artifacts and unsettled call evidence must not be silently adopted or cleaned by a personal deployment. Do not bypass the check by changing the schema marker, clearing ownership columns or deleting accounting evidence.
 
 Changed execution signatures prevent resuming old model checkpoints under this code. Saved results remain readable/exportable after an eligible upgrade; explicitly parse again as a new task when needed. Finish unfinished tasks with their original deployment before switching if you need checkpoint continuation. Rollback requires restoring the matching old database/storage backup and original executable; no automatic downgrade is provided.
 
-Remove obsolete `AI_INPUT_POINTS_PER_1K`, `AI_OUTPUT_POINTS_PER_1K`, `AI_ACCOUNT_*`, `PAYMENT_*` and checkout-only secrets from active configuration. They are no longer read. The payment SDK extra, management commands, Vite proxy and `/purchase` checkout are removed. Account, product and payment APIs return 404; old `Authorization: Account` requests return 401 on protected task APIs.
+Remove obsolete `AI_INPUT_POINTS_PER_1K`, `AI_OUTPUT_POINTS_PER_1K`, `AI_ACCOUNT_*`, `PAYMENT_*` and checkout-only secrets from active configuration. They are no longer read. The payment SDK extra, management commands, Vite proxy and `/purchase` checkout are removed. Account, administrator, product and payment APIs return 404. The personal import API does not consume account cookies or tokens.
 
-## Administrator support console
+## Switching from the retired multi-user deployment
 
-The [administration guide](../../docs/guides/administration.md) describes user
-balance/grant inspection, account/time/state searches, uncertain-operation
-worklists, explicit reasoned allowance adjustment, usage/audit reporting, targeted
-session revocation and read-only runtime status. These use the existing schema-8
-ledgers and preserve historical ownership. Optional external monitoring evidence
-uses the trusted absolute `AI_OPERATIONS_STATUS_FILE`; no missing observation is
-reported as a successful backup or delivered alert. No deployment or migration is
-performed by opening the console. Keep the matching executable for unfinished
-checkpoints when upgrading.
+Schemas 6–8 are not upgraded or adopted. Startup and offline upgrade refuse them without mutation. Preserve the original database, storage, configuration and executable together. Export question-bank ZIPs using that deployment, then initialize a fresh personal schema-9 database, separate storage directory and RabbitMQ vhost. Never change a schema marker or clear ownership to bypass this boundary.
+
+The App connects directly from **Document import** to a personal service. Its origin is saved separately in `v4/import-service-v1.json`; old `account-service-v1.json`, account Keychain entries, practice databases and grading connection settings are untouched. Existing correction drafts and uncertain submission intents in the retired user namespace are not adopted. Finish/reconcile them in the original deployment before switching. No registration, administrator bootstrap, allowances, plans or payment setup is required.
+
+The API must remain on loopback or behind a private access-controlled proxy; it is not a public multi-tenant service. App model grading is configured separately under **Settings → AI service**, using a direct OpenAI-compatible provider or the personal grading service. Provider keys remain in macOS Keychain, and only explicit grading/retry starts a call.
