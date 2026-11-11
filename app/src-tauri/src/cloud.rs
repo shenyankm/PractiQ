@@ -10,6 +10,16 @@ use tauri::{AppHandle, Manager};
 const CONFIG: &str = "account-service-v1.json";
 pub(crate) const MAX_RESPONSE: usize = 64 * 1024 * 1024;
 
+fn request_timeout(path: &str) -> Duration {
+    Duration::from_secs(if path == "/api/subjective-grades" {
+        900
+    } else if path.contains("/export?") {
+        600
+    } else {
+        125
+    })
+}
+
 pub(crate) fn error(code: &str) -> AppError {
     AppError::new(
         code,
@@ -315,11 +325,7 @@ impl Snapshot {
         let mut request = self
             .client
             .request(method, format!("{}{path}", self.origin))
-            .timeout(Duration::from_secs(if path.contains("/export?") {
-                600
-            } else {
-                125
-            }));
+            .timeout(request_timeout(path));
         if !self.secret.cookie.is_empty() {
             request = request
                 .header(header::COOKIE, &self.secret.cookie)
@@ -970,5 +976,20 @@ mod tests {
         assert!(state.current(&signed_in).is_err());
         assert!(validate_path("/api/subjective-grades", &Method::POST).is_ok());
         assert!(validate_path("/api/subjective-grades", &Method::GET).is_err());
+    }
+    #[test]
+    fn grading_preserves_the_service_timeout_without_extending_passive_reads() {
+        assert_eq!(
+            request_timeout("/api/subjective-grades"),
+            Duration::from_secs(900)
+        );
+        assert_eq!(
+            request_timeout("/api/document-tasks/id/export?partial=true"),
+            Duration::from_secs(600)
+        );
+        assert_eq!(
+            request_timeout("/api/auth/session"),
+            Duration::from_secs(125)
+        );
     }
 }

@@ -432,7 +432,7 @@ async fn ai_request(
     locale: Option<language::Locale>,
 ) -> std::result::Result<Value, AppError> {
     let shared = state.inner().clone();
-    let context = app.state::<cloud::State>().context()?;
+    let context = app.state::<cloud::State>().context();
     tauri::async_runtime::spawn_blocking(move || {
         ai::request(app, shared, request, locale.unwrap_or_default(), context)
     })

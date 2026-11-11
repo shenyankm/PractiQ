@@ -366,21 +366,41 @@ fn grade_account(
     Ok(result)
 }
 
+fn managed_account(
+    account: Result<Option<crate::cloud::Snapshot>>,
+    legacy: impl FnOnce() -> Result<settings::ServiceSettings>,
+) -> Result<Option<crate::cloud::Snapshot>> {
+    match account {
+        Ok(account) => Ok(account.filter(crate::cloud::Snapshot::has_session)),
+        Err(error) => {
+            if error.code != "CLOUD_ACCOUNT_CHANGED" && legacy()?.model.is_some() {
+                Ok(None)
+            } else {
+                Err(error)
+            }
+        }
+    }
+}
+
 pub fn request(
     app: tauri::AppHandle,
     shared: Shared,
     request: AiRequest,
     locale: crate::language::Locale,
-    context: Option<crate::cloud::Context>,
+    context: Result<Option<crate::cloud::Context>>,
 ) -> Result<Value> {
     let state = app.state::<GradingState>();
     let _grading = state.enter()?;
-    if let Some(context) = context {
-        let cloud = app.state::<crate::cloud::State>();
-        let account = cloud.snapshot(&app, &context, false)?;
-        if account.has_session() {
-            return grade_account(&shared, &cloud, &account, request, locale);
-        }
+    let cloud = app.state::<crate::cloud::State>();
+    let account = context.and_then(|context| {
+        context
+            .map(|context| cloud.snapshot(&app, &context, false))
+            .transpose()
+    });
+    if let Some(account) =
+        managed_account(account, || settings::snapshot(&shared)?.service_settings())?
+    {
+        return grade_account(&shared, &cloud, &account, request, locale);
     }
     let store = settings::snapshot(&shared)?;
     let config = store.service_settings()?;
@@ -1455,6 +1475,60 @@ mod tests {
             retry,
             snapshot_key: None,
         }
+    }
+    #[test]
+    fn optional_cloud_failures_preserve_direct_grading_and_unknown_cloud_configuration() {
+        let (dir, shared, id) = submitted();
+        let path = dir.path().join("account-service-v1.json");
+        let bytes = br#"{"version":99,"origin":"https://cloud.example.test"}"#;
+        std::fs::write(&path, bytes).unwrap();
+        let cloud = crate::cloud::State::new(dir.path().to_owned());
+        let config = settings::ServiceSettings {
+            model: direct("https://model.example.test".into()).model,
+            ..Default::default()
+        };
+        assert!(
+            managed_account(cloud.context().map(|_| None), || Ok(config.clone()))
+                .unwrap()
+                .is_none()
+        );
+        for code in ["CLOUD_CREDENTIAL_INVALID", "LOCAL_KEYCHAIN_READ"] {
+            assert!(
+                managed_account(Err(crate::cloud::error(code)), || Ok(config.clone()))
+                    .unwrap()
+                    .is_none()
+            );
+            assert_eq!(
+                managed_account(Err(crate::cloud::error(code)), || Ok(Default::default()))
+                    .err()
+                    .unwrap()
+                    .code,
+                code
+            );
+        }
+        assert_eq!(
+            managed_account(Err(crate::cloud::error("CLOUD_ACCOUNT_CHANGED")), || Ok(
+                config
+            ))
+            .err()
+            .unwrap()
+            .code,
+            "CLOUD_ACCOUNT_CHANGED"
+        );
+        let (origin, server) = server("200 OK", completion(), "POST /chat/completions HTTP/1.1");
+        let session = grade(
+            &shared,
+            &direct(origin),
+            &id,
+            0,
+            false,
+            None,
+            crate::language::Locale::Chinese,
+        )
+        .unwrap();
+        assert!(session["attempts"][0]["earnedCents"].is_number());
+        server.join().unwrap();
+        assert_eq!(std::fs::read(path).unwrap(), bytes);
     }
     #[test]
     fn account_grading_uses_native_cookie_csrf_and_no_separate_grading_settings() {
