@@ -85,6 +85,8 @@ export const en = {
   "AI 服务": "AI service",
   "套餐与额度": "Plans and allowance",
   "查看额度": "View allowance",
+  "登录云端账户后即可评分，无需配置模型。": "Sign in to your cloud account to grade. Model configuration is managed by the service.",
+  "连接云端账户": "Connect cloud account",
   "云端评分暂不可用，请稍后重试或联系管理员。": "Cloud grading is temporarily unavailable. Try again later or contact an administrator.",
   "AI 服务地址": "AI service URL",
   "AI 服务访问令牌": "AI service access token",

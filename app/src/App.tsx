@@ -182,6 +182,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const questionList = useQuestionListPage(page, bank);
   const { questions, questionTotal, questionError, search, mode, loading, filter, refresh: refreshQuestions, reset: resetQuestions } = questionList;
   const [session, setSession] = useState<Session | null>(null);
+  const [gradingReturn, setGradingReturn] = useState<string | null>(null);
   const [gradingDrafts, setGradingDrafts] = useState<Record<string, GradingDraft>>({});
   useUnsavedChanges(Object.keys(gradingDrafts).length > 0);
   const [busy, setBusy] = useState(false);
@@ -313,6 +314,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     flushRef.current = async () => {};
     setOperationError(null);
     setPage(next);
+    setGradingReturn(null);
     setNavigationOpen(false);
     setRestoreOpen(showRestore);
     setBank(bankId);
@@ -328,6 +330,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     run(async () => {
       await flushRef.current();
       setSession(await api({ type: "session", id }));
+      setGradingReturn(null);
       setPage("practice");
     });
   }
@@ -477,7 +480,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 <ArrowLeft />
               </Button>
             )}
-            {page === "plans" && <Button size="icon" variant="ghost" aria-label={t("返回设置")} disabled={busy} onClick={() => navigate("settings")}><ArrowLeft /></Button>}
+            {page === "plans" && <Button size={gradingReturn ? "default" : "icon"} variant="ghost" aria-label={gradingReturn ? t("返回评分") : t("返回设置")} disabled={busy} onClick={() => gradingReturn ? openSession(gradingReturn) : navigate("settings")}><ArrowLeft />{gradingReturn && t("返回评分")}</Button>}
             <div className="min-w-0">
               <h1 ref={pageHeading} tabIndex={-1} className="break-words text-xl font-semibold tracking-tight outline-none md:text-2xl">
                 {heading}
@@ -585,6 +588,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 else delete next[key];
                 return next;
               })}
+              onConnectAccount={() => run(async () => { await flushRef.current(); setGradingReturn(session.id); setPage("plans"); })}
               onNextUnattempted={session.bankIds?.some(id => banks.some(b => b.id === id)) ? () => setPracticeSetup({ bank: null, bankIds: session.bankIds!.filter(id => banks.some(b => b.id === id)), filter: "unattempted" }) : undefined}
             />
           )}
@@ -604,6 +608,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                     setSettingsRevision(v => v + 1);
                     setSession(null);
                     setGradingDrafts({});
+                    setGradingReturn(null);
                     setDetail(null);
                     setBank(null);
                     await reloadBanks();

@@ -7,6 +7,9 @@ import { api, blankQuestion, type Session } from "./api";
 import { ai } from "./ai-api";
 import { toast } from "./notifications";
 import { canCloseWindow } from "./useUnsavedChanges";
+import { invoke } from "./transport";
+import { setNativeBridge } from "../../shared/cloud/transport";
+import { setAccount } from "../../shared/cloud/accountClient";
 
 const native = vi.hoisted(() => ({
   enabled: false,
@@ -20,10 +23,11 @@ vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({
 }) }));
 vi.mock("./api", async () => ({ ...await vi.importActual("./api"), api: vi.fn() }));
 vi.mock("./ai-api", () => ({ ai: vi.fn() }));
+vi.mock("./transport", () => ({ invoke: vi.fn() }));
 vi.mock("./notifications", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 HTMLElement.prototype.hasPointerCapture = () => false;
 HTMLElement.prototype.scrollIntoView = () => {};
-afterEach(() => { cleanup(); vi.clearAllMocks(); native.enabled = false; native.close = null; });
+afterEach(() => { cleanup(); setNativeBridge(null); setAccount(null); vi.resetAllMocks(); native.enabled = false; native.close = null; });
 
 function setup() {
   const bank = { id: "bank", title: "English", description: "Offline", count: 2 };
@@ -197,19 +201,54 @@ it("retains manual grading drafts per question across navigation, failures and r
   expect(canCloseWindow()).toBe(true);
 });
 
-it.each(["LOCAL_SERVICE_URL_REQUIRED", "LOCAL_SERVICE_TOKEN_REQUIRED", "LOCAL_MODEL_URL_REQUIRED", "LOCAL_MODEL_ID_REQUIRED", "LOCAL_MODEL_KEY_REQUIRED"])("keeps grading drafts and sends configuration failures to the operator (%s)", async code => {
+it.each(["LOGIN_REQUIRED", "CSRF_INVALID", "LOCAL_SERVICE_URL_REQUIRED", "LOCAL_SERVICE_TOKEN_REQUIRED", "LOCAL_MODEL_URL_REQUIRED", "LOCAL_MODEL_ID_REQUIRED", "LOCAL_MODEL_KEY_REQUIRED"])("keeps grading drafts and offers account recovery (%s)", async code => {
   setup(); vi.mocked(ai).mockRejectedValue({ code });
   const user = userEvent.setup(); render(<App />);
   await screen.findByText("English"); await openExam(user);
   await user.click(screen.getByRole("button", { name: "下一题" }));
   await user.type(screen.getByRole("textbox", { name: "人工得分" }), "3");
   await user.click(screen.getByRole("button", { name: /AI 评分\/继续/ }));
-  expect(await screen.findByText("云端评分暂不可用，请稍后重试或联系管理员。")).toBeTruthy();
+  expect(await screen.findByText("登录云端账户后即可评分，无需配置模型。")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "连接云端账户" })).toBeTruthy();
   expect(screen.queryByRole("button", { name: "配置 AI 服务" })).toBeNull();
   expect(screen.queryByLabelText("模型 API 地址")).toBeNull();
   expect((screen.getByRole("textbox", { name: "人工得分" }) as HTMLInputElement).value).toBe("3");
   expect(ai).toHaveBeenCalledTimes(1);
   expect(api).not.toHaveBeenCalledWith(expect.objectContaining({ type: "test_settings" }));
+});
+
+it("returns from account login to the same grading question and draft without automatic grading", async () => {
+  setup(); vi.mocked(ai).mockRejectedValue({ code: "LOGIN_REQUIRED" });
+  const account = { id: "owner", name: "Learner", email: "learner@example.test", role: "user", enabled: true };
+  let signedIn = false, generation = 1;
+  vi.mocked(invoke).mockImplementation(async (_command, args) => {
+    const r = args!.request as { type: string; path?: string };
+    if (r.type === "status") return { value: { origin: "https://cloud.example.test", generation }, generation } as never;
+    let value: unknown;
+    if (r.path === "/api/auth/login") { signedIn = true; generation++; }
+    if (r.path === "/api/auth/session" || r.path === "/api/auth/login") value = { user: signedIn ? account : null, csrf: "", registrationEnabled: true };
+    else if (r.path === "/api/me/plans") value = { checkoutEnabled: false, environment: null, sandboxAmount: null, products: [], balance: { plan: "free", expiresAt: null, activeTasks: 1, freePages: 50, freeUsedPages: 0, freeRemainingPages: 50, remainingPages: 50, grants: [] } };
+    else if (r.path === "/api/me/payments") value = [];
+    else throw new Error(`Unexpected cloud request: ${r.path}`);
+    return { value: { status: 200, mediaType: "application/json", bytes: Buffer.from(JSON.stringify(value)).toString("base64") }, generation } as never;
+  });
+  const user = userEvent.setup(); render(<App />);
+  await screen.findByText("English"); await openExam(user);
+  await user.click(screen.getByRole("button", { name: "下一题" }));
+  await user.type(screen.getByRole("textbox", { name: "人工得分" }), "3");
+  await user.type(screen.getByRole("textbox", { name: "改分原因" }), "Checked rubric");
+  await user.click(screen.getByRole("button", { name: /AI 评分\/继续/ }));
+  await user.click(await screen.findByRole("button", { name: "连接云端账户" }));
+  await user.type(await screen.findByLabelText("登录邮箱"), account.email);
+  await user.type(screen.getByLabelText("密码", { exact: true }), "native-test-password");
+  await user.click(screen.getByRole("button", { name: "登录" }));
+  expect(await screen.findByText("可用识别额度")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "返回评分" }));
+  expect((await screen.findByRole("textbox", { name: "人工得分" }) as HTMLInputElement).value).toBe("3");
+  expect((screen.getByRole("textbox", { name: "改分原因" }) as HTMLInputElement).value).toBe("Checked rubric");
+  expect(screen.getByText("第 2 / 2 题")).toBeTruthy();
+  expect(ai).toHaveBeenCalledTimes(1);
+  expect(screen.queryByLabelText("模型 API 地址")).toBeNull();
 });
 
 

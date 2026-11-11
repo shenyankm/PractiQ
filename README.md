@@ -55,9 +55,9 @@ Reading and downloading results never calls a model. Resuming, retrying or parsi
 
 ## Grade short answers with AI
 
-Open **Settings → AI service**, choose **Direct model API** and enter an OpenAI-compatible Chat Completions API address (including the `/v1` or other base path your provider requires), model ID and your own API key. Offline practice and local scoring need none of this.
+Sign in to your cloud account through **Document import** or **Settings → Plans and allowance**, then explicitly start AI grading. Provider configuration stays on the service. If login is missing or expired, **Connect cloud account** returns you to the same grading question after login without automatically retrying. Offline practice and local scoring need no account.
 
-Grading needs a reference answer or rubric, may cost money, and sends the current question, materials, images and your answer to the provider you chose. Each action makes at most one request, and an unknown result is never resent automatically. Keys stay in the system credential store and out of backups. See the [practice guide](docs/guides/practice-guide.md) for limits and retry rules.
+Grading needs a reference answer or rubric, may cost money, and sends the current question, materials, images and your answer to the cloud service and its configured provider. Each action makes at most one request, and an unknown result is never resent automatically. Keys stay in the system credential store and out of backups. See the [practice guide](docs/guides/practice-guide.md) for limits and retry rules.
 
 Ordinary practice supports explicit grading after submitting the current short answer; tests and exams still require paper submission. New results show individual scoring points and verified reference/answer quotations. Practice uses a 100-point scale if no source maximum was supplied. Independent human-labelled grading-quality acceptance remains pending.
 
