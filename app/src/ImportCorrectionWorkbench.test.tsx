@@ -23,6 +23,28 @@ async function open() {
 
 afterEach(() => setNativeBridge(null));
 
+it.each([false, true])("transfers a revision once while pending and permits explicit retry after failure (native=%s)", async native => {
+  if (native) setNativeBridge({ origin: "http://127.0.0.1:8090", confirm: vi.fn(), fetch: vi.fn(), pickSources: vi.fn(), upload: vi.fn(), importBank: vi.fn(), download: vi.fn(), save: vi.fn() });
+  const transferLabel = native ? "导入修订版题库" : "下载修订版 ZIP";
+  const corrections: DocumentCorrections = { checkpointId: detail.checkpointId!, edits: [{ requestId: "22222222-2222-4222-8222-222222222222", questionIndex: 0, question: original, savedAt: "2026-11-06T00:00:00Z" }] };
+  vi.spyOn(Client.prototype, "evidence").mockResolvedValue({ text: async () => "Original question" } as Blob);
+  let fail!: (error: Error) => void;
+  const exported = vi.spyOn(Client.prototype, "exportBank").mockImplementation(() => new Promise((_resolve, reject) => { fail = reject; }));
+  render(<ResultReview task={detail} preview={{ ...metadata, corrections }} client={new Client()} />);
+  const user = await open();
+  const transfer = screen.getByRole("button", { name: transferLabel });
+  await user.dblClick(transfer);
+  expect(exported).toHaveBeenCalledTimes(1);
+  expect(transfer).toHaveProperty("disabled", true);
+  expect(screen.getByRole("button", { name: "人工校对" })).toHaveProperty("disabled", true);
+  await act(async () => { fail(Error("Transfer failed")); });
+  expect(await screen.findByText("Transfer failed")).toBeTruthy();
+  expect(transfer).toHaveProperty("disabled", false);
+  await user.click(transfer);
+  expect(exported).toHaveBeenCalledTimes(2);
+  await act(async () => { fail(Error("Transfer failed again")); });
+});
+
 it.each([false, true])("saves human edits, reopens and transfers the explicit revision (native=%s)", async native => {
   if (native) setNativeBridge({ origin: "http://127.0.0.1:8090", confirm: vi.fn(), fetch: vi.fn(), pickSources: vi.fn(), upload: vi.fn(), importBank: vi.fn(), download: vi.fn(), save: vi.fn() });
   const transferLabel = native ? "导入修订版题库" : "下载修订版 ZIP";

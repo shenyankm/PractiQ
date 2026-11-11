@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "./import-test-setup";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import { Client } from "../../shared/cloud/api";
@@ -150,6 +150,37 @@ it("flushes an edit before navigation without waiting for the autosave timer", a
   await flushRef.current();
   expect(fetcher.mock.calls.filter(([, init]) => init.method === "PUT")).toHaveLength(1);
   expect(JSON.parse(fetcher.mock.calls.find(([, init]) => init.method === "PUT")![1].body as string).settings.generateAnswers).toBe(true);
+});
+
+it("waits for an in-flight autosave and restores a reverted draft before navigation", async () => {
+  let finish!: (response: Response) => void;
+  const writes: ImportSettingsSnapshot[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (_path: string, init: RequestInit) => {
+    if (init.method !== "PUT") return json(initial);
+    const value: ImportSettingsSnapshot = JSON.parse(init.body as string);
+    writes.push(value);
+    if (writes.length === 1) return new Promise<Response>(resolve => { finish = resolve; });
+    return json({ ...value, revision: taskId });
+  }));
+  const flushRef = { current: async () => {} };
+  const user = userEvent.setup(); render(<ImportSettingsPanel client={new Client()} flushRef={flushRef} />);
+  const field = await screen.findByLabelText("腾讯识别并发上限");
+  await user.clear(field); await user.type(field, "2");
+  await waitFor(() => expect(writes).toHaveLength(1));
+  await user.clear(field); await user.type(field, "5");
+  let navigated = false;
+  const flushed = flushRef.current().then(() => { navigated = true; });
+  await act(async () => { await Promise.resolve(); });
+  expect(navigated).toBe(false);
+  await act(async () => {
+    finish(json({ revision: newTaskId, settings: { ...initial.settings, tencentConcurrency: 2 } }));
+    await flushed;
+  });
+  expect(navigated).toBe(true);
+  expect(writes).toEqual([
+    { revision: taskId, settings: { ...initial.settings, tencentConcurrency: 2 } },
+    { revision: newTaskId, settings: initial.settings },
+  ]);
 });
 
 it("rejects navigation when an import setting is invalid or its save fails", async () => {

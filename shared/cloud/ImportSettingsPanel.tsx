@@ -48,7 +48,7 @@ export function ImportSettingsPanel({ client, onSettingsChange, onPendingChange,
     return () => clearTimeout(timer);
   }, [saved, changed, saving]);
   const persist = useCallback(async () => {
-    if (!snapshot || !changed) return;
+    if (!snapshot) return;
     if (error) throw new ApiError(error, "IMPORT_SETTINGS_PENDING");
     if (!valid) throw new ApiError(t("数值无效，尚未保存"), "IMPORT_SETTINGS_INVALID");
     const version = editVersion.current;
@@ -68,7 +68,7 @@ export function ImportSettingsPanel({ client, onSettingsChange, onPendingChange,
       .finally(() => { pending.current = null; if (client.active) setSaving(false); });
     pending.current = { version, request };
     return request;
-  }, [client, snapshot, changed, valid, draft, error, onSettingsChange]);
+  }, [client, snapshot, valid, draft, error, onSettingsChange]);
   useEffect(() => {
     if (!flushRef) return;
     const flush = async () => {
