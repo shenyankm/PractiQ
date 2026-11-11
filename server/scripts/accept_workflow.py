@@ -1,4 +1,4 @@
-"""Opt-in Web -> real service -> exported ZIP -> native practice acceptance.
+"""Opt-in App -> real service -> exported ZIP -> native practice acceptance.
 
 Default providers are substitutes. --live authorizes the selected small imports
 (TXT, Markdown and PNG by default; --case selects one).
@@ -179,8 +179,8 @@ async def run(output: Path, live: bool, native_binary: Path, case: str | None = 
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
-    env.update(settings, ALIPAY_ENABLED="false", AI_READ_ONLY="0", AI_MAINTENANCE="0",
-               AI_STORAGE_DIR=str(output / "storage"), AI_WEB_DIR=str(ROOT / "app/dist"),
+    env.update(settings, AI_READ_ONLY="0", AI_MAINTENANCE="0",
+               AI_STORAGE_DIR=str(output / "storage"),
                AI_TASK_MAX_MODEL_CALLS="4", AI_RUN_TIMEOUT_SECONDS="240",
                LANGSMITH_TRACING="false", LANGCHAIN_TRACING_V2="false",
                PRACTIQ_ACCEPT_PORT=str(port), PYTHONPATH=os.pathsep.join([str(ROOT / "server/src"), str(ROOT / "server")]))
@@ -190,23 +190,18 @@ async def run(output: Path, live: bool, native_binary: Path, case: str | None = 
     report: dict[str, Any] = {"schemaVersion": 1, "generatedAt": datetime.now(UTC).isoformat(),
         "revision": (await asyncio.to_thread(subprocess.check_output, ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True)).strip(),
         "python": platform.python_version(), "platform": platform.platform(), "liveProviders": live,
-        "scope": "Built App in Chromium, native IPC substitute and loopback HTTP service; disposable PostgreSQL/RabbitMQ; real local files and release Rust/SQLite. Native phase uses the real Rust/SQLite harness; no actual Tauri IPC/WebView or Keychain claim. Selected cases/repetitions recorded separately; no capacity/p95 or before/after speedup claim.",
+        "scope": "Built App in Chromium, native IPC substitute and loopback HTTP service; disposable PostgreSQL/RabbitMQ; real local files and Rust/SQLite. Native phase uses the real Rust/SQLite harness; no actual Tauri IPC/WebView or Keychain claim. Selected cases/repetitions recorded separately; no capacity/p95 or before/after speedup claim.",
         "selectedCases": cases, "nativeRepetitions": repetitions,
         "status": "FAILED", "gateReasons": [], "samples": []}
     process = None
     memory = None
+    preview_process = None
     rss: list[int] = []
     try:
         db = await new_database()
-        # Explicit operator bootstrap only in this freshly created disposable database.
-        import secrets
-
-        from practiq_ai.identity import password_hash
-        async with db.transaction() as conn:
-            await conn.execute("INSERT INTO auth_users(id,email,password_hash,role) VALUES('acceptance-admin','operator@example.test',%s,'admin')", (await password_hash(secrets.token_urlsafe(32)),))
         await db.close()
         env.update(DATABASE_URI=db.uri, RABBITMQ_URI=os.environ["RABBITMQ_URI"])
-        # The service is a child process; the parent only needs matching safe config for identity.
+        # The service is a child process; the parent uses the same isolated runtime.
         with pytest.MonkeyPatch.context() as patch:
             for key, value in env.items():
                 if key.startswith(("AI_", "LLM_")):
@@ -232,8 +227,30 @@ async def run(output: Path, live: bool, native_binary: Path, case: str | None = 
                     await asyncio.sleep(.1)
                 else:
                     raise TimeoutError("Service readiness deadline")
+            # Only the test harness serves App assets; the Python backend exposes APIs.
+            with socket.socket() as ui_socket:
+                ui_socket.bind(("127.0.0.1", 0))
+                preview_port = ui_socket.getsockname()[1]
+            preview_url = f"http://127.0.0.1:{preview_port}"
+            preview_process = await asyncio.create_subprocess_exec(
+                "node", "node_modules/vite/bin/vite.js", "preview", "--host", "127.0.0.1",
+                "--port", str(preview_port), "--strictPort", cwd=ROOT / "app",
+                stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
+            async with httpx.AsyncClient(trust_env=False) as preview_client:
+                for _ in range(100):
+                    if preview_process.returncode is not None:
+                        raise RuntimeError("App preview exited before acceptance")
+                    try:
+                        if (await preview_client.get(preview_url)).status_code == 200:
+                            break
+                    except httpx.HTTPError:
+                        pass
+                    await asyncio.sleep(.1)
+                else:
+                    raise TimeoutError("App preview did not become ready")
             browser_env = {**env, "PRACTIQ_ACCEPT_URL": f"http://127.0.0.1:{port}",
-                           "PRACTIQ_ACCEPT_OUTPUT": str(output), "PRACTIQ_ACCEPT_NATIVE": str(native_binary)}
+                           "PRACTIQ_ACCEPT_OUTPUT": str(output), "PRACTIQ_ACCEPT_NATIVE": str(native_binary),
+                           "PRACTIQ_ACCEPT_APP_URL": preview_url}
             with (output / "browser.log").open("x") as log_browser:
                 browser_status = await command_result(["node", "app/scripts/accept-workflow.mjs"], browser_env, log_browser, 900)
             browser_report = json.loads((output / "browser.json").read_text())
@@ -261,8 +278,8 @@ async def run(output: Path, live: bool, native_binary: Path, case: str | None = 
                     append_export_warning(expected, 'Human-corrected revision; original source evidence and review flags are retained.')
                     if result != expected.model_dump(mode='json'):
                         sample["qualityErrors"].append("HTTP/revised export result mismatch")
-                    if not all(sample.get(field) is True for field in ('accountReopen', 'correctionSaved', 'correctionReopen', 'offlineAfterLogout')):
-                        sample["qualityErrors"].append("App account/correction workflow evidence incomplete")
+                    if not all(sample.get(field) is True for field in ('correctionSaved', 'correctionReopen')):
+                        sample["qualityErrors"].append("Personal import/correction workflow evidence incomplete")
                 sample["zipSha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
                 _, sample["nativeErrors"] = read_native_report(
                     output / f"{sample['name']}-native.json", {sample["name"]: sample["zipSha256"]}, 1)
@@ -300,6 +317,9 @@ async def run(output: Path, live: bool, native_binary: Path, case: str | None = 
         report["gateReasons"].append(type(exc).__name__)
         raise
     finally:
+        if preview_process and preview_process.returncode is None:
+            preview_process.terminate()
+            await preview_process.wait()
         if process and process.returncode is None:
             process.terminate()
             try:
@@ -332,7 +352,7 @@ def main() -> None:
         serve(args.synthetic)
         return
     if not args.output or not args.native_binary or not args.native_binary.is_file():
-        parser.error("--output and a precompiled release --native-binary are required")
+        parser.error("--output and a precompiled --native-binary are required")
     if args.output.exists():
         parser.error("Use a new output directory; failed/unknown imports are never replayed")
     args.output.mkdir(parents=True, mode=0o700)

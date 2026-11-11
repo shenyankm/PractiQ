@@ -226,12 +226,10 @@ enum Request {
     Settings,
     TestSettings {
         config: settings::ServiceSettings,
-        service_token: Option<String>,
         api_key: Option<String>,
     },
     SaveSettings {
         config: settings::ServiceSettings,
-        service_token: Option<String>,
         api_key: Option<String>,
     },
 }
@@ -331,20 +329,17 @@ async fn request(
         if matches!(&request, Request::Settings) {
             return settings::settings(&shared);
         }
-        if let Request::TestSettings { config, service_token, api_key } = request {
+        if let Request::TestSettings { config, api_key } = request {
             if let Some(model) = &config.model {
-                if service_token.is_some() { return Err("Use an API key for direct model access".into()); }
                 let (model, key) = settings::model_input(model, api_key, &app)?;
                 return ai::test_model_connection(&model, key);
             }
             if api_key.is_some() { return Err("Select direct model access before saving an API key".into()); }
-            let (config, key) = settings::snapshot(&shared)?
-                .connection_test_input(&app, config, service_token)?;
-            return settings::test_connection(config, key);
+            return settings::test_connection(config);
         }
-        if let Request::SaveSettings { config, service_token, api_key } = request {
-            if (config.model.is_some() && service_token.is_some()) || (config.model.is_none() && api_key.is_some()) { return Err("Credential does not match the selected grading connection".into()); }
-            return ai::save_settings(&app, &shared, config, service_token, api_key);
+        if let Request::SaveSettings { config, api_key } = request {
+            if config.model.is_none() && api_key.is_some() { return Err("Credential does not match the selected grading connection".into()); }
+            return ai::save_settings(&app, &shared, config, api_key);
         }
         let work = app.state::<ai::GradingState>();
         let _restore = if matches!(&request, Request::Restore {..}) { Some(work.restore()?) } else { None };
@@ -432,9 +427,8 @@ async fn ai_request(
     locale: Option<language::Locale>,
 ) -> std::result::Result<Value, AppError> {
     let shared = state.inner().clone();
-    let context = app.state::<cloud::State>().context();
     tauri::async_runtime::spawn_blocking(move || {
-        ai::request(app, shared, request, locale.unwrap_or_default(), context)
+        ai::request(app, shared, request, locale.unwrap_or_default())
     })
     .await
     .map_err(|e| AppError::from(e.to_string()))?

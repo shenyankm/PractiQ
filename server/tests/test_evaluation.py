@@ -533,11 +533,7 @@ def model_result() -> dict:
 
 
 def test_real_graph_runner_with_fake_model_and_store(tmp_path, monkeypatch) -> None:
-    from practiq_ai import identity
-    admission = {name: getattr(identity, name) for name in ('reserve', 'record_call', 'release')}
     path, model = setup_runner(tmp_path, monkeypatch, [model_result()] * 3)
-    for name, hook in admission.items():
-        monkeypatch.setattr(identity, name, hook)
     report = asyncio.run(ev.run_evaluation(path, repetitions=3))
     assert report["status"] == "PASSED"
     assert report["serviceCodeHash"] == ev.code_version()

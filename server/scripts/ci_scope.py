@@ -27,7 +27,7 @@ APP_INPUTS = COMMON_INPUTS + (
 )
 PATTERNS = {
     "service": COMMON_INPUTS + (
-        "server/**", "web/**", "shared/**", "app/fixtures/**", "app/scripts/check-rich-recognition.py",
+        "server/**", "shared/**", "app/fixtures/**", "app/scripts/check-rich-recognition.py",
         "Dockerfile.server", ".dockerignore", ".env.example",
     ),
     "desktop": APP_INPUTS,

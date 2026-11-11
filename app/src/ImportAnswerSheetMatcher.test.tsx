@@ -1,0 +1,72 @@
+// @vitest-environment jsdom
+import "./import-test-setup";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { expect, it, vi } from "vitest";
+import ResultReview from "../../shared/cloud/ResultReview";
+import { AnswerSheetMatcher } from "../../shared/cloud/AnswerSheetMatcher";
+import { ApiError, Client } from "../../shared/cloud/api";
+import type { DocumentAnswerMatches } from "./contracts.generated";
+import { capabilities, newTaskId, preview, question, task, summary } from "../../shared/cloud/test-fixtures";
+
+const target = question({ id: "target", parentId: null, optionSourceId: null, stem: "1. First", answerMode: "short_answer", sourceText: "1. First", answerPayload: null });
+const detail = { ...task, status: "SUCCEEDED" as const, result: { ...task.result!, questions: [target], groups: [] } };
+const supplied = question({ id: "answer", parentId: null, optionSourceId: null, stem: "1", answerMode: "short_answer", answerPayload: { text: "Printed answer" }, sourceText: "1. Printed answer" });
+const source = { ...detail, threadId: newTaskId, fileName: "answers.txt", documentRole: "answers" as const, checkpointId: "answer-cp", result: { ...detail.result, questions: [supplied] } };
+const matches: DocumentAnswerMatches = { checkpointId: task.checkpointId!, answerTaskId: newTaskId, answerCheckpointId: "answer-cp", matches: [{ questionIndex: 0, candidates: [0], status: "unique" }] };
+function fake() {
+  vi.spyOn(Client.prototype, "list").mockResolvedValue({ items: [{ ...summary, threadId: newTaskId, fileName: "answers.txt", documentRole: "answers" }], hasMore: false });
+  vi.spyOn(Client.prototype, "detail").mockResolvedValue(source);
+  vi.spyOn(Client.prototype, "answerMatches").mockResolvedValue(matches);
+  vi.spyOn(Client.prototype, "answerProposal").mockImplementation(async (_task, _index, selected) => ({ checkpointId: task.checkpointId!, answerSource: selected, question: { ...target, answerPayload: supplied.answerPayload, needsReview: true }, corrections: { checkpointId: task.checkpointId!, edits: [] } }));
+  vi.spyOn(Client.prototype, "evidence").mockRejectedValue(Error("no source page"));
+}
+it("previews a supplied answer and requires an explicit workbench save", async () => {
+  fake();
+  const save = vi.spyOn(Client.prototype, "saveCorrection").mockImplementation(async (_id, request) => ({ checkpointId: request.checkpointId, edits: [{ requestId: request.requestId, questionIndex: request.questionIndex, question: request.question, savedAt: "2026-11-06T00:00:00Z" }] }));
+  render(<ResultReview task={detail} preview={{ ...preview, units: [], corrections: { checkpointId: task.checkpointId!, edits: [] } }} client={new Client()} />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "关联答案卷" }));
+  await waitFor(() => expect(screen.getByRole("option", { name: "answers.txt" })).toBeTruthy());
+  await user.selectOptions(screen.getByRole("combobox", { name: "已完成的答案卷任务" }), newTaskId);
+  await user.click(screen.getByRole("button", { name: "读取匹配建议（不调用模型）" }));
+  expect((await screen.findAllByText("Printed answer")).length).toBeGreaterThan(0);
+  expect(save).not.toHaveBeenCalled();
+  await user.click(screen.getByRole("button", { name: "采用此答案并进入校对 · 第 1 题" }));
+  expect(await screen.findByRole("textbox", { name: "参考答案" })).toHaveProperty("value", "Printed answer");
+  await user.click(screen.getByRole("button", { name: "保存修订" }));
+  await screen.findByText(/修订已保存/);
+  expect(save.mock.calls[0][1]).toMatchObject({ answerSource: { taskId: newTaskId, checkpointId: "answer-cp", questionIndex: 0, replaceExisting: false }, question: { answerPayload: { text: "Printed answer" }, sourceText: "1. First" } });
+});
+it("does not preselect ambiguous matches and protects an existing supplied answer", async () => {
+  fake();
+  vi.mocked(Client.prototype.answerMatches).mockResolvedValue({ ...matches, matches: [{ questionIndex: 0, candidates: [0], status: "has_answer" }] });
+  const associate = vi.fn(), user = userEvent.setup();
+  render(<AnswerSheetMatcher task={detail} questions={[{ ...target, answerPayload: { text: "Original supplied answer" } }]} client={new Client()} unavailable={false} onAssociate={associate} />);
+  await screen.findByRole("option", { name: "answers.txt" });
+  await user.selectOptions(screen.getByRole("combobox", { name: "已完成的答案卷任务" }), newTaskId);
+  await user.click(screen.getByRole("button", { name: "读取匹配建议（不调用模型）" }));
+  const index = await screen.findByRole("spinbutton", { name: "第 1 题对应答案卷记录序号" });
+  expect(index).toHaveProperty("value", "");
+  await user.type(index, "1");
+  const apply = screen.getByRole("button", { name: "采用此答案并进入校对 · 第 1 题" });
+  expect(apply).toHaveProperty("disabled", true);
+  await user.click(screen.getByRole("checkbox", { name: /明确替换已有参考答案/ }));
+  await user.click(apply);
+  await waitFor(() => expect(associate).toHaveBeenCalledWith(0, expect.objectContaining({ source: expect.objectContaining({ replaceExisting: true }) }), expect.objectContaining({ edits: [] })));
+});
+it("retains an uncertain answer import for explicit retry without uploading twice", async () => {
+  fake();
+  vi.spyOn(Client.prototype, "capabilities").mockResolvedValue(capabilities);
+  const start = vi.spyOn(Client.prototype, "start").mockImplementation(async (_file, _caps, _id, stage) => { stage("starting", "22222222-2222-4222-8222-222222222222"); throw new ApiError("Unknown import", "NETWORK_ERROR"); });
+  const retry = vi.spyOn(Client.prototype, "retryImport").mockResolvedValue({ threadId: newTaskId, requestId: "22222222-2222-4222-8222-222222222222", runId: task.threadId, accepted: true });
+  render(<AnswerSheetMatcher task={detail} questions={[target]} client={new Client()} unavailable={false} onAssociate={vi.fn()} />);
+  const user = userEvent.setup();
+  await user.upload(screen.getByLabelText("选择答案卷文件"), new File(["1. B"], "answers.txt", { type: "text/plain" }));
+  await user.click(screen.getByRole("button", { name: "导入答案卷（将调用 AI）" }));
+  await screen.findByText("Unknown import");
+  expect(start.mock.calls[0].slice(-4)).toEqual([false, false, null, "answers"]);
+  await user.click(screen.getByRole("button", { name: "沿用原请求恢复答案卷导入" }));
+  await screen.findByText(/答案卷任务已创建/);
+  expect(start).toHaveBeenCalledTimes(1); expect(retry).toHaveBeenCalledTimes(1);
+});

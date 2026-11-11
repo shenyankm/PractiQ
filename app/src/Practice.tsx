@@ -30,7 +30,7 @@ type PracticeProps = {
   run: (job: () => Promise<void>) => void;
   flushRef: MutableRefObject<() => Promise<void>>;
   onNextUnattempted?: () => void;
-  onConnectAccount?: () => void;
+  onConfigureGrading?: () => void;
   gradingDrafts?: Record<string, GradingDraft>;
   onGradingDraftChange?: (ordinal: number, draft: GradingDraft) => void;
 };
@@ -98,7 +98,7 @@ export function Practice(props: PracticeProps) {
         onSession={onSession}
         run={run}
         onNextUnattempted={props.onNextUnattempted}
-        onAccount={props.onConnectAccount}
+        onConfigure={props.onConfigureGrading}
         draft={props.gradingDrafts ? props.gradingDrafts[`${session.id}:${attempt.ordinal}`] ?? { score: "", reason: "" } : undefined}
         onDraftChange={props.onGradingDraftChange ? draft => props.onGradingDraftChange?.(attempt.ordinal, draft) : undefined}
         questionContainer={gradingContainer}

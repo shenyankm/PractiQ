@@ -60,7 +60,6 @@ async def ingest(client, payload, kind, name):
     return prepared.json()["document"]
 
 
-@pytest.mark.usefixtures("business_http")
 @pytest.mark.parametrize("kind,fixture", [
     ("pdf", "pdf/text-layer.pdf"),
     ("image", "image/clean.png"),
@@ -98,7 +97,6 @@ async def test_native_binary_import_and_verified_artifacts(setup, kind, fixture,
             assert (await client.post(endpoint, json=artifact)).status_code == 409
 
 
-@pytest.mark.usefixtures("business_http")
 async def test_concurrent_native_runs_keep_distinct_usage(setup):
     _, model = setup
     model.responses *= 2

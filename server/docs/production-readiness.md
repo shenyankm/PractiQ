@@ -1,8 +1,8 @@
 # Production import boundaries and preflight
 
-This guide targets the current multi-user, single-process deployment. Keep the
+This guide targets the existing personal, single-process deployment. Keep the
 service, PostgreSQL, RabbitMQ and exporters on loopback/private interfaces; expose
-only the administrator Web and authenticated API through the trusted HTTPS entry point. Follow
+only the API behind proxy access control through the trusted HTTPS entry point. Follow
 [operations](operations.md), [delivery/recovery](rabbitmq.md) and
 [matching backups](service-backups.md). The commands below do not certify a
 deployment merely because they exist in the repository.
@@ -170,26 +170,19 @@ Use the HTTP load driver below for deployed-process evidence.
 1. Build/check the candidate and deploy it through the existing single-owner
    procedure. Retain its immutable image identity and exact checkout. Verify HTTPS
    externally, sandbox behavior, representative cgroup peaks and overload behavior.
-2. Upload a representative annotated source through the explicit App import workspace.
+2. Upload a representative annotated source through the explicit App import workflow.
    Save its `{"document": <verified DocumentReference>}` as a private load input.
    The following load command creates paid tasks: choose its count/concurrency
    deliberately and keep the existing budget/queue bounds.
 
 ```sh
 python scripts/load_test.py --base-url https://imports.example.com \
-  --email load-test@example.com --metrics-token-file /private/practiq-metrics-token \
   --environment production --image-digest sha256:<actual-image-identity> \
   --input /private/load-input.json --total 8 --submit-concurrency 2 \
   --max-running 2 --graph-concurrency 2 --output /private/capacity.json
 ```
 
-Use an existing dedicated load-test account with sufficient explicit task/page/call limits.
-The tool prompts for its password without echo, logs in with session cookies and
-CSRF, and revokes that session on exit. The `--input` source must have been uploaded
-by that same account. Upload using the App first; a source reference from another
-account is not authorization. Never put passwords or session cookies in CLI arguments.
-Monitoring uses the separate read-only token file, never the customer session.
-Both clients reject redirects and ignore ambient proxy credentials.
+The service requires no application access token; configure private HTTPS access at the proxy before production use.
 Production mode verifies the deployed service code hash and obtains its non-secret
 configuration fingerprint from the build metric before creating tasks.
 The fingerprint binds the provider, model, hashed endpoint and recorded evaluation
@@ -239,22 +232,3 @@ Exit codes are 0 (automated preflight passed), 1 (a target failed), 2 (blocked).
 Every report retains outstanding manual checks for alert delivery, dead letters
 and verified usable restoration. A preflight pass alone is not release acceptance,
 general extraction accuracy, high availability or evidence of an off-host disaster.
-
-## Monitoring authentication
-
-Set `AI_METRICS_TOKEN` in the trusted service environment to a random URL-safe
-secret of 43–128 characters (for example, generated with `secrets.token_urlsafe(32)`).
-Store the identical value in an owner-only regular file readable by Prometheus;
-configure its `authorization.credentials_file` as shown in
-[`prometheus.example.yml`](../deploy/prometheus.example.yml). Do not put the
-credential in the YAML, URLs, logs or browser storage. A missing, short or wrong
-secret fails closed; ordinary application APIs still require their own sessions.
-Only GET/HEAD `/api/metrics` accepts this credential. It cannot authenticate to
-administrator, task, upload or grading APIs and never starts model work.
-
-For rotation, create a fresh secret, update the service environment and restart
-under the existing task-drain procedure, then replace the private scraper file and
-reload Prometheus. Verify the new credential succeeds, the old one returns 401,
-and the `practiq-ai` scrape is healthy. Keep alert delivery and actual host HTTPS
-acceptance separate from synthetic authorization tests. The load tool checks
-owner-only permissions, rejects symlinks and bounds credential-file reads.

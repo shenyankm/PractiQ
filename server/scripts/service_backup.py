@@ -307,9 +307,6 @@ async def restore(db: Database, bundle: Path, output: Path, *, pg_bin: Path | No
                          '--dbname', make_conninfo(dbname=conninfo_to_dict(db.uri)['dbname']),
                          '--exit-on-error', '--single-transaction', '--no-owner', '--no-acl', str(bundle / 'database.dump'))
         await db.check_schema()
-        async with db.transaction() as conn:
-            await conn.execute('DELETE FROM auth_sessions')
-            await conn.execute('DELETE FROM auth_tokens')
     return value
 
 

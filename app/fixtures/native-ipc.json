@@ -358,8 +358,7 @@
     "defaults": {
       "config": {
         "service_url": null
-      },
-      "hasServiceToken": false
+      }
     },
     "direct": {
       "config": {
@@ -369,14 +368,12 @@
         },
         "service_url": null
       },
-      "hasApiKey": null,
-      "hasServiceToken": false
+      "hasApiKey": null
     },
     "service": {
       "config": {
         "service_url": "http://127.0.0.1:8090"
-      },
-      "hasServiceToken": null
+      }
     }
   },
   "unknownSession": {

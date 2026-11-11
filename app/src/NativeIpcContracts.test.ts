@@ -23,8 +23,7 @@ it.each(Object.entries(fixture.settings))("reads the native %s settings without 
   vi.mocked(invoke).mockResolvedValueOnce(native);
   const result = await api({ type: "settings" });
   expect(result).toEqual(native);
-  expect(missingServiceSettings(result)).toHaveLength(name === "defaults" ? 2 : 0);
-  expect(result.hasServiceToken === null || typeof result.hasServiceToken === "boolean").toBe(true);
+  expect(missingServiceSettings(result)).toHaveLength(name === "defaults" ? 1 : 0);
   expect(vi.mocked(invoke)).toHaveBeenCalledTimes(1);
   expect(vi.mocked(invoke)).toHaveBeenCalledWith("request", expect.objectContaining({ request: { type: "settings" } }));
 });

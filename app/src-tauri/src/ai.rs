@@ -108,64 +108,55 @@ impl Endpoint {
         if let Some(model) = &self.model {
             return crate::model_grading::grade(&self.client, model, &self.token, payload);
         }
-        let response = self
+        let request = self
             .client
-            .post(format!("{}/api/subjective-grades", self.origin))
-            .bearer_auth(&self.token)
+            .post(format!("{}/api/subjective-grades", self.origin));
+        let response = request
             .json(payload)
             .send()
             .map_err(|_| crate::language::error("LOCAL_SERVICE_UNAVAILABLE", json!({})))?;
-        grade_response(response, payload, |value| redact(value, &self.token))
-    }
-}
-
-fn grade_response(
-    response: Response,
-    payload: &Value,
-    redact_response: impl FnOnce(Value) -> Value,
-) -> Result<Value> {
-    let status = response.status();
-    let value = redact_response(read_json(response, contract::MAX_JSON)?);
-    if !status.is_success() {
-        let detail = &value["detail"];
-        let code = detail["code"]
-            .as_str()
-            .filter(|code| {
-                !code.is_empty()
-                    && code.len() <= 64
-                    && code
-                        .chars()
-                        .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
-            })
-            .unwrap_or("SERVICE_ERROR");
-        let message: String = detail["message"]
-            .as_str()
-            .or_else(|| detail.as_str())
-            .unwrap_or("AI service returned an error")
-            .chars()
-            .take(4096)
-            .collect();
-        let mut error = AppError::new(code, message.clone());
-        if detail["params"].to_string().len() <= 16 * 1024 {
-            error.params = Box::new(detail["params"].clone());
-        }
-        error.diagnostic = Some(message.into_boxed_str());
-        error.http_status = Some(status.as_u16());
-        return Err(error);
-    }
-    crate::exams::validate_grade_details(&value)?;
-    if value.get("result").is_some_and(|r| !r.is_null()) {
-        let input: Value = serde_json::from_str(
-            payload["payload"]
+        let status = response.status();
+        let value = redact(read_json(response, contract::MAX_JSON)?, &self.token);
+        if !status.is_success() {
+            let detail = &value["detail"];
+            let code = detail["code"]
                 .as_str()
-                .ok_or("Missing grading payload")?,
-        )
-        .map_err(|_| crate::language::error("LOCAL_RESPONSE_INVALID", json!({})))?;
-        crate::contract::grade_evidence(&value["result"], &input)?;
+                .filter(|code| {
+                    !code.is_empty()
+                        && code.len() <= 64
+                        && code
+                            .chars()
+                            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_')
+                })
+                .unwrap_or("SERVICE_ERROR");
+            let message: String = detail["message"]
+                .as_str()
+                .or_else(|| detail.as_str())
+                .unwrap_or("AI service returned an error")
+                .chars()
+                .take(4096)
+                .collect();
+            let mut error = AppError::new(code, message.clone());
+            if detail["params"].to_string().len() <= 16 * 1024 {
+                error.params = Box::new(detail["params"].clone());
+            }
+            error.diagnostic = Some(message.into_boxed_str());
+            error.http_status = Some(status.as_u16());
+            return Err(error);
+        }
+        crate::exams::validate_grade_details(&value)?;
+        if value.get("result").is_some_and(|r| !r.is_null()) {
+            let input: Value = serde_json::from_str(
+                payload["payload"]
+                    .as_str()
+                    .ok_or("Missing grading payload")?,
+            )
+            .map_err(|_| crate::language::error("LOCAL_RESPONSE_INVALID", json!({})))?;
+            crate::contract::grade_evidence(&value["result"], &input)?;
+        }
+        Ok(value)
     }
-    Ok(value)
 }
-
 pub(crate) fn redact(value: Value, token: &str) -> Value {
     if token.is_empty() {
         return value;
@@ -200,13 +191,13 @@ pub(crate) fn read_json(response: Response, limit: usize) -> Result<Value> {
         .map_err(|_| crate::language::error("LOCAL_RESPONSE_INVALID", json!({})))
 }
 
-pub fn test_connection(origin: &str, token: String) -> Result<Value> {
-    let endpoint = Endpoint::new(origin.to_owned(), token)?;
-    let response = endpoint
+pub fn test_connection(origin: &str) -> Result<Value> {
+    let endpoint = Endpoint::new(origin.to_owned(), String::new())?;
+    let request = endpoint
         .client
         .request(Method::GET, format!("{origin}/api/maintenance"))
-        .timeout(Duration::from_secs(15))
-        .bearer_auth(&endpoint.token)
+        .timeout(Duration::from_secs(15));
+    let response = request
         .send()
         .map_err(|_| crate::language::error("LOCAL_CONNECTION_FAILED", json!({})))?;
     if !response.status().is_success() {
@@ -230,7 +221,6 @@ pub fn save_settings(
     app: &tauri::AppHandle,
     shared: &Shared,
     config: settings::ServiceSettings,
-    service_token: Option<String>,
     api_key: Option<String>,
 ) -> Result<Value> {
     let state = app.state::<GradingState>();
@@ -238,7 +228,7 @@ pub fn save_settings(
     if config.model.is_some() {
         return settings::model_settings(shared, config, api_key, app);
     }
-    settings::snapshot(shared)?.save_settings(app, config, service_token)
+    settings::snapshot(shared)?.save_settings(config)
 }
 
 pub fn test_model_connection(model: &settings::ConnectionSettings, key: String) -> Result<Value> {
@@ -314,94 +304,14 @@ fn grade(
         )
 }
 
-fn grade_account(
-    shared: &Shared,
-    state: &crate::cloud::State,
-    account: &crate::cloud::Snapshot,
-    request: AiRequest,
-    locale: crate::language::Locale,
-) -> Result<Value> {
-    let AiRequest::Grade {
-        id,
-        ordinal,
-        retry,
-        snapshot_key,
-    } = request;
-    state.current(account)?;
-    let target =
-        json!({"kind":"account","serviceUrl":account.origin,"credentialHash":account.identity()});
-    let payload = shared
-        .lock()
-        .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
-        .prepare_grade_target(&id, ordinal, retry, locale, Some(&target))?;
-    let response = (|| {
-        state.current(account)?;
-        let response = account.send(
-            Method::POST,
-            "/api/subjective-grades",
-            Some(payload.clone()),
-            None,
-        )?;
-        grade_response(response, &payload, |value| account.redact(value))
-    })();
-    // Keep the account stable until the local receipt and score are committed.
-    let current = state.current_guard(account);
-    let changed = current.as_ref().err().cloned();
-    let response = changed.as_ref().map_or(response, |error| Err(error.clone()))
-        .unwrap_or_else(|error| json!({"status":"unknown","error":error.message,"appError":error,"usageStatus":"unknown"}));
-    let result = shared
-        .lock()
-        .map_err(|_| crate::language::error("LOCAL_DATABASE_UNAVAILABLE", json!({})))?
-        .record_grade_with_key(
-            &id,
-            ordinal,
-            contract::text(&payload, "requestId"),
-            &response,
-            snapshot_key.as_deref(),
-        )?;
-    drop(current);
-    if let Some(error) = changed {
-        return Err(error);
-    }
-    Ok(result)
-}
-
-fn managed_account(
-    account: Result<Option<crate::cloud::Snapshot>>,
-    legacy: impl FnOnce() -> Result<settings::ServiceSettings>,
-) -> Result<Option<crate::cloud::Snapshot>> {
-    match account {
-        Ok(account) => Ok(account.filter(crate::cloud::Snapshot::has_session)),
-        Err(error) => {
-            if error.code != "CLOUD_ACCOUNT_CHANGED" && legacy()?.model.is_some() {
-                Ok(None)
-            } else {
-                Err(error)
-            }
-        }
-    }
-}
-
 pub fn request(
     app: tauri::AppHandle,
     shared: Shared,
     request: AiRequest,
     locale: crate::language::Locale,
-    context: Result<Option<crate::cloud::Context>>,
 ) -> Result<Value> {
     let state = app.state::<GradingState>();
     let _grading = state.enter()?;
-    let cloud = app.state::<crate::cloud::State>();
-    let account = context.and_then(|context| {
-        context
-            .map(|context| cloud.snapshot(&app, &context, false))
-            .transpose()
-    });
-    if let Some(account) =
-        managed_account(account, || settings::snapshot(&shared)?.service_settings())?
-    {
-        return grade_account(&shared, &cloud, &account, request, locale);
-    }
     let store = settings::snapshot(&shared)?;
     let config = store.service_settings()?;
     let AiRequest::Grade {
@@ -427,8 +337,8 @@ pub fn request(
         endpoint.model = Some(model);
         endpoint
     } else {
-        let (origin, token) = store.grading_input(&app)?;
-        Endpoint::new(origin, token)?
+        let origin = store.grading_input()?;
+        Endpoint::new(origin, String::new())?
     };
     grade(
         &shared,
@@ -480,9 +390,13 @@ mod tests {
             }
             let headers = String::from_utf8(headers).unwrap();
             assert_eq!(headers.lines().next(), Some(path));
-            assert!(headers
-                .to_lowercase()
-                .contains(&format!("authorization: bearer {token}")));
+            if token.is_empty() || path.contains("/api/") {
+                assert!(!headers.to_lowercase().contains("authorization:"));
+            } else {
+                assert!(headers
+                    .to_lowercase()
+                    .contains(&format!("authorization: bearer {token}")));
+            }
             let length = headers
                 .lines()
                 .find_map(|line| {
@@ -616,7 +530,7 @@ mod tests {
     }
 
     #[test]
-    fn connects_with_service_auth_without_model_calls_or_redirects() {
+    fn connects_to_personal_service_without_credentials_model_calls_or_redirects() {
         for (status, body, code) in [
             ("200 OK", r#"{"enabled":false}"#, None),
             (
@@ -633,7 +547,7 @@ mod tests {
             ("200 OK", "not json", Some("LOCAL_CONNECTION_RESPONSE")),
         ] {
             let (origin, handle) = server(status, body.into(), "GET /api/maintenance HTTP/1.1");
-            let result = test_connection(&origin, "test-service-token".into());
+            let result = test_connection(&origin);
             if let Some(code) = code {
                 let error = result.unwrap_err();
                 assert_eq!(error.code, code);
@@ -1417,108 +1331,29 @@ mod tests {
         drop(configure);
         assert!(state.enter().is_ok());
     }
-    fn account_server(
-        status: &'static str,
-        body: String,
-    ) -> (
-        String,
-        std::thread::JoinHandle<Value>,
-        std::sync::mpsc::Sender<()>,
-        std::sync::mpsc::Receiver<()>,
-    ) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let origin = format!("http://{}", listener.local_addr().unwrap());
-        let (release, wait) = std::sync::mpsc::channel();
-        let (started, received) = std::sync::mpsc::channel();
-        let handle = std::thread::spawn(move || {
-            let (mut stream, _) = listener.accept().unwrap();
-            stream
-                .set_read_timeout(Some(Duration::from_secs(5)))
-                .unwrap();
-            let mut headers = Vec::new();
-            while !headers.ends_with(b"\r\n\r\n") {
-                let mut byte = [0];
-                stream.read_exact(&mut byte).unwrap();
-                headers.push(byte[0]);
-            }
-            let headers = String::from_utf8(headers).unwrap().to_lowercase();
-            assert!(headers.starts_with("post /api/subjective-grades http/1.1\r\n"));
-            assert!(headers
-                .contains(&format!("cookie: practiq_session={}", "A".repeat(43)).to_lowercase()));
-            assert!(headers.contains(&format!("x-csrf-token: {}", "a".repeat(64))));
-            assert!(!headers.contains("authorization:"));
-            let length = headers
-                .lines()
-                .find_map(|line| {
-                    line.strip_prefix("content-length: ")
-                        .and_then(|n| n.parse::<usize>().ok())
-                })
-                .unwrap();
-            let mut data = vec![0; length];
-            stream.read_exact(&mut data).unwrap();
-            started.send(()).unwrap();
-            wait.recv_timeout(Duration::from_secs(5)).unwrap();
-            write!(
-                stream,
-                "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                body.len()
-            )
-            .unwrap();
-            serde_json::from_slice(&data).unwrap()
-        });
-        (origin, handle, release, received)
-    }
-    fn account_request(id: &str, retry: bool) -> AiRequest {
-        AiRequest::Grade {
-            id: id.into(),
-            ordinal: 0,
-            retry,
-            snapshot_key: None,
-        }
-    }
     #[test]
-    fn optional_cloud_failures_preserve_direct_grading_and_unknown_cloud_configuration() {
-        let (dir, shared, id) = submitted();
-        let path = dir.path().join("account-service-v1.json");
-        let bytes = br#"{"version":99,"origin":"https://cloud.example.test"}"#;
-        std::fs::write(&path, bytes).unwrap();
-        let cloud = crate::cloud::State::new(dir.path().to_owned());
-        let config = settings::ServiceSettings {
-            model: direct("https://model.example.test".into()).model,
-            ..Default::default()
-        };
-        assert!(
-            managed_account(cloud.context().map(|_| None), || Ok(config.clone()))
-                .unwrap()
-                .is_none()
+    fn personal_service_checks_and_grading_need_no_account_token() {
+        let (origin, server) = server_response(
+            "200 OK",
+            json!({"enabled": false}).to_string(),
+            "GET /api/maintenance HTTP/1.1",
+            "",
+            None,
         );
-        for code in ["CLOUD_CREDENTIAL_INVALID", "LOCAL_KEYCHAIN_READ"] {
-            assert!(
-                managed_account(Err(crate::cloud::error(code)), || Ok(config.clone()))
-                    .unwrap()
-                    .is_none()
-            );
-            assert_eq!(
-                managed_account(Err(crate::cloud::error(code)), || Ok(Default::default()))
-                    .err()
-                    .unwrap()
-                    .code,
-                code
-            );
-        }
-        assert_eq!(
-            managed_account(Err(crate::cloud::error("CLOUD_ACCOUNT_CHANGED")), || Ok(
-                config
-            ))
-            .err()
-            .unwrap()
-            .code,
-            "CLOUD_ACCOUNT_CHANGED"
+        test_connection(&origin).unwrap();
+        server.join().unwrap();
+        let (_dir, shared, id) = submitted();
+        let (origin, server) = server_response(
+            "200 OK",
+            json!({"status":"graded","result":scored(600)}).to_string(),
+            "POST /api/subjective-grades HTTP/1.1",
+            "",
+            None,
         );
-        let (origin, server) = server("200 OK", completion(), "POST /chat/completions HTTP/1.1");
+        let endpoint = Endpoint::new(origin, String::new()).unwrap();
         let session = grade(
             &shared,
-            &direct(origin),
+            &endpoint,
             &id,
             0,
             false,
@@ -1526,138 +1361,7 @@ mod tests {
             crate::language::Locale::Chinese,
         )
         .unwrap();
-        assert!(session["attempts"][0]["earnedCents"].is_number());
-        server.join().unwrap();
-        assert_eq!(std::fs::read(path).unwrap(), bytes);
-    }
-    #[test]
-    fn account_grading_uses_native_cookie_csrf_and_no_separate_grading_settings() {
-        let (dir, shared, id) = submitted();
-        let (origin, server, release, _received) = account_server(
-            "200 OK",
-            json!({"status":"graded","result":scored(600)}).to_string(),
-        );
-        let (state, account) = crate::cloud::test_account(dir.path(), &origin, &"A".repeat(43));
-        release.send(()).unwrap();
-        let session = grade_account(
-            &shared,
-            &state,
-            &account,
-            account_request(&id, false),
-            crate::language::Locale::Chinese,
-        )
-        .unwrap();
         assert_eq!(session["attempts"][0]["earnedCents"], 600);
         assert!(server.join().unwrap()["requestId"].is_string());
-        assert!(!dir.path().join("service-settings-v1.sqlite").exists());
-    }
-    #[test]
-    fn account_grading_redacts_credentials_and_requires_explicit_retry_after_login_changes() {
-        let (dir, shared, id) = submitted();
-        let token = "A".repeat(43);
-        let message = format!("practiq_session={token} {}", "a".repeat(64));
-        let (origin, server, release, _received) = account_server(
-            "401 Unauthorized",
-            json!({"detail":{"code":"LOGIN_REQUIRED","message":message}}).to_string(),
-        );
-        let (state, account) = crate::cloud::test_account(dir.path(), &origin, &token);
-        release.send(()).unwrap();
-        let session = grade_account(
-            &shared,
-            &state,
-            &account,
-            account_request(&id, false),
-            crate::language::Locale::Chinese,
-        )
-        .unwrap();
-        let first = server.join().unwrap();
-        assert_eq!(
-            session["attempts"][0]["grading"]["lastRequest"]["appError"]["code"],
-            "LOGIN_REQUIRED"
-        );
-        assert!(!session.to_string().contains(&token));
-        assert!(!session.to_string().contains(&"a".repeat(64)));
-        let (next_state, next_account) =
-            crate::cloud::test_account(dir.path(), &origin, &"B".repeat(43));
-        assert_eq!(
-            grade_account(
-                &shared,
-                &next_state,
-                &next_account,
-                account_request(&id, false),
-                crate::language::Locale::Chinese
-            )
-            .unwrap_err()
-            .code,
-            "LOCAL_GRADING_TARGET_CHANGED"
-        );
-        let retried = grade_account(
-            &shared,
-            &next_state,
-            &next_account,
-            account_request(&id, true),
-            crate::language::Locale::Chinese,
-        )
-        .unwrap();
-        assert_ne!(
-            retried["attempts"][0]["grading"]["lastRequest"]["requestId"],
-            first["requestId"]
-        );
-        assert_eq!(
-            retried["attempts"][0]["grading"]["lastRequest"]["status"],
-            "unknown"
-        );
-    }
-    #[test]
-    fn account_changes_during_grading_preserve_unknown_receipts_without_applying_old_scores() {
-        let (dir, shared, id) = submitted();
-        let (origin, server, release, received) = account_server(
-            "200 OK",
-            json!({"status":"graded","result":scored(600)}).to_string(),
-        );
-        let (state, account) = crate::cloud::test_account(dir.path(), &origin, &"A".repeat(43));
-        let state = Arc::new(state);
-        let pending_state = state.clone();
-        let pending_shared = shared.clone();
-        let pending_id = id.clone();
-        let pending = std::thread::spawn(move || {
-            grade_account(
-                &pending_shared,
-                &pending_state,
-                &account,
-                account_request(&pending_id, false),
-                crate::language::Locale::Chinese,
-            )
-        });
-        received.recv_timeout(Duration::from_secs(5)).unwrap();
-        let pending_receipts: i64 = shared
-            .lock()
-            .unwrap()
-            .connect()
-            .unwrap()
-            .query_row(
-                "SELECT count(*) FROM grade_requests WHERE session_id=?1 AND response IS NULL",
-                [&id],
-                |row| row.get(0),
-            )
-            .unwrap();
-        assert_eq!(pending_receipts, 1);
-        state.lock().unwrap().epoch += 1;
-        release.send(()).unwrap();
-        server.join().unwrap();
-        assert_eq!(
-            pending.join().unwrap().unwrap_err().code,
-            "CLOUD_ACCOUNT_CHANGED"
-        );
-        let session = shared.lock().unwrap().session(&id).unwrap();
-        assert!(session["attempts"][0]["earnedCents"].is_null());
-        assert_eq!(
-            session["attempts"][0]["grading"]["lastRequest"]["status"],
-            "unknown"
-        );
-        assert_eq!(
-            session["attempts"][0]["grading"]["lastRequest"]["appError"]["code"],
-            "CLOUD_ACCOUNT_CHANGED"
-        );
     }
 }

@@ -1,8 +1,8 @@
-// Built App + real account/HTTP/queue/storage; only native IPC and providers are substitutes.
+// Built App + personal HTTP/queue/storage; only native IPC and providers are substitutes.
 import { chromium, request } from '../node_modules/playwright/index.mjs';
 import { expect } from '../node_modules/playwright/test.mjs';
 import { readFile, writeFile } from 'node:fs/promises';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -14,13 +14,13 @@ try {
   for (const name of ['txt','md','png']) {
     if (process.env.PRACTIQ_WORKFLOW_CASE && name !== process.env.PRACTIQ_WORKFLOW_CASE) continue;
     const api = await request.newContext({baseURL:base, maxRedirects:0});
-    let csrf = '', generation = 1, detail = null, creates = 0, uploads = 0;
+    let generation = 1, detail = null, creates = 0, uploads = 0;
     const sample = {name,requests:[],phasesMs:{},error:null}; samples.push(sample);
     const payload = await readFile(path.join(output,'sources',`quiz.${name}`));
     const mediaType = name==='png'?'image/png':name==='md'?'text/markdown':'text/plain';
     async function forward(p, method='GET', body) {
       if (!p.startsWith('/api/') || p.includes('://') || p.includes('\\')) throw Error('Invalid acceptance API path');
-      const response = await api.fetch(p,{method,headers:{'X-CSRF-Token':csrf},...(body===undefined?{}:{data:body}),maxRedirects:0});
+      const response = await api.fetch(p,{method,...(body===undefined?{}:{data:body}),maxRedirects:0});
       sample.requests.push({method,path:p.split('?')[0],status:response.status()});
       if (method==='POST'&&p==='/api/document-tasks') { creates++; sample.threadId=(await response.json()).threadId; }
       if (method==='GET'&&/^\/api\/document-tasks\/[^/]+$/.test(p)) detail=await response.json();
@@ -47,15 +47,10 @@ try {
         let value;
         if(r.type==='status') value={origin:base,generation};
         else {
-          if(args.context?.origin!==base || r.type!=='fetch' && args.context?.generation!==generation) throw Error('Stale account context');
+          if(args.context?.origin!==base || args.context?.generation!==generation) throw Error('Stale service context');
           if(r.type==='fetch') {
-            if(r.path!=='/api/auth/session' && args.context?.generation!==generation) throw Error('Stale generation');
             const response=await forward(r.path,r.method||'GET',r.body===null?undefined:r.body);
             let bytes=await response.body();
-            if(['/api/auth/session','/api/auth/login','/api/auth/register'].includes(r.path)&&response.ok()) {
-              const data=JSON.parse(bytes); csrf=data.csrf; data.csrf=''; if(response.headers()['set-cookie']) generation++; bytes=Buffer.from(JSON.stringify(data));
-            }
-            if(r.path==='/api/auth/logout') {csrf='';generation++;}
             value={status:response.status(),mediaType:response.headers()['content-type']||'',bytes:bytes.toString('base64')};
           } else if(r.type==='pick_sources') value=[{name:`quiz.${name}`,size:payload.length,nativeTicket:'selected-source'}];
           else if(r.type==='upload') {
@@ -63,7 +58,7 @@ try {
             uploads++;
             const response=await forward('/api/uploads','POST',{fileName:`quiz.${name}`,sourceType:name==='png'?'image':name==='md'?'markdown':'text',mediaType,sizeBytes:payload.length,sha256:createHash('sha256').update(payload).digest('hex')});
             expect(response.status()).toBe(201); const prepared=await response.json();
-            if(prepared.upload) {const put=await api.put(prepared.upload.url,{data:payload,headers:{...prepared.upload.headers,'X-CSRF-Token':csrf},maxRedirects:0});expect(put.ok()).toBe(true);}
+            if(prepared.upload) {const put=await api.put(prepared.upload.url,{data:payload,headers:prepared.upload.headers,maxRedirects:0});expect(put.ok()).toBe(true);}
             value=prepared.document;
           } else if(r.type==='download') {
             expect(r.path).toMatch(/^\/api\/document-tasks\/[a-f0-9-]+\/export\?/);
@@ -75,18 +70,13 @@ try {
         return {value,generation};
       });
       await page.addInitScript(()=>{window.isTauri=false;window.__TAURI_INTERNALS__={invoke:(command,args)=>window.__acceptInvoke(command,args)};});
-      await page.goto(base);console.log(name, 'opened built App');return {page,context};
+      await page.goto(process.env.PRACTIQ_ACCEPT_APP_URL);console.log(name, 'opened built App');return {page,context};
     }
     let current;
     try {
       const started=performance.now(); current=await open();let {page}=current;
-      await page.locator('#app-sidebar').getByRole('button',{name:'个人中心',exact:true}).click();
-      await page.getByRole('button',{name:'注册账户',exact:true}).click();
-      await page.getByLabel('登录邮箱',{exact:true}).fill(`accept-${randomUUID()}@example.test`);
-      await page.getByLabel('密码（至少 12 字符）',{exact:true}).fill('isolated-acceptance-password');
-      await page.getByRole('button',{name:'注册并登录',exact:true}).click();
-      await page.getByRole('button',{name:'导入工作区',exact:true}).click();
-      await page.getByRole('button',{name:'选择云端导入文件',exact:true}).click();
+      await page.locator('#app-sidebar').getByRole('button',{name:'文档导入',exact:true}).click();
+      await page.getByRole('button',{name:'选择文档',exact:true}).click();
       await expect(page.getByRole('button',{name:'开始导入',exact:true})).toBeEnabled();
       expect(uploads).toBe(0);expect(creates).toBe(0);
       await page.getByRole('button',{name:'开始导入',exact:true}).click();
@@ -111,9 +101,9 @@ try {
       await writeFile(path.join(output,`${name}-detail.json`),JSON.stringify(detail,null,2)+'\n');
       await page.screenshot({path:path.join(output,`${name}-result.png`),fullPage:true});
       await current.context.close();current=await open();page=current.page;
-      await page.locator('#app-sidebar').getByRole('button',{name:'个人中心',exact:true}).click();
-      await expect(page.getByRole('region',{name:'个人信息'})).toBeVisible();
-      expect(creates).toBe(1);expect(uploads).toBe(1);sample.accountReopen=true;
+      await page.locator('#app-sidebar').getByRole('button',{name:'文档导入',exact:true}).click();
+      await expect(page.getByRole('link',{name:'导入记录',exact:true})).toBeVisible();
+      expect(creates).toBe(1);expect(uploads).toBe(1);sample.serviceReopen=true;
       const reopened = await (await forward(`/api/document-tasks/${sample.threadId}/corrections`)).json();
       expect(reopened).toEqual(saved);
       const after = await (await forward(`/api/document-tasks/${sample.threadId}`)).json();
@@ -123,10 +113,8 @@ try {
       await writeFile(path.join(output,`${name}-native.log`),native.stdout+native.stderr);
       const rows=JSON.parse(await readFile(path.join(output,`${name}-native.json`),'utf8'));expect(rows).toHaveLength(1);expect(rows[0]).toMatchObject({name,repetition:0,reopen:true,backupRestore:true});
       sample.modelCalls=detail.usage.length;sample.unknownCalls=detail.unknownUsageCalls;expect(sample.unknownCalls).toEqual([]);
-      await page.getByRole('button',{name:'退出登录',exact:true}).click();
-      await expect(page.getByRole('heading',{name:'登录 PractiQ',exact:true})).toBeVisible();
       await page.locator('#app-sidebar').getByRole('button',{name:'我的题库',exact:true}).click();
-      await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();sample.offlineAfterLogout=true;
+      await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();sample.offlineAfterImport=true;
     } catch(error) {sample.error=String(error.message).slice(0,1200);if(detail)await writeFile(path.join(output,`${name}-detail.json`),JSON.stringify(detail,null,2)+'\n');}
     finally {await current?.context.close();await api.dispose();await writeFile(path.join(output,'browser.json'),JSON.stringify({samples},null,2)+'\n');}
   }

@@ -48,6 +48,5 @@ represent an application mode. Screenshots use the same App components and theme
 `shared/browser-evidence.mjs` finishes animations and records the rendered theme,
 language and viewport without hiding application controls.
 
-Administrator Web screenshots use `npm --prefix web run test:browser` with
-substituted HTTP responses. Web remains administrator-only; it does not provide
-a customer preview application.
+The embedded import workspace is covered by `npm --prefix app run test:browser`
+with substituted native IPC and HTTP responses. No separate Web frontend is shipped.

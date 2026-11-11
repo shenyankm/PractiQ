@@ -21,16 +21,10 @@ DEAD_QUEUE = QUEUE + '.dead'
 DEAD_EXCHANGE = QUEUE + '.dlx'
 VERSION_HEADER = 'practiq-version'
 PUBLISH_TIMEOUT = 5
-# Bound the premium head start: old standard work eventually outranks new Pro work.
 DISPATCH_SQL = """
 SELECT o.run_id,o.created_at FROM document_outbox o
 JOIN document_runs r USING(run_id) JOIN document_tasks t USING(thread_id)
-WHERE o.published_at IS NULL
-ORDER BY o.created_at - CASE WHEN EXISTS (
- SELECT 1 FROM page_grants g WHERE g.owner_id=t.owner_id AND g.state='active'
- AND g.expires_at>now() AND g.product->>'id'='pro'
-) THEN interval '2 minutes' ELSE interval '0' END,o.run_id
-LIMIT %s
+WHERE o.published_at IS NULL ORDER BY o.created_at,o.run_id LIMIT %s
 """
 
 

@@ -29,11 +29,7 @@ import {
   Play,
   BookmarkX,
   CalendarCheck,
-  UserRound,
 } from "lucide-react";
-import { cloudRequest, nativeCloudBridge, type CloudStatus } from "./cloudTransport";
-import { nativeBridge, setNativeBridge } from "../../shared/cloud/transport";
-import type { AccountSession, AccountUser } from "./contracts.generated";
 import { toast } from "./notifications";
 import { canCloseWindow, useUnsavedChanges } from "./useUnsavedChanges";
 import type { GradingDraft } from "./ExamResults";
@@ -82,6 +78,7 @@ const AnswerInput = lazy(() => import("./AnswerInput").then(module => ({default:
 const QuestionEditor = lazy(() => import("./QuestionEditor").then(module => ({default:module.QuestionEditor})));
 const Practice = lazy(() => import("./Practice").then(module => ({default:module.Practice})));
 const ImportBankDialog = lazy(() => import("./ImportBankDialog").then(module => ({default:module.ImportBankDialog})));
+const ConnectionSettingsPanel = lazy(() => import("./ConnectionSettings").then(module => ({ default: module.ConnectionSettingsPanel })));
 const CloudPage = lazy(() => import("./CloudPage").then(module => ({default:module.CloudPage})));
 const SettingsPage = lazy(() => import("./SettingsPage").then(module => ({default:module.SettingsPage})));
 const BankList = lazy(() => import("./BankList").then(module => ({default:module.BankList})));
@@ -95,8 +92,7 @@ type Page =
   | "favorite"
   | "history"
   | "cloud"
-  | "account"
-  | "plans"
+  | "service-settings"
   | "settings"
   | "practice";
 function SidebarButton({ collapsed, label, description, children, className = "", ...props }: ComponentProps<typeof Button> & { collapsed: boolean; label: string; description?: string }) {
@@ -134,38 +130,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
   const [languageOpen, setLanguageOpen] = useState(false);
   const languageTrigger = useRef<HTMLButtonElement>(null);
   const [page, setPage] = useState<Page>("banks");
-  const [accountSummary, setAccountSummary] = useState<{ status: "loading" | "disconnected" | "signedOut" | "ready" | "unavailable"; user?: AccountUser | null }>({ status: "loading" });
-  useEffect(() => {
-    let active = true, revision = 0;
-    async function refresh() {
-      const current = ++revision;
-      setAccountSummary({ status: "loading" });
-      try {
-        const status = await cloudRequest<CloudStatus>({ type: "status" });
-        if (!active || current !== revision) return;
-        if (!status.origin) { setAccountSummary({ status: "disconnected" }); return; }
-        const existing = nativeBridge();
-        const bridge = existing?.origin === status.origin ? existing : nativeCloudBridge(status.origin, status.generation);
-        // Anonymous session reads rotate native generations; share the portal's context.
-        setNativeBridge(bridge);
-        const response = await bridge.fetch("/api/auth/session", { method: "GET", cache: "no-store" });
-        if ([401, 403].includes(response.status)) {
-          if (active && current === revision) setAccountSummary({ status: "signedOut" });
-          return;
-        }
-        if (!response.ok) throw new Error("Account unavailable");
-        const session = await response.json() as AccountSession;
-        if (active && current === revision) setAccountSummary({ status: session.user ? "ready" : "signedOut", user: session.user });
-      } catch { if (active && current === revision) setAccountSummary({ status: "unavailable" }); }
-    }
-    const expired = () => { ++revision; setAccountSummary({ status: "signedOut" }); };
-    const channel = new BroadcastChannel("practiq-account");
-    channel.onmessage = () => { void refresh(); };
-    window.addEventListener("practiq-cloud-account-changed", refresh);
-    window.addEventListener("practiq-session-expired", expired);
-    void refresh();
-    return () => { active = false; ++revision; channel.close(); window.removeEventListener("practiq-cloud-account-changed", refresh); window.removeEventListener("practiq-session-expired", expired); setNativeBridge(null); };
-  }, []);
   const pageHeading = useRef<HTMLHeadingElement>(null);
   const previousPage = useRef<Page>(page);
   const [restoreOpen, setRestoreOpen] = useState(false);
@@ -323,7 +287,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     if (next === "banks" || next === "history") setListRevision(v => v + 1);
   }
   function navigate(next: Page, bankId: string | null = null, showRestore = false) {
-    if ((page === "cloud" || page === "account" || page === "plans") && !document.dispatchEvent(new Event("practiq-cloud-before-leave", { cancelable: true }))) return;
+    if ((page === "cloud") && !document.dispatchEvent(new Event("practiq-cloud-before-leave", { cancelable: true }))) return;
     run(() => transitionTo(next, bankId, showRestore));
   }
   function openSession(id: string) {
@@ -351,7 +315,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               ? t("练习记录")
               : page === "practice"
                 ? t(session && (session.finishedAt != null || (session.kind && session.kind !== "practice" && session.submittedAt != null)) ? "练习回顾" : session?.kind === "mock_exam" ? "模拟考试" : session?.kind === "self_test" ? "自主测验" : "专注练习")
-                : page === "cloud" ? t("文档导入") : page === "account" ? t("个人中心") : page === "plans" ? t("套餐与额度") : t("设置");
+                : page === "cloud" ? t("文档导入") : page === "service-settings" ? t("AI 服务") : t("设置");
   const loadingView = <p role="status" className="p-4 text-sm text-muted-foreground">{t("加载中…")}</p>;
   const listPage = ["questions", "wrong", "favorite"].includes(page);
   const languageError = language.error != null && <div role="alert" className="text-xs text-destructive"><p>{t(language.error.key)}</p><ErrorNotice error={language.error.cause} /><Button size="sm" variant="outline" disabled={language.saving || busy} onClick={() => {
@@ -397,7 +361,6 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           ))}
         </nav>
         <div className="mt-auto space-y-4 pt-6">
-          {import.meta.env.VITE_DEMO_MODE !== "true" && <SidebarButton collapsed={sidebarCollapsed} label={t("个人中心")} description={accountSummary.status === "ready" ? accountSummary.user?.name || accountSummary.user?.email : t(accountSummary.status === "loading" ? "读取账户状态…" : accountSummary.status === "disconnected" ? "未连接云端" : accountSummary.status === "signedOut" ? "未登录" : "账户状态暂不可用")} aria-current={page === "account" ? "page" : undefined} disabled={busy} onClick={() => navigate("account")}><UserRound /></SidebarButton>}
           <div className="space-y-2">
             <DropdownMenu open={themeOpen} onOpenChange={setThemeOpen}>
               <DropdownMenuTrigger asChild>
@@ -432,8 +395,8 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
           <SidebarButton
             collapsed={sidebarCollapsed}
             label={t("设置")}
-            variant={page === "settings" || page === "plans" ? "secondary" : "ghost"}
-            aria-current={page === "settings" || page === "plans" ? "page" : undefined}
+            variant={page === "settings" || page === "service-settings" ? "secondary" : "ghost"}
+            aria-current={page === "settings" || page === "service-settings" ? "page" : undefined}
             disabled={busy}
             onClick={() => navigate("settings")}
           >
@@ -480,7 +443,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 <ArrowLeft />
               </Button>
             )}
-            {page === "plans" && <Button size={gradingReturn ? "default" : "icon"} variant="ghost" aria-label={gradingReturn ? t("返回评分") : t("返回设置")} disabled={busy} onClick={() => gradingReturn ? openSession(gradingReturn) : navigate("settings")}><ArrowLeft />{gradingReturn && t("返回评分")}</Button>}
+            {page === "service-settings" && <Button size={gradingReturn ? "default" : "icon"} variant="ghost" aria-label={gradingReturn ? t("返回评分") : t("返回设置")} disabled={busy} onClick={() => gradingReturn ? openSession(gradingReturn) : navigate("settings")}><ArrowLeft />{gradingReturn && t("返回评分")}</Button>}
             <div className="min-w-0">
               <h1 ref={pageHeading} tabIndex={-1} className="break-words text-xl font-semibold tracking-tight outline-none md:text-2xl">
                 {heading}
@@ -588,13 +551,14 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
                 else delete next[key];
                 return next;
               })}
-              onConnectAccount={() => run(async () => { await flushRef.current(); setGradingReturn(session.id); setPage("plans"); })}
+              onConfigureGrading={() => run(async () => { await flushRef.current(); setGradingReturn(session.id); setPage("service-settings"); })}
               onNextUnattempted={session.bankIds?.some(id => banks.some(b => b.id === id)) ? () => setPracticeSetup({ bank: null, bankIds: session.bankIds!.filter(id => banks.some(b => b.id === id)), filter: "unattempted" }) : undefined}
             />
           )}
-          {(page === "cloud" || page === "account" || page === "plans") && <CloudPage key={page} initialPage={page === "account" ? "account" : page === "plans" ? "plans" : "workspace"} />}
+          {(page === "cloud") && <CloudPage />}
+          {page === "service-settings" && <div className="max-w-3xl space-y-6"><ConnectionSettingsPanel key={settingsRevision} busy={busy} run={run} flushRef={flushRef} /></div>}
           {page === "settings" && (
-            <SettingsPage busy={busy} run={run} revision={settingsRevision} version={info?.version} onQuota={() => navigate("plans")}
+            <SettingsPage busy={busy} run={run} revision={settingsRevision} version={info?.version} flushRef={flushRef} onConfigure={() => navigate("service-settings")}
               restoreOpen={restoreOpen} onRestoreOpenChange={setRestoreOpen}
               onPickImport={pickImport}
               onRestore={(recoverAssets, trigger) => openConfirm({

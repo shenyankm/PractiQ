@@ -49,7 +49,6 @@ def test_question_tree_is_revalidated_and_unknown_revision_is_rejected():
     assert error.value.code == 'CORRECTION_NOT_FOUND'
 
 
-@pytest.mark.usefixtures("business_http")
 @pytest.mark.usefixtures('disposable_databases')
 async def test_http_correction_reopen_history_export_and_immutable_source(monkeypatch):
     service, reference, model = await setup_api(monkeypatch)
@@ -153,7 +152,6 @@ async def test_answer_edit_references_and_generated_type_contract(monkeypatch):
     assert len(model.calls) == 1
 
 
-@pytest.mark.usefixtures("business_http")
 @pytest.mark.usefixtures('disposable_databases')
 async def test_shared_option_correction_replay_normalizes_against_its_historical_tree(monkeypatch):
     service, reference, model = await setup_api(monkeypatch)

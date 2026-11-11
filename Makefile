@@ -49,7 +49,7 @@ audit:
 audit-rust:
 	cargo audit --file app/src-tauri/Cargo.lock
 	"$(AI_PYTHON)" app/scripts/check-rust-targets.py
-image-check: web-build
+image-check:
 	docker build -f Dockerfile.server -t practiq-ai:ci .
 	docker run --rm --network none --read-only --cpus 2 --memory 2g --pids-limit 128 --cap-drop ALL --security-opt no-new-privileges --tmpfs /tmp:rw,nosuid,nodev,size=536870912,mode=1777 --tmpfs /home/practiq:rw,nosuid,nodev,size=67108864,uid=10001,gid=10001,mode=700 --tmpfs /var/lib/practiq:rw,nosuid,nodev,size=16777216,uid=10001,gid=10001,mode=700 -e AI_READ_ONLY=1 --mount type=bind,source="$(CURDIR)/app/fixtures",target=/fixtures,readonly --mount type=bind,source="$(CURDIR)/server/scripts/check_container.py",target=/checks/check_container.py,readonly --entrypoint python practiq-ai:ci /checks/check_container.py
 alerts-check:
@@ -89,14 +89,3 @@ app-prepare-package:
 
 app-license-check:
 	"$(AI_PYTHON)" app/scripts/check_licenses.py --bundle app/src-tauri/bundled --output server/reports/checks/licenses.json
-
-.PHONY: web-install web-dev web-check web-build
-web-install:
-	npm --prefix web ci
-web-dev:
-	npm --prefix web run dev
-web-check:
-	npm --prefix web run check
-	npm --prefix web run test:browser
-web-build:
-	npm --prefix web run build

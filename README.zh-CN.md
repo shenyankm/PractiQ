@@ -16,6 +16,10 @@
 
 应用提供简体中文、繁体中文和英文界面，支持明暗主题、七种基础题型，以及英语听力、阅读、完形填空、翻译和写作。练习记录保存在你的设备上，不需要账号，也不会同步到云端。AI 导入会将文档发送至自建服务、腾讯云及配置的模型供应商；可选的 AI 批改会将评分内容发送至所选接口。
 
+
+也可以从 App 的**文档导入**连接自建个人服务，选择文档后点击**开始导入**。无需注册或管理员配置；主观题评分在**设置 → AI 服务**单独配置。
+
+
 ## 截图
 
 以下截图于 **2026-10-29** 基于源码 [`af7ab2ff`](https://github.com/shenyankm/PractiQ/commit/af7ab2ff3bf4a392103b403d73b70f0d1a5cd533) 的桌面界面浏览器预览拍摄，界面为英文，题库和练习记录均为人工编写的示例。所有数据只保存在内存中，没有输入凭据、上传文件或调用模型。点击图片可查看原图。
@@ -40,16 +44,16 @@
 
 ## 用 AI 导入文档
 
-在 macOS App 的**个人中心 → 导入工作区**中上传文档，识别、解析与模型调用仍由云端服务完成：
+文档导入界面内置于 macOS App，解析使用独立的 Python 后端：
 
-1. [启动服务](#自建导入服务)，在 App 中连接服务地址并登录或注册。离线练习仍无需登录。
+1. [启动后端](#自建导入服务)，在 App 打开**文档导入**。默认连接 `http://127.0.0.1:8090`，可在导入页的**设置**中更改地址，无需登录。
 2. 一次最多选择 10 份文件，点击**开始导入**。只选择文件不会上传或解析。
 3. 检查题目、图片和需要复核的内容，然后下载题库 ZIP。
 4. 在桌面应用中打开**设置 → 导入与恢复 → 导入题库 ZIP**。
 
 服务通过腾讯云的[异步多模态文档解析](https://cloud.tencent.com/document/api/866/139312)读取 **PDF、TXT、Markdown、PNG/JPEG、DOC、DOCX、PPT、PPTX、XLS 和 XLSX**，不支持新建 CSV 导入。腾讯云[计费说明](https://cloud.tencent.com/document/product/866/17619)列有首次开通的一次性 **1,000 页免费额度，有效期一年**；领取资格和剩余额度以腾讯云账号为准。文档解析与模型调用分别计费。
 
-默认只提取原文已有的答案和解析。如需补充缺失内容，在 App 的云端工作区设置中开启**AI 生成答案与解析**，等待保存成功，再点击**开始导入**。原有答案会保留，生成内容标记为待核对，并共享任务的模型调用预算。
+默认只提取原文已有的答案和解析。如需补充缺失内容，在导入设置中开启**AI 生成答案与解析**，等待保存成功，再点击**开始导入**。原有答案会保留，生成内容标记为待核对，并共享任务的模型调用预算。
 
 查看和下载结果不会调用模型；继续、重试或重新解析可能产生供应商费用。请在 **180 天**内下载需要保留的结果，任务过期不影响已导入的题库。详见[导入任务指南](docs/guides/import-tasks.md)。
 
@@ -79,11 +83,10 @@ PractiQ 仍在开发中。构建通过不代表已完成签名、干净环境验
 
 ## 自建导入服务
 
-文档导入需要自建 AI 服务，需要 Python 3.14+、uv、Node.js 22.12+、PostgreSQL、RabbitMQ、腾讯云解析凭据，以及支持 Responses API、文字与图片输入和结构化输出的模型接口。服务应绑定本机回环地址。[安装指南（英文）](docs/guides/installation.md)、[个人自托管指南](server/docs/personal-use.md)和[腾讯云配置指南](server/docs/tencent-document-parser.md)说明部署与升级；自建部署的供应商配置由你提供，费用直接支付给供应商。运营方可选开启云端套餐收款，默认关闭，详见[套餐规则](docs/guides/plans.md)。
+文档导入需要自建 AI 服务，需要 Python 3.14+、uv、PostgreSQL、RabbitMQ、腾讯云解析凭据，以及支持 Responses API、文字与图片输入和结构化输出的模型接口。服务应绑定本机回环地址。[安装指南（英文）](docs/guides/installation.md)、[个人自托管指南](server/docs/personal-use.md)和[腾讯云配置指南](server/docs/tencent-document-parser.md)说明部署与升级；供应商配置由你提供，费用直接支付给供应商，PractiQ 不提供计费。
 
 ## 文档与开发
 
-先看[文档索引（英文）](docs/README.md)，其中有[题型模型](docs/reference/question-model.md)、[文档任务 API](server/docs/document-tasks.md)、[部署与运维](server/docs/operations.md)和贡献指南。按改动的部分运行 `make app-check`、`make web-check` 或 `make verify`；Playwright 覆盖应用的三语交互，使用模拟原生命令，不调用模型：
 
 ```sh
 cd app
@@ -96,7 +99,3 @@ npm run test:browser
 请通过 [GitHub Issues](https://github.com/shenyankm/PractiQ/issues/new/choose) 报告可复现的问题或提出改进建议。代码和文档贡献请阅读[贡献指南](CONTRIBUTING.md)，安全漏洞请按[安全策略](SECURITY.md)私下报告。
 
 项目源码使用 [MIT 许可证](LICENSE)，内置依赖保留各自的[上游许可声明](app/licenses/README.md)。
-
-Web 仅保留管理后台；用户账号、额度、任务、结果和订单均在 App 中操作。新用户共有 50 页免费识别额度，不按日恢复。邮箱暂不验证，忘记密码需向管理员获取一次性重置码。详见[云端服务指南（英文）](docs/guides/cloud-service.md)。
-
-套餐与额度：Free 注册赠送共计 50 页；Plus ¥39／100 页／30 天，Pro ¥99／300 页／30 天，加量包 ¥19.90／50 页／365 天。手动购买，不自动续费；仅经验证的正式付款发放独立权益，支付默认关闭。服务 schema 8 需离线备份升级，本地练习不受影响。详见[套餐规则](docs/guides/plans.md)。

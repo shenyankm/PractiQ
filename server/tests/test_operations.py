@@ -18,12 +18,12 @@ from scripts import load_test, storage_gc
 from tests.support import object_store, upload
 
 
-def test_load_cli_requires_an_account_and_private_monitoring_file(monkeypatch):
+def test_load_cli_needs_no_service_token(monkeypatch):
     monkeypatch.delenv('AI_SERVICE_TOKEN', raising=False)
-    monkeypatch.setattr(sys, 'argv', ['load_test.py', '--base-url', 'http://127.0.0.1:8090', '--text', 'synthetic', '--email', 'load@example.test', '--metrics-token-file', '/private/metrics'])
+    monkeypatch.setattr(sys, 'argv', ['load_test.py', '--base-url', 'http://127.0.0.1:8090', '--text', 'synthetic'])
     args = load_test.parse_args()
     assert args.base_url == 'http://127.0.0.1:8090'
-    assert not hasattr(args, 'token') and args.email == 'load@example.test'
+    assert not hasattr(args, 'token')
 
 
 @pytest.mark.parametrize("status", [200, 503])
@@ -174,15 +174,13 @@ async def test_cleanup_fails_closed_and_preserves_inventory_before_mutation(tmp_
         storage_gc.inventory(store)
 
 
-async def test_load_driver_upload_partial_and_overload_with_account_context(monkeypatch, load_credentials):
+async def test_load_driver_upload_partial_and_overload_without_token(monkeypatch):
     requests = []
 
     def handle(request):
         requests.append(request)
-        assert bool(request.headers.get('Authorization')) == (request.url.path == '/api/metrics')
+        assert 'Authorization' not in request.headers
         assert 'X-Practiq-Phone' not in request.headers
-        if request.url.path == "/api/auth/logout":
-            return httpx.Response(200, json={"ok": True})
         if request.method == "POST" and request.url.path == "/api/uploads":
             return httpx.Response(200, json={"upload": {"url": "/api/uploads/content", "headers": {"Content-Type": "text/plain"}}, "document": {}})
         if request.method == "PUT" and request.url.path == "/api/uploads/content":
@@ -204,7 +202,7 @@ async def test_load_driver_upload_partial_and_overload_with_account_context(monk
 
     real_client = httpx.AsyncClient
     monkeypatch.setattr(load_test.httpx, "AsyncClient", lambda **kwargs: real_client(transport=httpx.MockTransport(handle), **kwargs))
-    args = argparse.Namespace(metrics_token_file=load_credentials, email="load@example.test", base_url="http://test", input=None, text="synthetic", total=1,
+    args = argparse.Namespace(token="test-token", base_url="http://test", input=None, text="synthetic", total=1,
                              submit_concurrency=1, request_timeout=3, completion_timeout=3, pid=None, api="document-tasks",
                              max_running=2, graph_concurrency=2, allow_rejections=False, environment="local-langgraph-dev", image_digest=None)
     result = await load_test.run(args)
@@ -224,7 +222,7 @@ async def test_load_driver_upload_partial_and_overload_with_account_context(monk
 
 
 @pytest.mark.parametrize("identity", ["valid", "missing", "malformed", "conflicting"])
-async def test_production_load_binds_remote_configuration_before_submitting(monkeypatch, tmp_path, identity, load_credentials):
+async def test_production_load_binds_remote_configuration_before_submitting(monkeypatch, tmp_path, identity):
     source = tmp_path / "source.json"
     source.write_text(json.dumps({"document": {"sha256": "c" * 64}}))
     code, configuration = "a" * 64, "b" * 64
@@ -243,7 +241,7 @@ async def test_production_load_binds_remote_configuration_before_submitting(monk
     monkeypatch.setattr(load_test, "submit", submit)
     monkeypatch.setattr(load_test, "wait_for_run", AsyncMock(return_value=("success", 0.1, 0)))
     monkeypatch.setattr(load_test, "monitor", AsyncMock())
-    args = argparse.Namespace(metrics_token_file=load_credentials, email="load@example.test", base_url="https://fixture.example", input=source, total=1,
+    args = argparse.Namespace(token="fixture-token", base_url="https://fixture.example", input=source, total=1,
                               submit_concurrency=1, request_timeout=3, completion_timeout=3, pid=None, api="document-tasks",
                               max_running=2, graph_concurrency=2, allow_rejections=False, environment="production", image_digest="sha256:" + "e" * 64)
     if identity == "valid":
@@ -256,7 +254,6 @@ async def test_production_load_binds_remote_configuration_before_submitting(monk
         submit.assert_not_awaited()
 
 
-@pytest.mark.usefixtures("business_http")
 async def test_load_monitor_parses_only_finite_unlabelled_capacity_metrics():
     done = asyncio.Event()
     samples = {}
@@ -296,9 +293,7 @@ async def test_load_monitor_parses_only_finite_unlabelled_capacity_metrics():
     }
 
 
-async def test_load_driver_polls_before_all_submissions_finish(tmp_path, monkeypatch, load_credentials):
-    original = httpx.AsyncClient
-    monkeypatch.setattr(load_test.httpx, 'AsyncClient', lambda **kwargs: original(transport=httpx.MockTransport(lambda _: httpx.Response(200)), **kwargs))
+async def test_load_driver_polls_before_all_submissions_finish(tmp_path, monkeypatch):
     polled = asyncio.Event()
     source = tmp_path / "input.json"
     source.write_text("{}")
@@ -318,7 +313,7 @@ async def test_load_driver_polls_before_all_submissions_finish(tmp_path, monkeyp
     monkeypatch.setattr(load_test, "submit", submit)
     monkeypatch.setattr(load_test, "wait_for_run", wait)
     monkeypatch.setattr(load_test, "monitor", monitor)
-    args = argparse.Namespace(metrics_token_file=load_credentials, email="load@example.test", base_url="http://test", input=source, total=2,
+    args = argparse.Namespace(token="test-token", base_url="http://test", input=source, total=2,
                              submit_concurrency=2, request_timeout=3, completion_timeout=3, pid=None, api="document-tasks",
                              max_running=2, graph_concurrency=2, allow_rejections=False, environment="local-langgraph-dev", image_digest=None)
     report = await load_test.run(args)

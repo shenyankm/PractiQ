@@ -86,7 +86,7 @@ Object.assign(gradingSession.attempts[2],{gradeKind:"ai",earnedCents:600,result:
 Object.assign(gradingSession.attempts[3],{gradeKind:"manual",earnedCents:800,result:false,grading:{manual:{reason:"演示人工复核",scoreCents:800}}});
 gradingSession.attempts[4].snapshot.question.answerPayload=null;
 sessions.push(gradingSession);
-let settings:SettingsResult={config:{service_url:"https://service.example.invalid"},hasServiceToken:true};
+let settings:SettingsResult={config:{service_url:"https://service.example.invalid"}};
 const notes = new Map<string,QuestionNote>();
 let lastBackupAt: number | null = null;
 function previewCounts(): LearningCounts { return {submitted:0,skipped:0,ungraded:0,auto:{graded:0,correct:0},selfAssessed:{graded:0,correct:0},ai:{graded:0,correct:0},manual:{graded:0,correct:0}}; }
@@ -194,9 +194,8 @@ function request(r:Request,scenario:PreviewScenario):unknown {
     case "session": return {...getSession(r.id),clockNow:Date.now()};
     case "settings": return settings;
     case "save_settings": {
-      const hasServiceToken=r.service_token===null ? (r.config.service_url===settings.config.service_url ? settings.hasServiceToken:null):!!r.service_token.trim();
       const hasApiKey=r.api_key == null ? (r.config.model?.base_url===settings.config.model?.base_url ? settings.hasApiKey:null):!!r.api_key.trim();
-      settings={config:r.config,hasServiceToken,...(r.config.model ? {hasApiKey} : {})};return settings;
+      settings={config:r.config,...(r.config.model ? {hasApiKey} : {})};return settings;
     }
     case "test_settings": return null;
     case "save_bank": {const b=banks.find(b=>b.id===r.id);if(b)Object.assign(b,{title:r.title,description:r.description});else banks.push({id:crypto.randomUUID(),title:r.title,description:r.description,count:0,createdAt:Date.now()});return b?.id || banks.at(-1)!.id;}
@@ -259,7 +258,7 @@ function initialize(scenario: PreviewScenario) {
   if (initialized) return;
   initialized = true;
   if (scenario === "empty") { banks.length=0; rows=[]; sessions.length=0; }
-  if (scenario === "unconfigured") settings={config:{service_url:null},hasServiceToken:false};
+  if (scenario === "unconfigured") settings={config:{service_url:null}};
   if (scenario === "many") {
     for (let i=1;i<=40;i++) {
       addBank(`综合复习 · 第 ${i} 单元`);

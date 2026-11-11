@@ -48,7 +48,7 @@ for(const [locale,names] of [
     await page.getByRole('button',{name:names.practice,exact:true}).last().click();
     await expect(page.getByRole('dialog',{name:names.setup,exact:true})).toBeVisible();
     await page.keyboard.press('Escape');
-    expect(await page.evaluate(()=>globalThis.learningCalls.some(call=>call.command!=='request' && !(call.command==='cloud_request' && (call.request?.type==='status' || (call.request?.type==='fetch' && call.request.path==='/api/auth/session' && call.request.method==='GET')))))).toBe(false);
+    expect(await page.evaluate(()=>globalThis.learningCalls.some(call=>call.command!=='request'))).toBe(false);
     expect(errors).toEqual([]);
   });
 }
@@ -84,7 +84,7 @@ test('review starts explicitly, notes persist after reopening, and duplicate pol
   await page.getByRole('button',{name:'确认导入',exact:true}).click();
   await expect.poll(()=>page.evaluate(()=>globalThis.learningCalls.filter(call=>call.request?.type==='import').length)).toBe(1);
   expect(await page.evaluate(()=>globalThis.learningCalls.find(call=>call.request?.type==='import').request.skip_duplicates)).toBe(true);
-  expect(await page.evaluate(()=>globalThis.learningCalls.some(call=>call.command!=='request' && !(call.command==='cloud_request' && (call.request?.type==='status' || (call.request?.type==='fetch' && call.request.path==='/api/auth/session' && call.request.method==='GET')))))).toBe(false);
+  expect(await page.evaluate(()=>globalThis.learningCalls.some(call=>call.command!=='request'))).toBe(false);
   expect(errors).toEqual([]);
 });
 

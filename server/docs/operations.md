@@ -6,11 +6,11 @@ The runtime uses a single FastAPI/Uvicorn process, open-source LangGraph, and Po
 
 Use an existing Python 3.14+ interpreter without a project `.venv`. Startup commands load the root `.env`; process environment variables take precedence. `DATABASE_URI` must identify a dedicated PostgreSQL database, for example `postgresql://practiq:password@127.0.0.1:5432/practiq`. Create the database and its owner through your PostgreSQL administration process; `make init-db` creates the service tables only. Use a direct connection or session pooling, not transaction pooling: ownership uses a session advisory lock. Restrict database access and require TLS for remote deployments. There is no SQLite fallback. Existing SQLite files and historical PostgreSQL/Agent Server state are left untouched; tasks are not automatically migrated. Initialization refuses unknown nonempty databases. Complete old work on its original version before switching, and keep the original database, artifacts and configuration for rollback.
 
-Complete the [service configuration and startup steps](service-guide.md#run-locally), including building Web assets when that frontend is needed. Run commands from the repository root.
+Complete the [service configuration and startup steps](service-guide.md#run-locally). Run commands from the repository root.
 
 `make server-dev` starts one Uvicorn process on `127.0.0.1:8090` with persistent PostgreSQL state. Missing or incompatible databases prevent startup; there is no in-memory fallback. Python registers graphs directly, without `langgraph.json` or the LangGraph CLI server.
 
-`Dockerfile.server` builds the production image with Python 3.15, PDFium, Chinese fonts and the built administrator Web frontend. Native Python dependencies build with pinned C/Rust tooling and explicit PEP 517 build constraints in a separate stage; the runtime contains the installed packages without compilers. CI checks both Python 3.14 compatibility and the Python 3.15 runtime. Review every pinned image stage using the [image-maintenance procedure](../../docs/maintainers/dependency-security.md). Office normalization belongs to this deployment; configure and verify its LibreOffice executable/version separately. Linux ECS deployments use host networking. The container listens on `127.0.0.1:8000` by default, behind a host HTTPS reverse proxy. Do not expose database or application backend ports. `deploy/nginx.conf` is a host-loopback HTTP proxy example; a trusted upstream entry point provides TLS. Its real-IP configuration trusts only a local `127.0.0.1` TLS edge which must overwrite `X-Forwarded-For`; enable Nginx's HTTP real-IP module and verify separate client limits before serving traffic. Never broaden proxy trust to arbitrary networks.
+`Dockerfile.server` builds the production image with Python 3.15, PDFium and Chinese fonts, without frontend assets. Native Python dependencies build with pinned C/Rust tooling and explicit PEP 517 build constraints in a separate stage; the runtime contains the installed packages without compilers. CI checks both Python 3.14 compatibility and the Python 3.15 runtime. Review every pinned image stage using the [image-maintenance procedure](../../docs/maintainers/dependency-security.md). Office normalization belongs to this deployment; configure and verify its LibreOffice executable/version separately. Linux ECS deployments use host networking. The container listens on `127.0.0.1:8000` by default, behind a host HTTPS reverse proxy. Do not expose database or application backend ports. `deploy/nginx.conf` is a host-loopback HTTP proxy example; a trusted upstream entry point provides TLS. Its real-IP configuration trusts only a local `127.0.0.1` TLS edge which must overwrite `X-Forwarded-For`; enable Nginx's HTTP real-IP module and verify separate client limits before serving traffic. Never broaden proxy trust to arbitrary networks.
 
 The root `LICENSE` is the single source of the project MIT notice. The packaging backend serializes builds from the same checkout with a standard-library SQLite lock in the OS temporary directory, temporarily stages the notice for Hatchling, and removes that temporary file even when a build fails. The lock is released if the build process exits; it stores no application data. After an interrupted repository build, the next build refreshes and removes any leftover notice using the root copy. Extracted source distributions are identified by `PKG-INFO` and retain their own notice. Python wheels and source distributions carry a standalone copy, so source distributions can be rebuilt independently. The image keeps the root notice at `/app/LICENSE` and the installed distribution notice; the container smoke check verifies both. Third-party packages and the deployed Office engine retain their own licenses. See the [distribution verification](../../docs/history/engineering/service-packaging-20261009.md#distribution-license-verification).
 
@@ -57,7 +57,7 @@ New model output with `confidence < 0.5` always requires review. This threshold 
 
 Successful checkpointed units are reused. A provider request whose result was not persisted blocks automatic same-run recovery with MODEL_RESULT_UNKNOWN; unknown usage remains recorded. Exactly-once provider calls are not guaranteed. Pause does not forcibly cancel accepted remote requests, and canceling a local wait does not terminate an underlying synchronous thread.
 
-See [RabbitMQ delivery, upgrade, rollback and dead-letter recovery](rabbitmq.md) for transactional delivery; see [account deployment and recovery](accounts.md) for schema 8, loopback access and safe migration.
+See [RabbitMQ delivery, upgrade, rollback and dead-letter recovery](rabbitmq.md) for transactional delivery; see [personal deployment](personal-use.md) for schema 9, loopback access and safe migration.
 
 ## Configuration and observability
 
@@ -119,7 +119,7 @@ Each provider attempt is recorded before dispatch. Returned usage and completion
 
 Call events, counters, and timings are recorded even if persisting an attempt's outcome fails. A ledger write failure stops further provider dispatch, including automatic retries; already-known usage and dispatched unknown attempts remain in the cached response if final-response storage succeeds.
 
-Desktop ZIP backups include exams and saved scores, but exclude the service cache and all credentials. The desktop service token is in the platform credential store; provider keys remain in the service environment. Full service backups and desktop bank backups serve different purposes and cannot replace each other.
+Desktop ZIP backups include exams and saved scores, but exclude the service cache and all credentials. Desktop model keys stay in the platform credential store; import-provider keys remain in the service environment. Full service backups and desktop bank backups serve different purposes and cannot replace each other.
 
 ## Retention and cleanup
 
@@ -201,27 +201,25 @@ backup; these commands repair only the retained original source.
 
 TXT/CSV extraction workers read parser limits without loading LangGraph or public contract models. Real-worker import tests guard this startup boundary without replacing extraction or changing deadlines.
 
-Use an isolated loopback test deployment with a dedicated load-test account and a read-only metrics token. Start the service, then run this load test from the repository root; the password is prompted without echo:
+Use an isolated loopback test deployment; task and metrics APIs require no application access token. Start the service, then run this load test from the repository root:
 
 ```sh
 cd server
 python -m dotenv -f ../.env run -- python scripts/load_test.py \
   --base-url http://127.0.0.1:8090 \
-  --email load-test@example.com \
-  --metrics-token-file /private/practiq-metrics-token \
   --text '1. What is 2 + 2? A. 3 B. 4 Answer: B' \
   --total 8 --submit-concurrency 4 --output reports/new-load.json
 ```
 
 The load driver supports only the document business API. It uses the Prometheus text parser for the five capacity gauges and retains only finite, unlabelled samples; labelled series are not combined into deployment totals. Load tests/evaluations connected to real models incur costs and require separate planning. Historical Agent Server, Redis, licensing, and capacity reports remain historical evidence, not acceptance of the current runtime.
 
-Uploads, task creation and polling use the same loopback service with an authenticated test account; metrics use an administrator session or the configured read-only metrics token. Reports contain no credentials. The driver retains global queue admission, worker concurrency and provider limits. Its synthetic thresholds do not establish production capacity for large documents.
+Uploads, task creation, polling and metrics use the same loopback service without an application access token. Reports contain no credentials. The driver retains global queue admission, worker concurrency and provider limits. Its synthetic thresholds do not establish production capacity for large documents.
 
 For an intentional overload test, pass `--allow-rejections`: explicit 429/503 outcomes are permitted, but at least one task must still succeed. Otherwise rejection is a failed strict-capacity gate.
 
-### Web network deadlines
+### Import network deadlines
 
-The Web client bounds ordinary GET/JSON requests at 30 seconds, uploads and other mutations/artifact reads at 125 seconds, and ZIP downloads at 600 seconds. Each deadline includes response-body reception. Session disconnect and page cancellation release readers and timers. List/detail polling backs off failed reads with jitter up to 30 seconds, resets after a successful read, and retains background-tab/authentication stops. Mutations are never automatically retried. A timed-out mutation is uncertain; inspect task state, and only explicitly retry with its retained request ID. Refreshing/disconnecting still ends the in-memory session and its pending intents.
+The App import client bounds ordinary GET/JSON requests at 30 seconds, uploads and other mutations/artifact reads at 125 seconds, and ZIP downloads at 600 seconds. Each deadline includes response-body reception. Session disconnect and page cancellation release readers and timers. List/detail polling backs off failed reads with jitter up to 30 seconds, resets after a successful read, and retains background-tab/access-failure stops. Mutations are never automatically retried. A timed-out mutation is uncertain; inspect task state, and only explicitly retry with its retained request ID. Refreshing/disconnecting still ends the in-memory session and its pending intents.
 
 These operational changes do not migrate schemas or relax execution signatures. Drain existing work and retain the original image/database/files/configuration before upgrading; unfinished tasks with an older code fingerprint still require their original deployment.
 
@@ -289,20 +287,16 @@ paid intent. Already submitted remote work and other clients share the actual
 account quota; an unknown submission still requires explicit reconciliation.
 
 
-### Shared import execution settings
+### Shared App import settings
 
-The administrator Web **Settings** page persists Tencent concurrency (1–5, default 5), known-job read
+App import **Settings** persists Tencent concurrency (1–5, default 5), known-job read
 retries (0–5 after the first attempt, default 2), and base retry delay
-(0.5–10 seconds, default 1) in the existing PostgreSQL Store. These shared execution
-controls are administrator-only: customer saves that change them are rejected with
-`ADMIN_REQUIRED`, and the App import-settings panel disables them. The App's own
-import preferences (automatic deduplication and AI answer/analysis generation) are
-stored per account and affect only that account's later tasks; they do not change
-the shared execution record. The service loads the shared record at startup; no
-schema migration or environment file rewrite is required. A revision protects
-updates from stale administrator overwrites. Every PUT snapshot must include all
-three setting values; missing fields are rejected without changing the saved record.
-Authenticated reads are passive; administrator saves never start model work.
+(0.5–10 seconds, default 1) in the existing PostgreSQL Store. The service
+loads the record at startup; no schema migration or environment file rewrite
+is required. A revision protects updates from stale browser overwrites. Every PUT snapshot
+must include all three setting values; missing fields are rejected without changing
+the saved record.
+Authenticated reads and saves are passive and never start model work.
 Read-only deployments reject setting writes. Model/provider credentials and
 worker/LLM allocation remain trusted service environment configuration.
 

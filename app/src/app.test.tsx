@@ -128,50 +128,16 @@ it("flushes the latest draft before moving to the next question", async () => {
   });
 });
 
-it("stores service configuration without returning a token to the form", async () => {
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
+it("stores personal service addresses without credential controls", async () => {
   const { ConnectionSettingsPanel } = await import("./ConnectionSettings");
-  const config = {
-    service_url: "https://api.example.com/v1",
-  };
-  vi.mocked(api).mockResolvedValue({ config, hasServiceToken: true });
-  render(
-    <ConnectionSettingsPanel
-      busy={false}
-      run={(job) => {
-        void job();
-      }}
-    />,
-  );
-  await waitFor(() =>
-    expect((screen.getByLabelText("AI 服务地址") as HTMLInputElement).value).toBe(
-      "https://api.example.com/v1",
-    ),
-  );
-  expect(screen.queryByLabelText("供应商地址预设")).toBeNull();
-  expect(screen.queryByLabelText("文本模型")).toBeNull();
-  expect(screen.queryByLabelText("视觉模型")).toBeNull();
-  const key = screen.getByLabelText("AI 服务访问令牌") as HTMLInputElement;
-  expect(key.type).toBe("password");
-  expect(key.value).toBe("");
-  expect(key.placeholder).toBe("********************************");
-  expect(screen.queryByRole("button", {name:"保存"})).toBeNull();
-  await userEvent.type(screen.getByLabelText("AI 服务地址"), "-updated");
+  const config = {service_url:"https://api.example.com/v1"};
+  vi.mocked(api).mockImplementation(async request => request.type === "save_settings" ? {config:request.config} as never : {config} as never);
+  render(<ConnectionSettingsPanel busy={false} run={job=>{void job();}}/>);
+  const address = await screen.findByLabelText("AI 服务地址");
+  expect(document.querySelector('input[type="password"]')).toBeNull();
+  await userEvent.type(address, "-updated");
   await userEvent.tab();
-  await waitFor(() => expect(api).toHaveBeenCalledWith({type:"save_settings",config:{...config,service_url:"https://api.example.com/v1-updated"},service_token:null}));
-  expect(screen.queryByRole("checkbox")).toBeNull();
-  await waitFor(() => expect(key.closest("fieldset")?.disabled).toBe(false));
-  await userEvent.type(key,"replacement-key");
-  await userEvent.tab();
-  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_settings",service_token:"replacement-key"})));
-
+  await waitFor(()=>expect(api).toHaveBeenCalledWith({type:"save_settings",config:{service_url:"https://api.example.com/v1-updated"}}));
 });
 
 it("shows numeric partial credit after an exam and locks answer controls", () => {
@@ -423,7 +389,7 @@ it("autosaves on blur, removes manual buttons, and preserves failed drafts", asy
   const { ConnectionSettingsPanel } = await import("./ConnectionSettings");
   const { toast } = await import("./notifications");
   const failure = vi.spyOn(toast, "error").mockImplementation(() => "notice");
-  const settings = {config:{service_url:"https://example.com/v1"},hasServiceToken:true};
+  const settings = {config:{service_url:"https://example.com/v1"}};
   let failSave = true;
   const flushRef = { current: async () => {} };
   vi.mocked(api).mockImplementation(async request => {
@@ -449,33 +415,13 @@ it("autosaves on blur, removes manual buttons, and preserves failed drafts", asy
   await waitFor(() => expect(screen.queryByRole("button",{name:"重试保存"})).toBeNull());
   await userEvent.type(model,"-latest");
   await act(async () => { await flushRef.current(); });
-  expect(api).toHaveBeenCalledWith({type:"save_settings",config:{...settings.config,service_url:"https://example.com/v1-changed-latest"},service_token:null});
+  expect(api).toHaveBeenCalledWith({type:"save_settings",config:{...settings.config,service_url:"https://example.com/v1-changed-latest"}});
   failure.mockRestore();
-});
-
-it("clears a newly saved service token from the webview before testing the credential-store copy", async () => {
-  const { ConnectionSettingsPanel } = await import("./ConnectionSettings");
-  const settings = {config:{service_url:"https://example.com/v1"},hasServiceToken:false};
-  vi.mocked(api).mockImplementation(async request => {
-    if (request.type === "save_settings") return {...settings,hasServiceToken:true} as never;
-    if (request.type === "test_settings") return null as never;
-    return settings as never;
-  });
-  render(<ConnectionSettingsPanel busy={false} run={job => { void job(); }} />);
-  const key = await screen.findByLabelText("AI 服务访问令牌") as HTMLInputElement;
-  expect(screen.queryByText(/解析配置还缺/)).toBeNull();
-  expect(screen.getByRole("button", {name:"测试连接"}).hasAttribute("disabled")).toBe(true);
-  await userEvent.type(key,"replacement-key");
-  await userEvent.tab();
-  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"save_settings",service_token:"replacement-key"})));
-  await waitFor(() => expect(key.value).toBe(""));
-  await userEvent.click(screen.getByRole("button",{name:"测试连接"}));
-  await waitFor(() => expect(api).toHaveBeenCalledWith(expect.objectContaining({type:"test_settings",service_token:null})));
 });
 
 it("uses the pending settings save when navigation flushes", async () => {
   const { ConnectionSettingsPanel } = await import("./ConnectionSettings");
-  const settings = {config:{service_url:"https://example.com/v1"},hasServiceToken:true};
+  const settings = {config:{service_url:"https://example.com/v1"}};
   let finishSave!: (value: typeof settings) => void;
   const pending = new Promise<typeof settings>(resolve => { finishSave = resolve; });
   const flushRef = { current: async () => {} };
@@ -490,10 +436,10 @@ it("uses the pending settings save when navigation flushes", async () => {
   expect(vi.mocked(api).mock.calls.filter(([request]) => request.type === "save_settings")).toHaveLength(1);
 });
 
-it("leaves saved credentials unchecked until an explicit connection test", async () => {
+it("reads personal configuration passively until an explicit connection test", async () => {
   const { ConnectionSettingsPanel } = await import("./ConnectionSettings");
   const { missingServiceSettings } = await import("./api");
-  const settings = {config:{service_url:"https://example.com/v1"},hasServiceToken:null};
+  const settings = {config:{service_url:"https://example.com/v1"}};
   vi.mocked(api).mockImplementation(async request => {
     if (request.type === "test_settings") return null as never;
     return settings as never;
@@ -503,16 +449,16 @@ it("leaves saved credentials unchecked until an explicit connection test", async
   expect(await screen.findByText("已配置")).toBeTruthy();
   summary.unmount();
   render(<ConnectionSettingsPanel busy={false} run={job => { void job(); }} />);
-  const key = await screen.findByLabelText("AI 服务访问令牌") as HTMLInputElement;
-  await waitFor(() => expect(key.placeholder).toBe("********************************"));
+  await screen.findByLabelText("AI 服务地址");
+  expect(document.querySelector('input[type="password"]')).toBeNull();
   expect(vi.mocked(api).mock.calls.every(([request]) => request.type === "settings")).toBe(true);
   await userEvent.click(screen.getByRole("button", {name:"测试连接"}));
-  await waitFor(() => expect(api).toHaveBeenCalledWith({type:"test_settings",config:settings.config,service_token:null}));
+  await waitFor(() => expect(api).toHaveBeenCalledWith({type:"test_settings",config:settings.config}));
 });
 
 it("flushes the latest edit after an earlier blur save finishes", async () => {
   const { ConnectionSettingsPanel } = await import("./ConnectionSettings");
-  const settings = {config:{service_url:"https://example.com/v1"},hasServiceToken:null};
+  const settings = {config:{service_url:"https://example.com/v1"}};
   let finishSave!: (value: typeof settings) => void;
   const pending = new Promise<typeof settings>(resolve => { finishSave = resolve; });
   const flushRef = {current:async () => {}};
@@ -537,5 +483,5 @@ it("flushes the latest edit after an earlier blur save finishes", async () => {
   });
   expect(model.value).toBe("https://example.com/v1-first-latest");
   expect(saves).toBe(2);
-  expect(api).toHaveBeenLastCalledWith({type:"save_settings",config:{...settings.config,service_url:"https://example.com/v1-first-latest"},service_token:null});
+  expect(api).toHaveBeenLastCalledWith({type:"save_settings",config:{...settings.config,service_url:"https://example.com/v1-first-latest"}});
 });

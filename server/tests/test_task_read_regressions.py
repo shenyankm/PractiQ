@@ -20,7 +20,7 @@ from tests.support import MemoryStore, source
 
 
 @pytest.fixture
-async def http(monkeypatch, business_http):
+async def http(monkeypatch):
     monkeypatch.setenv('AI_SERVICE_TOKEN', 'test-token')
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=webapp.app, raise_app_exceptions=False),

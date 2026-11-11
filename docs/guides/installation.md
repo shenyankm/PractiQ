@@ -61,10 +61,9 @@ If a damaged database prevents the app from starting, follow [desktop data recov
 
 ## Install the AI import service (optional)
 
-The service handles document import uploaded through the App and can grade short answers for the desktop app. Its commands use GNU Make; on a host without the native build tools, the [service guide](../../server/docs/service-guide.md) covers building the Docker image instead. It needs:
+The independent Python service handles document import for the App and can grade short answers for the desktop app. Its commands use GNU Make; on a host without the native build tools, the [service guide](../../server/docs/service-guide.md) covers building the Docker image instead. It needs:
 
 - Python 3.14+ and uv
-- Node.js 22.12 or newer for the administrator Web
 - An empty, dedicated PostgreSQL database
 - A dedicated RabbitMQ vhost
 - A model endpoint that accepts text and images
@@ -85,27 +84,21 @@ Set these values in `.env`:
 | `RABBITMQ_URI` | RabbitMQ address using a dedicated vhost |
 | `AI_STORAGE_DIR` | Absolute, persistent location for uploads and results |
 
-Then build the administrator Web, initialise the service tables, bootstrap the first administrator and start the service:
+Then initialise the service tables and start the service:
 
 ```sh
 make install-locked AI_PYTHON=/path/to/python3.14
 make init-db AI_PYTHON=/path/to/python3.14
-cd server && /path/to/python3.14 -m practiq_ai.manage bootstrap-admin
-cd ..
-make web-install
-make web-build
 make server-dev AI_PYTHON=/path/to/python3.14
 ```
 
-The bootstrap command prompts for the first administrator email and password and never accepts a password in arguments. Public registration stays disabled until an administrator exists.
-
-The service listens on `127.0.0.1:8090`, keeps tasks in PostgreSQL, delivers work through RabbitMQ and stores files locally. Run one process per database. Configure `AI_OFFICE_EXECUTABLE` and `AI_OFFICE_VERSION` only on the service, and only when XLS files or very large Office files must be read.
+The service listens on `127.0.0.1:8090`, keeps tasks in PostgreSQL, delivers work through RabbitMQ and stores files locally. Run one process per database. Configure `AI_OFFICE_EXECUTABLE` and `AI_OFFICE_VERSION` only on the service, and only when very large Office files must be split.
 
 ### Confirm the service works
 
 1. Open `http://127.0.0.1:8090/ok` and `http://127.0.0.1:8090/ready`; both should return a success response (for example with `curl`).
-2. Open `http://127.0.0.1:8090/admin` and sign in as the administrator created above.
-3. In an App with an existing native service connection, open **Account**, then import one small PDF or TXT file from the **Import workspace** and download the resulting question-bank ZIP. The account page does not expose connection settings; see [cloud connection configuration](cloud-service.md).
+2. Open **Document import** in the App. It defaults to `http://127.0.0.1:8090`; change the backend under the import **Settings** tab if needed. The backend root has no frontend.
+3. Import one small PDF or TXT file and download the resulting question-bank ZIP.
 
 The last step calls Tencent and your model provider, and may cost money. Skip it if credentials are not configured.
 
@@ -123,6 +116,5 @@ The last step calls Tencent and your model provider, and may cost money. Skip it
 
 - Practise, review scores and use optional AI grading: [practice guide](practice-guide.md).
 - Import, resume and download documents: [import tasks](import-tasks.md).
-- Deploy the service for multiple users, bootstrap administrators and upgrade old databases: [account deployment guide](../../server/docs/accounts.md). The [personal-use guide](../../server/docs/personal-use.md) documents the retired schema-5 personal deployment and its migration.
+- Deploy the service for personal use and upgrade old databases: [personal-use guide](../../server/docs/personal-use.md).
 - Configure Tencent parsing limits, splitting and private COS staging: [Tencent parser setup](../../server/docs/tencent-document-parser.md).
-- Open the administrator Web in development with `make web-dev`. The App uses its existing native connection without displaying its address; see [account setup](cloud-service.md).

@@ -28,7 +28,6 @@ def test_dependency_maintenance_covers_locked_manifests_and_bounded_queues():
     expected = {
         ("github-actions", "/"): ".github/workflows/server.yml",
         ("npm", "/app"): "app/package-lock.json",
-        ("npm", "/web"): "web/package-lock.json",
         ("cargo", "/app/src-tauri"): "app/src-tauri/Cargo.lock",
         ("docker", "/"): "Dockerfile.server",
     }
@@ -41,7 +40,7 @@ def test_dependency_maintenance_covers_locked_manifests_and_bounded_queues():
         assert item["open-pull-requests-limit"] == (2 if item["package-ecosystem"] in {"github-actions", "npm"} else 1)
         assert "ignore" not in item
     npm, = (item for item in updates if item["package-ecosystem"] == "npm")
-    assert npm["directories"] == ["/app", "/web"]
+    assert npm["directories"] == ["/app"]
     assert npm["groups"]["shared-dependencies"]["group-by"] == "dependency-name"
     assert "katex" in npm["groups"]["math-renderer"]["patterns"]
     policy = (root / "docs/maintainers/dependency-security.md").read_text()
@@ -78,25 +77,6 @@ def test_main_requires_ci_and_resolved_threads_without_issue_or_pr_bots():
         for name in ("Service CI", "Desktop CI")
     ]
     assert {"deletion", "non_fast_forward"} <= rules.keys()
-
-
-@pytest.mark.parametrize("exit_code", [0, 9])
-def test_web_audit_step_preserves_failing_exit_status(tmp_path, exit_code):
-    root = Path(__file__).resolve().parents[2]
-    workflow = yaml.load((root / ".github/workflows/server.yml").read_text(), Loader=yaml.BaseLoader)
-    steps = workflow["jobs"]["quality"]["steps"]
-    audits = [step for step in steps if "npm" in step.get("run", "") and "audit" in step["run"]]
-    assert len(audits) == 1
-    audit, = audits
-    assert "continue-on-error" not in audit
-    assert audit["if"] == "matrix.python == '3.15'"
-    npm = tmp_path / "npm"
-    npm.write_text(f"#!{sys.executable}\nimport sys\nassert sys.argv[1:] == ['--prefix', 'web', 'audit', '--audit-level=high']\nsys.exit({exit_code})\n")
-    npm.chmod(0o755)
-    result = subprocess.run(audit["run"], shell=True, cwd=root,
-                            env={**os.environ, "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}"},
-                            capture_output=True, text=True, check=False)
-    assert result.returncode == exit_code, result.stdout + result.stderr
 
 
 @pytest.mark.parametrize("failure", ["", "copy", "management", "prometheus"])
@@ -616,50 +596,15 @@ def test_service_python_independent_checks_run_only_on_canonical_matrix_leg():
     quality = workflow["jobs"]["quality"]
     assert "continue-on-error" not in quality
     steps = quality["steps"]
-    node, = (step for step in steps if step.get("uses", "").startswith("actions/setup-node@"))
-    assert node["if"] == "matrix.python == '3.15'"
-    assert "continue-on-error" not in node
-    for command in (
-        "make web-install", "npm --prefix web audit --audit-level=high",
-        "npx --prefix web playwright install --with-deps chromium", "make web-check", "make alerts-check",
-    ):
-        step, = (step for step in steps if step.get("run") == command)
-        assert step["if"] == "matrix.python == '3.15'"
-        assert "continue-on-error" not in step
+    assert not any(step.get("uses", "").startswith("actions/setup-node@") for step in steps)
+    alerts, = (step for step in steps if step.get("run") == "make alerts-check")
+    assert alerts["if"] == "matrix.python == '3.15'"
+    assert "continue-on-error" not in alerts
     for target in ("install-locked", "verify", "audit"):
         step, = (step for step in steps if step.get("run") == f'make {target} AI_PYTHON="$(command -v python)"')
         assert "if" not in step and "continue-on-error" not in step
     reports, = (step for step in steps if step.get("name") == "Upload check reports")
     assert reports["if"] == "${{ always() }}"
-
-
-def test_service_web_upload_covers_configured_nonhidden_report_outputs():
-    root = Path(__file__).resolve().parents[2]
-    workflow = yaml.load((root / ".github/workflows/server.yml").read_text(), Loader=yaml.BaseLoader)
-    upload, = (
-        step for step in workflow["jobs"]["quality"]["steps"]
-        if step.get("uses", "").startswith("actions/upload-artifact@")
-        and step["with"].get("name", "").startswith("service-web-checks")
-    )
-    web_check, = (step for step in workflow["jobs"]["quality"]["steps"] if step.get("run") == "make web-check")
-    assert web_check["id"] == "web_checks"
-    assert upload["if"] == ("${{ always() && matrix.python == '3.15' && "
-                            "(steps.web_checks.outcome == 'success' || steps.web_checks.outcome == 'failure') }}")
-    assert "continue-on-error" not in upload
-    assert upload["with"]["name"] == "service-web-checks"
-    assert upload["with"]["if-no-files-found"] == "error"
-    upload_roots = [(root / line.strip()).resolve() for line in upload["with"]["path"].splitlines()]
-    assert re.search(r"\breportOnFailure:\s*true\b", (root / "web/vite.config.ts").read_text())
-    for config, option in (("vite.config.ts", "reportsDirectory"), ("playwright.config.mjs", "outputFile")):
-        matches = re.findall(rf"\b{option}:\s*([\"'])(.*?)\1", (root / "web" / config).read_text())
-        (_, relative), = matches
-        output = (root / "web" / relative).resolve()
-        assert not any(part.startswith(".") for part in output.relative_to(root).parts)
-        assert any(output == directory or directory in output.parents for directory in upload_roots), output
-
-
-
-
 
 
 @pytest.mark.parametrize("revision,valid", [
@@ -715,14 +660,14 @@ def test_service_python_matrix_retains_minimum_version_and_runtime_artifact_name
     assert 'practiq-ai:ci' in smoke["run"] and 'os.getuid() == 10001' in smoke["run"]
     assert all(tool in smoke["run"] for tool in ["ormsgpack", "pydantic", "yaml._yaml", "gcc", "cargo", "rustc"])
     names = [step["with"]["name"] for step in quality["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")]
-    assert names == ["service-web-checks", "service-checks${{ matrix.python == '3.14' && '-python314' || '' }}"]
+    assert names == ["service-checks${{ matrix.python == '3.14' && '-python314' || '' }}"]
 
 
 def test_service_image_checks_real_powerpoint_conversion():
     root = Path(__file__).resolve().parents[2]
     dockerfile = (root / "Dockerfile.server").read_text()
     assert "libreoffice-impress" in dockerfile
-    makefile = (root / "Makefile").read_text().split("image-check: web-build\n", 1)[1].split("alerts-check:", 1)[0]
+    makefile = (root / "Makefile").read_text().split("image-check:\n", 1)[1].split("alerts-check:", 1)[0]
     assert "check_container.py" in makefile
     assert "--network none" in makefile and "--read-only" in makefile
     assert "AI_READ_ONLY=1" in makefile

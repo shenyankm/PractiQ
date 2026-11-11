@@ -190,13 +190,3 @@ async def test_evaluation_cost_database_keeps_exclusive_durable_reservations(mon
     assert persisted is not None and persisted.value == receipt
     with pytest.raises(DocumentProcessingError, match="running service database"):
         cost_budget.database(None)
-
-
-@pytest.fixture(autouse=True)
-def isolate_account_admission(monkeypatch):
-    from unittest.mock import AsyncMock
-
-    from practiq_ai import identity
-    monkeypatch.setattr(identity, 'reserve', AsyncMock())
-    monkeypatch.setattr(identity, 'record_call', AsyncMock())
-    monkeypatch.setattr(identity, 'release', AsyncMock())

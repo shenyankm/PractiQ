@@ -11,7 +11,6 @@ from practiq_ai.webapp import app
 from tests.support import FakeObjectStore
 
 
-@pytest.mark.usefixtures("business_http")
 async def test_upload_returns_typed_content_addressed_reference(monkeypatch):
     monkeypatch.setattr(webapp, "get_object_store", lambda: FakeObjectStore({}))
     request = {
@@ -35,7 +34,6 @@ async def test_upload_returns_typed_content_addressed_reference(monkeypatch):
         "practiq-agent/sources/"
     )
 
-@pytest.mark.usefixtures("business_http")
 async def test_upload_maps_storage_errors(monkeypatch):
     class FailingStore(FakeObjectStore):
         def __init__(self):
@@ -62,7 +60,6 @@ async def test_upload_maps_storage_errors(monkeypatch):
     assert response.json()["detail"]["code"] == "OBJECT_STORE_UNAVAILABLE"
 
 
-@pytest.mark.usefixtures("business_http")
 async def test_upload_validation_and_removed_v3_route() -> None:
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test", headers={"Authorization": "Bearer test-token"}
@@ -109,7 +106,6 @@ async def test_lifespan_validates_configuration(monkeypatch: pytest.MonkeyPatch)
             pass
 
 
-@pytest.mark.usefixtures("business_http")
 async def test_private_local_put_validates_body_and_token(tmp_path, monkeypatch):
     from tests.support import object_store, upload
     store = object_store(tmp_path)
@@ -127,7 +123,6 @@ async def test_private_local_put_validates_body_and_token(tmp_path, monkeypatch)
         assert (await client.post('/api/uploads', json=upload().model_dump(), headers=headers)).json()['upload'] is None
 
 
-@pytest.mark.usefixtures("business_http")
 async def test_upload_hash_runs_off_event_loop_while_health_remains_responsive(tmp_path, monkeypatch):
     from tests.support import object_store, upload
 
@@ -182,7 +177,6 @@ async def test_upload_hash_runs_off_event_loop_while_health_remains_responsive(t
     assert (tmp_path / response.json()['objectKey']).read_bytes() == payload
 
 
-@pytest.mark.usefixtures("business_http")
 async def test_metadata_limits_security_headers_and_removed_product_routes():
     async def chunks():
         yield b'x' * (1024 * 1024)
@@ -200,7 +194,6 @@ async def test_metadata_limits_security_headers_and_removed_product_routes():
         assert (await client.post('/api/artifacts/read', json={}, headers={})).status_code == 422
 
 
-@pytest.mark.usefixtures("business_http")
 async def test_binary_upload_over_one_mib_uses_source_limit(tmp_path, monkeypatch):
     from tests.support import object_store, upload
 
@@ -213,7 +206,6 @@ async def test_binary_upload_over_one_mib_uses_source_limit(tmp_path, monkeypatc
         assert response.status_code == 200, response.text
 
 
-@pytest.mark.usefixtures("business_http")
 @pytest.mark.parametrize("kind,media", [("xlsx", "application/vnd.ms-excel"),
     ("xls", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
     ("xlsm", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
@@ -227,7 +219,6 @@ async def test_unsupported_or_mismatched_spreadsheet_upload_is_rejected_before_s
             "sizeBytes": 4, "sha256": "a" * 64})
     assert response.status_code == 422
 
-@pytest.mark.usefixtures("business_http")
 @pytest.mark.parametrize('kind,media', [
     ('doc', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'),
     ('docm', 'application/vnd.ms-word.document.macroEnabled.12'),
@@ -251,7 +242,6 @@ async def test_unsupported_or_mismatched_word_uploads_and_tasks_are_rejected(kin
             'requestId': str(uuid4()), 'graphId': 'docx_parser', 'document': reference,
         })).status_code == 422
 
-@pytest.mark.usefixtures("business_http")
 @pytest.mark.parametrize('media', ['image/webp', 'image/gif'])
 async def test_removed_image_formats_are_rejected_for_uploads_and_tasks(media):
     from uuid import uuid4
@@ -269,7 +259,6 @@ async def test_removed_image_formats_are_rejected_for_uploads_and_tasks(media):
 
 
 
-@pytest.mark.usefixtures("business_http")
 async def test_artifact_task_database_outage_is_a_bounded_503(monkeypatch):
     from unittest.mock import AsyncMock
     from uuid import uuid4

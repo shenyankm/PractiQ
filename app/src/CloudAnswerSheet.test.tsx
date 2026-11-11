@@ -5,10 +5,9 @@ import userEvent from "@testing-library/user-event";
 import { AnswerSheetMatcher } from "../../shared/cloud/AnswerSheetMatcher";
 import { Client } from "../../shared/cloud/api";
 import { setNativeBridge, type NativeBridge } from "../../shared/cloud/transport";
-import { setAccount } from "../../shared/cloud/accountClient";
 import { capabilities, task, question, newTaskId, runId } from "../../shared/cloud/test-fixtures";
 beforeEach(()=>{localStorage.clear();globalThis.ResizeObserver=class{observe(){}unobserve(){}disconnect(){}};});
-afterEach(()=>{cleanup();setNativeBridge(null);setAccount(null);vi.restoreAllMocks();localStorage.clear();});
+afterEach(()=>{cleanup();setNativeBridge(null);vi.restoreAllMocks();localStorage.clear();});
 it("selects answer sheets passively through native tickets and retries an uncertain create without another upload",async()=>{
  const document={fileName:"answers.txt",sizeBytes:4,sourceType:"text",mediaType:"text/plain",sha256:"a".repeat(64),objectKey:`practiq-agent/sources/${"a".repeat(64)}/source.txt`};
  const pickSources=vi.fn(async()=>[{nativeTicket:"answer-file-ticket",name:"answers.txt",size:4}]);

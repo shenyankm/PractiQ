@@ -18,7 +18,7 @@ const SOURCE_LIMIT: usize = 150 * 1024 * 1024;
 pub(crate) struct Source {
     path: PathBuf,
     metadata: Value,
-    identity: String,
+    generation: u64,
     origin: String,
     selected_at: std::time::Instant,
 }
@@ -87,7 +87,7 @@ pub(crate) fn confirm(
     if message.len() > 4096 {
         return Err(error("CLOUD_REQUEST_TOO_LARGE"));
     }
-    let snapshot = state.snapshot(app, context, false)?;
+    let snapshot = state.snapshot(context)?;
     let confirmed = app
         .dialog()
         .message(message)
@@ -99,7 +99,7 @@ pub(crate) fn confirm(
 }
 
 pub(crate) fn pick(app: &AppHandle, state: &State, context: &Context) -> Result<Value> {
-    let snapshot = state.snapshot(app, context, false)?;
+    let snapshot = state.snapshot(context)?;
     let selected = app
         .dialog()
         .file()
@@ -137,7 +137,7 @@ pub(crate) fn pick(app: &AppHandle, state: &State, context: &Context) -> Result<
             Source {
                 path,
                 metadata,
-                identity: snapshot.identity(),
+                generation: snapshot.epoch,
                 origin: snapshot.origin.clone(),
                 selected_at: std::time::Instant::now(),
             },
@@ -211,20 +211,20 @@ fn upload_path(origin: &str, metadata: &Value, upload: &Value) -> Result<String>
 }
 
 pub(crate) fn upload(
-    app: &AppHandle,
+    _app: &AppHandle,
     state: &State,
     context: &Context,
     ticket: &str,
 ) -> Result<Value> {
-    let snapshot = state.snapshot(app, context, false)?;
+    let snapshot = state.snapshot(context)?;
     let source = state
         .lock()?
         .sources
         .get(ticket)
         .cloned()
         .ok_or_else(|| error("CLOUD_FILE_RESELECT"))?;
-    if source.identity != snapshot.identity() || source.origin != snapshot.origin {
-        return Err(error("CLOUD_ACCOUNT_CHANGED"));
+    if source.generation != snapshot.epoch || source.origin != snapshot.origin {
+        return Err(error("CLOUD_SERVICE_CHANGED"));
     }
     let bytes = source.verified_bytes()?;
     state.current(&snapshot)?;
@@ -287,7 +287,7 @@ pub(crate) fn download(
     let Some(target) = destination(app, name)? else {
         return Ok(json!(false));
     };
-    let snapshot = state.snapshot(app, context, false)?;
+    let snapshot = state.snapshot(context)?;
     let response = snapshot.send(Method::GET, path, None, None)?;
     if !response.status().is_success() {
         response_json(response)?;
@@ -365,7 +365,7 @@ pub(crate) fn save(
     name: &str,
     encoded: &str,
 ) -> Result<Value> {
-    let snapshot = state.snapshot(app, context, false)?;
+    let snapshot = state.snapshot(context)?;
     if encoded.len() > crate::cloud::MAX_RESPONSE * 4 / 3 + 4 {
         return Err(error("CLOUD_RESPONSE_TOO_LARGE"));
     }
@@ -387,117 +387,6 @@ pub(crate) fn save(
     crate::filesystem::persist(file, &target, true).map_err(|_| error("CLOUD_SAVE_FAILED"))?;
     Ok(json!(true))
 }
-fn escape(value: &str) -> String {
-    value
-        .replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&#39;")
-}
-pub(crate) fn payment_handoff(html: &str) -> Result<String> {
-    if html.len() > 256 * 1024 {
-        return Err(error("PAYMENT_FORM_INVALID"));
-    }
-    let document = dom_query::Document::from(html);
-    let form = document.select("form");
-    let action = form
-        .attr("action")
-        .ok_or_else(|| error("PAYMENT_FORM_INVALID"))?;
-    let action = url::Url::parse(&action).map_err(|_| error("PAYMENT_FORM_INVALID"))?;
-    if form
-        .attr("method")
-        .is_none_or(|v| !v.eq_ignore_ascii_case("post"))
-        || ![
-            "https://openapi.alipay.com",
-            "https://openapi-sandbox.dl.alipaydev.com",
-        ]
-        .contains(&action.origin().ascii_serialization().as_str())
-        || action.path() != "/gateway.do"
-        || !action.username().is_empty()
-        || action.password().is_some()
-        || action.fragment().is_some()
-    {
-        return Err(error("PAYMENT_FORM_INVALID"));
-    }
-    let fields: Vec<_> = form
-        .select("input[type=hidden]")
-        .iter()
-        .map(|field| {
-            format!(
-                "<input type=\"hidden\" name=\"{}\" value=\"{}\">",
-                escape(&field.attr("name").unwrap_or_default()),
-                escape(&field.attr("value").unwrap_or_default())
-            )
-        })
-        .collect();
-    if fields.is_empty() || fields.len() > 100 {
-        return Err(error("PAYMENT_FORM_INVALID"));
-    }
-    let nonce = uuid::Uuid::new_v4().simple().to_string();
-    Ok(format!("<!doctype html><html lang=\"zh-CN\"><meta charset=\"utf-8\"><meta name=\"referrer\" content=\"no-referrer\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; form-action {}; script-src 'nonce-{}'; base-uri 'none'\"><title>支付宝付款</title><p>正在打开支付宝收银台。完成后请返回 PractiQ App 查询原订单。</p><form method=\"post\" action=\"{}\">{}<button type=\"submit\">前往支付宝付款</button></form><script nonce=\"{}\">document.forms[0].submit()</script></html>",escape(&action.origin().ascii_serialization()),nonce,escape(action.as_str()),fields.join(""),nonce))
-}
-pub(crate) fn checkout(
-    app: &AppHandle,
-    state: &State,
-    context: &Context,
-    request_id: &str,
-    order_id: Option<&str>,
-    product_id: Option<&str>,
-) -> Result<Value> {
-    if product_id.is_some_and(|id| !["plus", "pro", "pages50"].contains(&id)) {
-        return Err(error("PLAN_PRODUCT_INVALID"));
-    }
-    uuid::Uuid::parse_str(request_id).map_err(|_| error("PAYMENT_REQUEST_INVALID"))?;
-    let (path, body) = if let Some(id) = order_id {
-        (format!("/api/me/payments/{id}/form"), None)
-    } else {
-        (
-            "/api/me/payments".into(),
-            Some(json!({"requestId":request_id,"productId":product_id})),
-        )
-    };
-    let reply = crate::cloud::fetch(app, state, context, &path, Method::POST, body)?;
-    let bytes = STANDARD
-        .decode(reply["bytes"].as_str().unwrap_or(""))
-        .map_err(|_| error("PAYMENT_FORM_INVALID"))?;
-    let value: Value = serde_json::from_slice(&bytes).map_err(|_| error("PAYMENT_FORM_INVALID"))?;
-    if reply["status"] != 200 {
-        return Err(error(
-            value["detail"]["code"]
-                .as_str()
-                .unwrap_or("PAYMENT_RESULT_UNKNOWN"),
-        ));
-    }
-    let html = payment_handoff(
-        value["paymentHtml"]
-            .as_str()
-            .ok_or_else(|| error("PAYMENT_FORM_INVALID"))?,
-    )?;
-    let mut file = tempfile::Builder::new()
-        .prefix("practiq-checkout-")
-        .suffix(".html")
-        .tempfile()
-        .map_err(|_| error("CLOUD_SAVE_FAILED"))?;
-    file.write_all(html.as_bytes())
-        .map_err(|_| error("CLOUD_SAVE_FAILED"))?;
-    state.snapshot(app, context, false)?;
-    if !std::process::Command::new("/usr/bin/open")
-        .arg(file.path())
-        .status()
-        .map_err(|_| error("PAYMENT_BROWSER_FAILED"))?
-        .success()
-    {
-        return Err(error("PAYMENT_BROWSER_FAILED"));
-    }
-    let mut current = state.lock()?;
-    if current.checkouts.len() >= 16 {
-        current.checkouts.remove(0);
-    }
-    current.checkouts.push(file);
-    Ok(json!({"order":value["order"]}))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -568,22 +457,6 @@ mod tests {
         assert!(verify_zip(tempfile::tempfile().unwrap()).is_err());
     }
     #[test]
-    fn checkout_only_rebuilds_hidden_fields_and_never_runs_provider_html() {
-        let html = payment_handoff("<form method='POST' action='https://openapi.alipay.com/gateway.do'><input type='hidden' name='subject' value='&quot;&gt;&lt;script&gt;bad()&lt;/script&gt;'><script>steal()</script><input name='other' value='no'></form>").unwrap();
-        assert!(!html.contains("steal()") && !html.contains("name=\"other\""));
-        assert!(html.contains("&lt;script&gt;") && html.contains("no-referrer"));
-        for action in [
-            "https://evil.test/gateway.do",
-            "https://openapi.alipay.com/other",
-            "https://user@openapi.alipay.com/gateway.do",
-        ] {
-            assert!(payment_handoff(&format!(
-                "<form method='post' action='{action}'><input type='hidden' name='a'></form>"
-            ))
-            .is_err());
-        }
-    }
-    #[test]
     fn source_formats_do_not_recognize_or_parse_documents() {
         assert_eq!(format("example.PDF").unwrap().0, "pdf");
         assert_eq!(format("example.jpeg").unwrap().2, "image");
@@ -600,7 +473,7 @@ mod tests {
         let source = Source {
             path: path.clone(),
             metadata: json!({"sizeBytes":8,"sha256":crate::store::hash(b"original")}),
-            identity: "session-scope".into(),
+            generation: 1,
             origin: "https://example.test".into(),
             selected_at: std::time::Instant::now(),
         };

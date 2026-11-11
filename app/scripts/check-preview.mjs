@@ -271,12 +271,12 @@ test('study rules and backup details remain available on desktop and narrow scre
   await page.getByRole('button',{name:'设置',exact:true}).click();
   const details=page.getByText('备份范围与注意事项',{exact:true});
   await expect(page.getByRole('heading',{name:'学习数据备份',exact:true})).toBeVisible();
-  await expect(page.getByText(/不包含原始文档、云端任务及登录凭据/)).toBeHidden();
+  await expect(page.getByText(/不包含原始文档、云端任务和模型密钥/)).toBeHidden();
   await details.focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByText(/不包含原始文档、云端任务及登录凭据/)).toBeVisible();
+  await expect(page.getByText(/不包含原始文档、云端任务和模型密钥/)).toBeVisible();
   await page.keyboard.press('Enter');
-  await expect(page.getByText(/不包含原始文档、云端任务及登录凭据/)).toBeHidden();
+  await expect(page.getByText(/不包含原始文档、云端任务和模型密钥/)).toBeHidden();
  }
 });
 
@@ -723,7 +723,7 @@ for(const scenario of ['empty','many','unconfigured','missing','slow','error']) 
   await expect(page.getByRole('heading',{name:'设置',exact:true})).toBeVisible();
   if(scenario==='error') await expect(page.getByRole('alert').filter({hasText:'演示请求失败'}).first()).toBeVisible();
   else await expect(page.getByRole('button',{name:'导出备份',exact:true})).toBeVisible();
-  await expect(page.getByRole('button',{name:'配置',exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'配置',exact:true})).toHaveCount(1);
  });
 }
 
@@ -1140,55 +1140,30 @@ test('practice radio arrows select answers while question shortcuts navigate out
 
 
 for (const width of [960, 1280]) for (const colorScheme of ['light', 'dark']) {
- test(`account entry, profile and quota preview at ${width}px ${colorScheme}`, async ({page}, testInfo) => {
+ test(`personal import entry stays passive at ${width}px ${colorScheme}`, async ({page}, testInfo) => {
   await page.setViewportSize({width,height:width===960?640:850});
   await page.emulateMedia({colorScheme,reducedMotion:'reduce'});
   await page.goto('/');
   const sidebar=page.locator('#app-sidebar');
-  const entry=sidebar.getByRole('button',{name:'个人中心',exact:true});
-  await expect(sidebar.getByRole('button',{name:'设置',exact:true})).toBeInViewport();
-  await expect(entry).toHaveAttribute('aria-description','未登录');
-  await entry.click();
-  await expect(page.getByRole('heading',{name:'个人中心',exact:true})).toBeVisible();
-  await expect(page.getByText(/开发预览：仅演示账户与资料/)).toHaveCount(0);
-  await page.getByLabel('登录邮箱',{exact:true}).fill('preview-account@example.test');
-  await page.getByLabel('密码',{exact:true}).fill('preview-only-password');
-  await page.getByRole('button',{name:'登录',exact:true}).click();
-  const profile=page.getByRole('region',{name:'个人信息',exact:true});
-  await expect(profile.getByText('preview-account@example.test',{exact:true})).toBeVisible();
-  await expect(profile.getByText('普通用户',{exact:true})).toBeVisible();
-  await expect(entry).toHaveAttribute('aria-description','演示用户');
-  await page.getByLabel('昵称',{exact:true}).fill('预览昵称');
-  await page.locator('#current-password').fill('preview-only-password');
-  await page.getByRole('button',{name:'保存账户信息',exact:true}).click();
-  await expect(entry).toHaveAttribute('aria-description','预览昵称');
-  await page.locator('.app-content').evaluate(node=>{node.scrollTop=0;});
-  await page.screenshot({path:testInfo.outputPath(`account-profile-${width}-${colorScheme}.png`)});
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-  await page.getByRole('button',{name:'用量',exact:true}).click();
-  await expect(page.getByText(/可用识别额度：50 页/)).toBeVisible();
-  await page.getByRole('button',{name:'套餐与额度',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'当前套餐 · Free',exact:true})).toBeVisible();
-  await expect(page.getByRole('button',{name:'购买 Plus',exact:true})).toBeDisabled();
-  await page.getByRole('button',{name:'退出登录',exact:true}).click();
-  await expect(entry).toHaveAttribute('aria-description','未登录');
+  await expect(sidebar.getByRole('button',{name:'个人中心',exact:true})).toHaveCount(0);
+  await sidebar.getByRole('button',{name:'文档导入',exact:true}).click();
+  await expect(page.getByRole('link',{name:'开始导入',exact:true})).toBeVisible();
+  await expect(page.getByLabel('登录邮箱',{exact:true})).toHaveCount(0);
+  await page.screenshot({path:testInfo.outputPath(`personal-import-${width}-${colorScheme}.png`),fullPage:true});
   await sidebar.getByRole('button',{name:'我的题库',exact:true}).click();
   await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
-  expect(await page.evaluate(()=>JSON.stringify({local:localStorage,session:sessionStorage}))).not.toContain('preview-only-password');
  });
 }
 
-test('unconfigured accounts offer a connection entry and offline access', async ({page}) => {
+test('unconfigured import opens the workspace with a local backend default', async ({page}) => {
  await page.addInitScript(()=>sessionStorage.setItem('practiq-test-scenario','unconfigured'));
  await page.goto('/');
  const sidebar=page.locator('#app-sidebar');
- await sidebar.getByRole('button',{name:'个人中心',exact:true}).click();
- await expect(page.getByRole('heading',{name:'连接云端服务',exact:true})).toBeVisible();
- await expect(page.getByLabel('云端服务地址',{exact:true})).toBeVisible();
- await expect(page.getByText('云端连接设置',{exact:true})).toHaveCount(0);
- await page.getByLabel('云端服务地址',{exact:true}).fill('https://cloud.example.test');
- await page.getByRole('button',{name:'重试',exact:true}).click();
- await expect(page.getByRole('heading',{name:'连接云端服务',exact:true})).toBeVisible();
+ await sidebar.getByRole('button',{name:'文档导入',exact:true}).click();
+ await expect(page.getByRole('link',{name:'开始导入',exact:true})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'连接云端服务',exact:true})).toHaveCount(0);
+ await page.getByRole('link',{name:'设置',exact:true}).click();
+ await expect(page.getByLabel('导入服务地址',{exact:true})).toHaveValue('http://127.0.0.1:8090');
  await sidebar.getByRole('button',{name:'我的题库',exact:true}).click();
  await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
 });

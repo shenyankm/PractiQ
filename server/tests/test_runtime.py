@@ -180,7 +180,7 @@ async def test_reused_reader_does_not_inherit_another_requests_snapshot(monkeypa
     assert await second == [{'value': 'committed'}]
 
 
-async def test_existing_schema_five_gets_additive_sort_indexes():
+async def test_current_personal_schema_gets_additive_sort_indexes():
     db = await new_database()
     async with db.connection() as conn:
         for name in ('document_task_order', 'document_run_latest', 'document_active_order'):
@@ -188,7 +188,7 @@ async def test_existing_schema_five_gets_additive_sort_indexes():
     await db.check_schema()
     await db.ensure_indexes()
     await db.ensure_indexes()
-    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 8}]
+    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 9}]
     indexes = await db.rows("SELECT indexname FROM pg_indexes WHERE schemaname='public'")
     assert {'document_task_order', 'document_run_latest', 'document_active_order'} <= {row['indexname'] for row in indexes}
 
@@ -250,10 +250,6 @@ async def test_expired_state_cleanup_is_offline_and_idempotent(monkeypatch):
         monkeypatch.setenv('AI_MAINTENANCE_MODE', 'true')
         async with db.connection() as conn:
             await conn.execute('UPDATE document_tasks SET expires_at=%s', (utcnow() - timedelta(days=1),))
-        from tests.db_support import seed_browser_identity
-        await seed_browser_identity(db)
-        async with db.connection() as conn:
-            await conn.execute("UPDATE document_tasks SET owner_id='browser-user'")
         assert await cleanup(db) == 1
         assert await cleanup(db) == 0
         assert not await db.rows('SELECT * FROM document_tasks')
@@ -626,9 +622,8 @@ async def test_missing_checkpoint_tables_fail_closed():
     await db.connections[0].execute('DROP TABLE checkpoint_writes')
     with pytest.raises(RuntimeError, match='Incomplete PostgreSQL state'):
         await db.check_schema()
-    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 8}]
+    assert await db.rows('SELECT version FROM practiq_schema') == [{'version': 9}]
 
-@pytest.mark.usefixtures("business_http")
 @pytest.mark.parametrize('pending', [False, True])
 @pytest.mark.parametrize(('graph_id', 'kind'), [('docx_parser', 'text'), ('document_parser', 'docm'), ('document_parser', 'xlsm')])
 async def test_unsupported_tasks_are_unchanged_and_do_not_block_current_work(monkeypatch, graph_id, kind, pending):

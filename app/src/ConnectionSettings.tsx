@@ -37,7 +37,7 @@ export function ConnectionSettingsPanel({
     service_url: null,
     model: { base_url: null, model_id: null },
   });
-  const [serviceToken, setServiceToken] = useState("");
+  const [apiKey, setApiKey] = useState("");
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
@@ -82,22 +82,20 @@ export function ConnectionSettingsPanel({
   useEffect(load, []);
   const direct = !!config.model;
   const endpoint = direct ? config.model?.base_url : config.service_url;
-  const configured = direct
-    ? saved?.config.model?.base_url === endpoint ? saved?.hasApiKey ?? null : false
-    : saved && saved.config.service_url === config.service_url ? saved.hasServiceToken : null;
-  const missing = missingServiceSettings({ config, hasServiceToken: serviceToken.trim() ? true : configured, hasApiKey: serviceToken.trim() ? true : configured });
+  const configured = saved?.config.model?.base_url === endpoint ? saved?.hasApiKey ?? null : false;
+  const missing = missingServiceSettings({ config, hasApiKey: apiKey.trim() ? true : configured });
   function field(name: "service_url", value: string) {
     setTestResult(null);
     invalidate();
     setConfig((old) => ({ ...old, [name]: value || null }));
     if (name === "service_url") {
-      setServiceToken("");
+      setApiKey("");
     }
   }
   function modelField(name: "base_url" | "model_id", value: string) {
     setTestResult(null); invalidate();
     setConfig(old => ({ ...old, model: { base_url: null, model_id: null, ...old.model, [name]: value || null } }));
-    if (name === "base_url") setServiceToken("");
+    if (name === "base_url") setApiKey("");
   }
   const persist = useCallback(async () => {
     if (!dirty || !saved) return saved;
@@ -108,18 +106,18 @@ export function ConnectionSettingsPanel({
     }
     if (version !== revision.current) return saved;
     setSaveError(null); setSaving(true);
-    const request = api({ type: "save_settings", config, service_token: config.model ? null : serviceToken.trim() || null, ...(config.model ? { api_key: serviceToken.trim() || null } : {}) });
+    const request = api({ type: "save_settings", config, ...(config.model ? { api_key: apiKey.trim() || null } : {}) });
     pending.current = { version, request };
     try {
       const result = await request;
       if (version === revision.current) {
-        setSaved(result); setConfig(result.config); setServiceToken(""); setDirty(false); setJustSaved(true);
+        setSaved(result); setConfig(result.config); setApiKey(""); setDirty(false); setJustSaved(true);
         toast.success(message("连接配置已保存"));
       }
       return result;
     } catch (e) { if (version === revision.current) setSaveError(e); throw e; }
     finally { if (pending.current?.request === request) { pending.current = null; setSaving(false); } }
-  }, [dirty, saved, config, serviceToken]);
+  }, [dirty, saved, config, apiKey]);
   useEffect(() => {
     if (!flushRef || onConfigure) return;
     const flush = async () => {
@@ -136,15 +134,15 @@ export function ConnectionSettingsPanel({
       finally { locked.current = false; setOperation(null); }
     });
   }, [dirty, saved, busy, run, persist]);
-  function clearToken() {
-    if (busy || locked.current || dirty || pending.current || !saved || !endpoint) return;
+  function clearApiKey() {
+    if (!direct || busy || locked.current || dirty || pending.current || !saved || !endpoint) return;
     locked.current = true; setOperation("clear"); setTestResult(null); setClearError(null);
     const version = ++revision.current;
     run(async () => {
       try {
-        const result = await api({type:"save_settings", config:saved.config, service_token:direct ? null : "", ...(direct ? {api_key:""} : {})});
+        const result = await api({type:"save_settings", config:saved.config, ...(direct ? {api_key:""} : {})});
         if (version !== revision.current) return;
-        setSaved(result); setConfig(result.config); setServiceToken(""); setDirty(false); setSaveError(null);
+        setSaved(result); setConfig(result.config); setApiKey(""); setDirty(false); setSaveError(null);
         toast.success(message("连接配置已保存"));
       } catch (error) { if (version === revision.current) setClearError(error); }
       finally { locked.current = false; setOperation(null); }
@@ -189,7 +187,7 @@ export function ConnectionSettingsPanel({
             <div className="space-y-2">
               <Label htmlFor="gradingConnection">{t("评分连接方式")}</Label>
               <NativeSelect id="gradingConnection" value={direct ? "direct" : "service"} onValueChange={value => {
-                invalidate(); setTestResult(null); setServiceToken("");
+                invalidate(); setTestResult(null); setApiKey("");
                 setConfig(old => value === "direct" ? { ...old, model: saved?.config.model ?? {base_url:null, model_id:null} } : {service_url:old.service_url});
               }}>
                 <NativeSelectOption value="direct">{t("直连模型 API")}</NativeSelectOption>
@@ -212,24 +210,23 @@ export function ConnectionSettingsPanel({
               <Input id="serviceUrl" type="url" autoCapitalize="none" enterKeyHint="done" autoComplete="off" spellCheck={false} placeholder="http://127.0.0.1:8000" value={config.service_url || ""} onChange={e => field("service_url", e.target.value)}/>
             </div>
             }
-            <div className="space-y-2">
-              <Label htmlFor="serviceToken">{t(direct ? "模型 API Key" : "AI 服务访问令牌")}</Label>
+            {direct && <div className="space-y-2">
+              <Label htmlFor="apiKey">{t("模型 API Key")}</Label>
               <Input
-                id="serviceToken"
+                id="apiKey"
                 type="password"
                 autoCapitalize="none"
                 enterKeyHint="done"
                 autoComplete="new-password"
                 spellCheck={false}
                 placeholder={
-                  configured !== false && endpoint ? "********************************" : t(direct ? "填写此模型服务对应的 API Key" : "填写此服务对应的访问令牌")
+                  configured !== false && endpoint ? "********************************" : t("填写此模型服务对应的 API Key")
                 }
-                value={serviceToken}
-                onChange={(e) => { invalidate(); setTestResult(null); setServiceToken(e.target.value); }}
+                value={apiKey}
+                onChange={(e) => { invalidate(); setTestResult(null); setApiKey(e.target.value); }}
               />
-              {!direct && <p className="text-sm text-muted-foreground">{t("多用户服务：在本应用的个人中心 → 账户与安全中创建个人评分令牌；失效后需手动替换。")}</p>}
-              {saved && configured && <p className="text-sm text-muted-foreground">{t(direct ? "API Key 已安全保存；留空将保持当前配置不变。" : "访问令牌已安全保存；留空将保持当前配置不变。")}</p>}
-            </div>
+              {saved && configured && <p className="text-sm text-muted-foreground">{t("API Key 已安全保存；留空将保持当前配置不变。")}</p>}
+            </div>}
           </fieldset>
           {saved && <div role="status" className="connection-status"><p className="text-sm text-muted-foreground">{saving ? t("正在保存配置…") : saveError != null ? t("配置未保存") : dirty ? t("有未保存的修改") : justSaved ? t("连接配置已保存") : t("已加载配置")}</p><p className="text-sm">{operation === "test" ? t("测试中…") : testResult ? t(testResult.error ? "连接测试失败" : "连接测试通过") : missing.length ? t("未配置") : t("已配置 · 尚未测试")}</p></div>}
           {saveError != null && <div role="alert" className="flex flex-wrap items-start justify-between gap-3 text-sm text-destructive"><div className="min-w-0 flex-1"><ErrorNotice error={saveError} /></div><Button type="button" variant="outline" disabled={busy || operation !== null} onClick={save}>{t("重试保存")}</Button></div>}
@@ -237,7 +234,7 @@ export function ConnectionSettingsPanel({
           {clearError != null && <div role="alert" className="text-destructive"><ErrorNotice error={clearError} /></div>}
           {direct && <p className="text-sm text-muted-foreground">{t("连接测试仅拉取模型列表，不产生评分费用。若题目包含配图，请确保所选模型支持多模态视觉识别。")}</p>}
           <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-4">
-          <Button variant="outline" type="button" disabled={busy || operation !== null || dirty || !saved || !endpoint || configured === false} onClick={clearToken}>{t(direct ? "清除已保存的 API Key" : "清除已保存的访问令牌")}</Button>
+          {direct && <Button variant="outline" type="button" disabled={busy || operation !== null || dirty || !saved || !endpoint || configured === false} onClick={clearApiKey}>{t("清除已保存的 API Key")}</Button>}
           <Button variant="outline" type="button" disabled={busy || operation !== null || !saved || missing.length > 0} onClick={() => {
             if (locked.current) return;
             locked.current = true; setOperation("test"); setSaveError(null); setTestResult(null);
@@ -247,7 +244,7 @@ export function ConnectionSettingsPanel({
               try {
                 await persist();
                 persisted = true;
-                await api({ type: "test_settings", config, service_token: null, ...(direct ? { api_key: null } : {}) });
+                await api({ type: "test_settings", config, ...(direct ? { api_key: null } : {}) });
                 if (version !== revision.current) return;
                 setTestResult({});
                 toast.success(message("连接测试通过"));

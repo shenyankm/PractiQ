@@ -5,12 +5,15 @@ import { fileURLToPath, URL } from "node:url";
 export default defineConfig(({ mode }) => ({
   cacheDir: `node_modules/.vite/${mode}`,
   test: {
+    maxWorkers: 2,
     include: ["src/**/*.test.{ts,tsx}"],
     setupFiles: ["./src/test-setup.ts"],
     coverage: {
       provider: "v8",
-      include: ["src/**/*.{ts,tsx}"],
-      exclude: ["src/**/*.test.{ts,tsx}", "src/test-setup.ts", "src/contracts.generated.ts", "src/components/ui/**", "src/locales/**"],
+      include: ["src/**/*.{ts,tsx}", "../shared/cloud/**/*.{ts,tsx}"],
+      allowExternal: true,
+      reportOnFailure: true,
+      exclude: ["src/**/*.test.{ts,tsx}", "src/test-setup.ts", "src/import-test-setup.ts", "../shared/cloud/components/**", "../shared/cloud/contracts.generated.ts", "../shared/cloud/test-fixtures.ts", "src/contracts.generated.ts", "src/components/ui/**", "src/locales/**"],
       reportsDirectory: "../coverage/app",
       thresholds: { statements: 80, branches: 73, functions: 73, lines: 85 },
     },

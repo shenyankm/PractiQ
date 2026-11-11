@@ -32,16 +32,16 @@ Follow the [installation guide](../guides/installation.md) and [CONTRIBUTING](..
 AI_PYTHON=/absolute/path/to/python3.14
 make install-locked AI_PYTHON="$AI_PYTHON"
 make app-install
-make web-install
+make app-install
 "$AI_PYTHON" app/scripts/export-contracts.py --check
 "$AI_PYTHON" app/scripts/check-fixtures.py
 (cd server && PYTHONPATH=src "$AI_PYTHON" scripts/evaluate.py --validate-only)
 (cd server && PYTHONPATH=src "$AI_PYTHON" -m pytest tests/test_evaluation.py)
 (cd web && ./node_modules/.bin/playwright install chromium --only-shell)
-make web-check
+make app-check
 ```
 
-For app UI changes run the existing UI/browser gates and macOS native checks when applicable; for fixture/service changes run `make verify AI_PYTHON="$AI_PYTHON"` before requesting review. Setting the selected interpreter avoids accidentally using a shell's older `python`. Evaluation tests use paths relative to `server/`, so run them there; running them from root fails to locate `evals/cases.json`. Neither setup nor focused checks need a model key, a provider configuration or a running AI service. Web browser tests start their own loopback Vite frontend and substitute the task APIs. Use independently installed locked dependencies, including the local Playwright executable above, rather than another checkout's `node_modules`.
+For app UI changes run the existing UI/browser gates and macOS native checks when applicable; for fixture/service changes run `make verify AI_PYTHON="$AI_PYTHON"` before requesting review. Setting the selected interpreter avoids accidentally using a shell's older `python`. Evaluation tests use paths relative to `server/`, so run them there; running them from root fails to locate `evals/cases.json`. Neither setup nor focused checks need a model key, a provider configuration or a running AI service. App browser tests start a test-only loopback Vite harness and substitute the native task transport. Use independently installed locked dependencies, including the local Playwright executable above, rather than another checkout's `node_modules`.
 
 In the October 4 rehearsal, all commands above passed on their first attempt in the same isolated checkout: full `make install-locked`, independent app/Web `npm ci`, generated-contract parity, shared fixtures, 30 evaluation cases, 83 focused pytest checks, Web TypeScript/lint, 41 Web unit tests and 9 browser tests. No setup failure required a repair or rerun. The 86 applicable locked Python dependency versions already matched; the install command still ran and temporarily rebound the existing editable service package. Its original source pointer was restored afterward, all global distribution versions stayed unchanged, all tracked source bytes stayed unchanged and no project `.venv` was created. No model environment file contents or provider key were read, no AI service was started and no real model was called.
 

@@ -28,7 +28,6 @@ async function fakeHTTP(page: Page, initial: DocumentTaskDetail = task) {
     const raw = request.postDataBuffer();
     const jsonBody = request.headers()["content-type"]?.includes("application/json");
     const call: Call = { method: request.method(), path: url.pathname, query: url.search, body: jsonBody && raw ? JSON.parse(raw.toString()) : null, bytes: jsonBody ? null : raw, authorization: request.headers().authorization };
-    if (call.path === '/api/auth/session') { await respond(route, { user: { id: 'browser-fixture', email: 'browser@example.test', name: '测试账户', role: 'user', enabled: true }, csrf: 'fixture-csrf', registrationEnabled: true }); return; }
     calls.push(call);
     if (await server.intercept?.(route, call)) return;
     if (call.path === "/api/import-capabilities") { await respond(route, capabilities); return; }
@@ -218,7 +217,7 @@ for (const width of [1440, 390]) {
     await page.getByRole("link", { name: anchor === "task-detail" ? "查看当前任务详情" : "返回任务列表", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`#${anchor}$`));
     await page.getByRole("link", { name: "设置", exact: true }).click();
-    await expect(page.getByLabel("腾讯识别并发上限")).toBeDisabled();
+    await expect(page.getByLabel("腾讯识别并发上限")).toBeEnabled();
     await page.goBack();
     await expect(page).toHaveURL(new RegExp(`#${anchor}$`));
     await expect(page.getByRole("main", { name: "导入记录" })).toBeVisible();
@@ -288,11 +287,11 @@ for (const width of [1440, 390]) {
     const settingsCard = await page.locator(".settings-panel").boundingBox();
     expect(Math.abs(settingsCard!.x - settingsBody!.x - (settingsBody!.x + settingsBody!.width - settingsCard!.x - settingsCard!.width))).toBeLessThan(2);
     await expect(page.getByRole("button", { name: "保存设置", exact: true })).toHaveCount(0);
-    await expect(concurrency).toBeDisabled();
+    await expect(concurrency).toBeEnabled();
     expect(mutations(http.calls)).toHaveLength(0);
     await page.getByRole("switch", { name: "自动去重", exact: true }).check();
     await page.getByRole("switch", { name: "AI 生成答案与解析", exact: true }).check();
-    await expect(page.getByLabel("读取失败重试次数")).toBeDisabled(); await expect(page.getByLabel("初始退避间隔（秒）")).toBeDisabled();
+    await expect(page.getByLabel("读取失败重试次数")).toBeEnabled(); await expect(page.getByLabel("初始退避间隔（秒）")).toBeEnabled();
     await page.getByRole("link", { name: "开始导入", exact: true }).click();
     await expect(page.getByText("pending.txt", { exact: true })).toBeVisible();
     await page.getByRole("link", { name: "设置", exact: true }).click(); await expect(concurrency).toHaveValue("5");

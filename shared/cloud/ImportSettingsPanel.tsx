@@ -58,18 +58,18 @@ export function ImportSettingsPanel({ client, onSettingsChange, onPendingChange 
     return () => clearTimeout(timer);
   }, [client, snapshot, draft, loading, saving, changed, valid, error, onSettingsChange]);
   return <section className="settings-panel" aria-labelledby="execution-settings-heading">
-    <div className="section-heading"><div><h2 id="execution-settings-heading">{t("识别与恢复")}</h2>{!client.administrative && <p>{t("导入偏好仅应用于你的后续任务。识别执行参数由管理员设置。")}</p>}</div><Button variant="outline" disabled={loading || saving} onClick={() => setRevision(value => value + 1)}><RefreshCw />{t("重新读取设置")}</Button></div>
+    <div className="section-heading"><div><h2 id="execution-settings-heading">{t("识别与恢复")}</h2></div><Button variant="outline" disabled={loading || saving} onClick={() => setRevision(value => value + 1)}><RefreshCw />{t("重新读取设置")}</Button></div>
     {loading && <p role="status">{t("正在读取导入设置…")}</p>}
     {error && <p className="error-banner" role="alert">{error}</p>}
     {snapshot && <form onSubmit={event => event.preventDefault()}>
       <fieldset disabled={loading} className="settings-fields">
-        {!client.administrative && ([["deduplicateQuestions", t("自动去重")], ["generateAnswers", t("AI 生成答案与解析")]] as const).map(([key, label]) =>
+        {([["deduplicateQuestions", t("自动去重")], ["generateAnswers", t("AI 生成答案与解析")]] as const).map(([key, label]) =>
           <div className="setting-row" key={key}><label htmlFor={key}><strong>{label}</strong></label><Switch id={key} checked={draft[key]} onCheckedChange={checked => { setDraft(previous => ({ ...previous, [key]: checked })); setSaved(false); }} /></div>)}
         {([
           ["tencentConcurrency", t("腾讯识别并发上限"), 1, 5, 1],
           ["readRetryCount", t("读取失败重试次数"), 0, 5, 1],
           ["retryBaseSeconds", t("初始退避间隔（秒）"), 0.5, 10, "any"],
-        ] as const).map(([key, label, min, max, step]) => <div className="setting-row" key={key}><label htmlFor={key}><strong>{label}</strong></label><Input id={key} type="number" min={min} max={max} step={step} disabled={!client.administrative} required aria-invalid={draft[key] !== "" && (!Number.isFinite(Number(draft[key])) || Number(draft[key]) < min || Number(draft[key]) > max || step === 1 && !Number.isInteger(Number(draft[key]))) || undefined} value={draft[key]} onChange={event => { setDraft(previous => ({ ...previous, [key]: event.target.value })); setSaved(false); }} /></div>)}
+        ] as const).map(([key, label, min, max, step]) => <div className="setting-row" key={key}><label htmlFor={key}><strong>{label}</strong></label><Input id={key} type="number" min={min} max={max} step={step} required aria-invalid={draft[key] !== "" && (!Number.isFinite(Number(draft[key])) || Number(draft[key]) < min || Number(draft[key]) > max || step === 1 && !Number.isInteger(Number(draft[key]))) || undefined} value={draft[key]} onChange={event => { setDraft(previous => ({ ...previous, [key]: event.target.value })); setSaved(false); }} /></div>)}
       </fieldset>
     </form>}
     {!error && (changed || saving || saved) && createPortal(<div className="settings-toast"><span role="status">{!valid ? t("数值无效，尚未保存") : changed || saving ? <><LoaderCircle className="loading-icon" />{t("正在自动保存…")}</> : <><Check />{t("设置已保存")}</>}</span>{saved && !changed && !saving && <Button variant="ghost" size="icon" aria-label={t("关闭保存提示")} onClick={() => setSaved(false)}><X /></Button>}</div>, document.querySelector(".cloud-portal") || document.body)}

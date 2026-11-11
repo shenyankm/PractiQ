@@ -43,10 +43,6 @@ def ocr_page(*, figures=False):
 
 
 def job_runtime(monkeypatch):
-    from practiq_ai import identity
-    monkeypatch.setattr(identity, 'reserve', AsyncMock())
-    monkeypatch.setattr(identity, 'record_call', AsyncMock())
-    monkeypatch.setattr(identity, 'release', AsyncMock())
     monkeypatch.setenv("AI_TENCENT_SECRET_ID", "synthetic-id")
     monkeypatch.setenv("AI_TENCENT_SECRET_KEY", "synthetic-key")
     payload = b"source"
@@ -583,23 +579,6 @@ async def test_direct_office_submission_caps_paid_pages(monkeypatch, kind):
     assert request.await_args_list[0].args[1]['FileEndPageNumber'] == 2
 
 
-async def test_exhausted_free_pages_pause_before_any_paid_submission(monkeypatch):
-    from unittest.mock import Mock
-
-    import langgraph.types
-
-    from practiq_ai import identity
-    reference, _, runtime = job_runtime(monkeypatch)
-    monkeypatch.setattr(identity, 'reserve', AsyncMock(side_effect=DocumentProcessingError(429, 'No free pages', 'FREE_PAGE_QUOTA_EXCEEDED')))
-    pause = Mock()
-    monkeypatch.setattr(langgraph.types, 'interrupt', pause)
-    request = AsyncMock()
-    monkeypatch.setattr(tencent, 'request', request)
-    with pytest.raises(DocumentProcessingError, match='free pages'):
-        await tencent.parse_job(reference, runtime)
-    pause.assert_called_once_with({'kind': 'pause', 'reason': 'FREE_PAGE_QUOTA_EXCEEDED'})
-    request.assert_not_awaited()
-    assert await runtime.store.aget(namespace('t', 'tencent_jobs'), 'source') is None
 
 
 async def test_failed_job_retains_only_safe_diagnostics_and_phase_metrics(monkeypatch):
@@ -860,11 +839,3 @@ async def test_pause_is_observed_while_waiting_for_tencent_admission(monkeypatch
         for job in jobs:
             job.cancel()
         await asyncio.gather(*jobs, return_exceptions=True)
-
-
-@pytest.fixture(autouse=True)
-def account_admission_substitute(monkeypatch):
-    from practiq_ai import identity
-    monkeypatch.setattr(identity, 'reserve', AsyncMock())
-    monkeypatch.setattr(identity, 'record_call', AsyncMock())
-    monkeypatch.setattr(identity, 'release', AsyncMock())

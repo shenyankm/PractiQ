@@ -3,9 +3,9 @@ import { test, expect } from 'playwright/test';
 // Exercise the minified production assets. Native commands are mocked here;
 // the installed macOS app still needs native acceptance.
 const languages = [
-  { locale: 'zh-CN', open: '打开主导航', drawer: '主导航', banks: '我的题库', nav: ['我的题库', '文档导入', '学习概览', '错题本', '收藏夹', '练习记录', '个人中心', '设置'], theme: '主题', language: '语言', close: '关闭' },
-  { locale: 'zh-TW', open: '開啟主導航', drawer: '主導航', banks: '我的題庫', nav: ['我的題庫', '文件匯入', '學習概覽', '錯題本', '收藏夾', '練習紀錄', '個人中心', '設定'], theme: '主題', language: '語言', close: '關閉' },
-  { locale: 'en', open: 'Open navigation', drawer: 'Main navigation', banks: 'My banks', nav: ['My banks', 'Document import', 'Learning overview', 'Mistakes', 'Favorites', 'History', 'Account', 'Settings'], theme: 'Theme', language: 'Language', close: 'Close' },
+  { locale: 'zh-CN', open: '打开主导航', drawer: '主导航', banks: '我的题库', nav: ['我的题库', '文档导入', '学习概览', '错题本', '收藏夹', '练习记录', '设置'], theme: '主题', language: '语言', close: '关闭' },
+  { locale: 'zh-TW', open: '開啟主導航', drawer: '主導航', banks: '我的題庫', nav: ['我的題庫', '文件匯入', '學習概覽', '錯題本', '收藏夾', '練習紀錄', '設定'], theme: '主題', language: '語言', close: '關閉' },
+  { locale: 'en', open: 'Open navigation', drawer: 'Main navigation', banks: 'My banks', nav: ['My banks', 'Document import', 'Learning overview', 'Mistakes', 'Favorites', 'History', 'Settings'], theme: 'Theme', language: 'Language', close: 'Close' },
 ];
 
 async function withinViewport(page, locator, name) {
@@ -47,7 +47,7 @@ for (const names of languages) {
           case 'info': return { version: 'Built browser navigation mock', dataDirectory: '/mock' };
           case 'learning_overview': return {days:request.days,since:request.since,through:Date.now(),counts:{submitted:0,skipped:0,ungraded:0,auto:{graded:0,correct:0},selfAssessed:{graded:0,correct:0},ai:{graded:0,correct:0},manual:{graded:0,correct:0}},banks:[],kinds:[],review:[],backup:{lastBackupAt:null,newAttempts:0,changedNotes:0,due:false}};
           case 'backup_status': return {lastBackupAt:null,newAttempts:0,changedNotes:0,due:false};
-          case 'settings': return { config: { service_url: null }, hasServiceToken: false };
+          case 'settings': return { config: { service_url: null } };
           default:
             await window.__recordUnexpectedBuiltNavigationCall({ command, request });
             throw Error(`Unexpected built navigation request: ${request?.type}`);

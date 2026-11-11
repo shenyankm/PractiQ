@@ -764,8 +764,6 @@ async def run_evaluation(manifest_path: Path, repetitions: int = 1, case_ids: li
           for name in ("graphs/document.py", "graphs/vision.py", "llm.py", "contracts.py"))])
     graph = build_document_graph(InMemorySaver(), store=InMemoryStore())
     async with AsyncExitStack() as resources:
-        from practiq_ai.identity import operator_evaluation
-        resources.enter_context(operator_evaluation())
         try:
             budget_db = await resources.enter_async_context(cost_budget.evaluation_database())
         except Exception:  # noqa: BLE001 - fail before any paid evaluation work

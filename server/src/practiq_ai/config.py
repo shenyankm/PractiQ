@@ -71,7 +71,6 @@ class Config:
     cost_output_per_million: int = 0
     cost_tencent_per_page: int = 0
     worker_sandbox: str = "required"
-    operations_status_file: Path | None = None
 
     @property
     def cost_enabled(self) -> bool:
@@ -149,9 +148,6 @@ def is_loopback_host(hostname: str | None) -> bool:
 
 def load() -> Config:
     values = dict(os.environ)
-    operations_path = values.get("AI_OPERATIONS_STATUS_FILE", "").strip()
-    if operations_path and not Path(operations_path).is_absolute():
-        raise ValueError("AI_OPERATIONS_STATUS_FILE must be an absolute path")
     office_path = values.get("AI_OFFICE_EXECUTABLE", "").strip()
     office_version = values.get("AI_OFFICE_VERSION", "").strip()
     if bool(office_path) != bool(office_version):
@@ -250,7 +246,6 @@ def load() -> Config:
         upload_concurrency=_positive_int(values, "AI_UPLOAD_CONCURRENCY", 4),
         upload_timeout_seconds=_positive_float(values, "AI_UPLOAD_TIMEOUT_SECONDS", 120),
         max_busy_threads=_positive_int(values, "AI_MAX_BUSY_THREADS", 300),
-        operations_status_file=Path(operations_path) if operations_path else None,
         structured_output_method=method,
         office_executable=office_executable,
         office_version=office_version or None,

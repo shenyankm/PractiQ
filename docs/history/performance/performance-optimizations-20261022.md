@@ -38,7 +38,7 @@ Detailed fixtures, limitations and reproduction commands:
 [service I/O](../../../server/docs/performance-io.md),
 [document pipeline](../../../server/docs/performance-pipeline.md),
 [native data](../../../app/docs/performance-native.md),
-[frontend](../../../web/docs/performance.md).
+[frontend](../../../app/docs/performance-import.md).
 
 ## Verification environment and commands
 

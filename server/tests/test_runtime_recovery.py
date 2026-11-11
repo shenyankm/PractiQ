@@ -12,7 +12,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from tests.db_support import browser_headers, new_database, seed_browser_identity
+from tests.db_support import new_database
 
 pytestmark = pytest.mark.usefixtures("disposable_databases")
 
@@ -32,7 +32,7 @@ class Server:
                     'AI_TENCENT_SECRET_ID': 'synthetic-id', 'AI_TENCENT_SECRET_KEY': 'synthetic-key',
                     'PRACTIQ_TEST_TENCENT_DIR': str(tmp_path / 'tencent'),
                     'PYTHONPATH': str(ROOT / 'src') + os.pathsep + str(ROOT)}
-        self.client = httpx.Client(base_url=f'http://127.0.0.1:{port}', headers=browser_headers(), timeout=5, trust_env=False)
+        self.client = httpx.Client(base_url=f'http://127.0.0.1:{port}', headers={'Authorization': 'Bearer test-token'}, timeout=5, trust_env=False)
         self.port = port
         self.process = None
         self.log = None
@@ -112,7 +112,6 @@ class Server:
 
 async def prepare(tmp_path, phase=''):
     db = await new_database()
-    await seed_browser_identity(db)
     await db.close()
     return Server(tmp_path, db.uri, phase)
 

@@ -1,13 +1,13 @@
 import { t, useCloudLocale } from "./i18n";
 import { nativeBridge } from "./transport";
-import { accountStorageScope } from "./accountClient";
+import { storageScope } from "./serviceStorage";
 import { useEffect, useState } from "react";
 import { correctionDrafts, removeCorrectionDraft, type CorrectionDraft } from "./correctionDrafts";
 import { downloadBlob } from "./api";
 import { Button } from "./components/ui/button";
 
 type Props = { scope?: string; excludeTaskId?: string | null; task?: { threadId: string; checkpointId?: string | null }; onOpen: (draft: CorrectionDraft) => void };
-export function CorrectionDraftRecovery({ task, excludeTaskId, onOpen, scope = accountStorageScope() }: Props) {
+export function CorrectionDraftRecovery({ task, excludeTaskId, onOpen, scope = storageScope() }: Props) {
   useCloudLocale();
   const [deleting, setDeleting] = useState(false);
   const [state, setState] = useState<{ drafts: CorrectionDraft[]; error?: string }>({ drafts: [] });
