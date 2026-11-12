@@ -36,6 +36,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRad
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   api,
+  BANK_TITLE_LIMIT,
   type BankChoice,
   type Preview,
   type Question,
@@ -463,7 +464,7 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             )}
 
             {page === "banks" && (
-              <><Button variant="outline" size={compact ? "icon" : "default"} aria-label={t("刷新")} title={t("刷新")} disabled={busy || bankListLoading} onClick={() => setListRevision(value => value + 1)}>{compact ? <RefreshCw /> : t("刷新")}</Button><Button variant="outline" disabled={bankActionsUnavailable} onClick={event => { bankEditorTrigger.current = event.currentTarget; setOperationError(null); setBankEditor({ id: null, title: "", description: "" }); }}><Plus />{t("新建题库")}</Button>{!!banks.length && <Button size={compact ? "icon" : "default"} aria-label={t("导入文档")} title={t("导入文档")} disabled={bankActionsUnavailable} onClick={() => navigate("cloud")}><CloudUpload />{!compact && t("导入文档")}</Button>}</>
+              <><Button variant="outline" size={compact ? "icon" : "default"} aria-label={t("刷新")} title={t("刷新")} disabled={busy || bankListLoading} onClick={() => setListRevision(value => value + 1)}>{compact ? <RefreshCw /> : t("刷新")}</Button><Button variant="outline" disabled={bankActionsUnavailable} onClick={event => { bankEditorTrigger.current = event.currentTarget; setOperationError(null); setBankEditor({ id: null, title: "", description: "" }); }}><Plus />{t("新建题库")}</Button></>
             )}
             {page === "banks" && banks.length > 1 && (
               compact ? <DropdownMenu><DropdownMenuTrigger asChild><Button ref={mergeTrigger} size="icon" variant="outline" disabled={bankActionsUnavailable} aria-label={t("更多题库操作")}><MoreHorizontal /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => setMergeOpen(true)}>{t("合并题库")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu> : <Button ref={mergeTrigger} variant="outline" disabled={bankActionsUnavailable} onClick={() => setMergeOpen(true)}>{t("合并题库")}</Button>
@@ -605,13 +606,14 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
             </fieldset>
             <div className="space-y-2">
               <Label htmlFor="merge-title">{t("新题库名称")}</Label>
-              <Input id="merge-title" aria-label={t("合并后的题库名称")} placeholder={t("输入新题库名称")} value={mergeTitle} onChange={(e) => setMergeTitle(e.target.value)} />
+              <Input id="merge-title" aria-describedby="merge-title-count" aria-invalid={Array.from(mergeTitle.trim()).length > BANK_TITLE_LIMIT} aria-label={t("合并后的题库名称")} placeholder={t("输入新题库名称")} value={mergeTitle} onChange={(e) => setMergeTitle(e.target.value)} />
+              <p id="merge-title-count" className="text-xs text-muted-foreground">{t("{0} / {1} 字", { 0: Array.from(mergeTitle.trim()).length, 1: BANK_TITLE_LIMIT })}</p>
             </div>
             <p className="text-sm text-muted-foreground" role="status">{t("已选 {0} 个题库，共 {1} 题；原库保留。", { 0: mergeSelection.length, 1: banks.filter(b => mergeSelection.includes(b.id)).reduce((n, b) => n + b.count, 0) })}</p>
           </fieldset>
           <DialogFooter>
             <Button variant="outline" disabled={busy} onClick={closeMerge}>{t("取消")}</Button>
-            <Button disabled={busy || mergeSelection.length < 2 || !mergeTitle.trim()} onClick={() => run(async () => {
+            <Button disabled={busy || mergeSelection.length < 2 || !mergeTitle.trim() || Array.from(mergeTitle.trim()).length > BANK_TITLE_LIMIT} onClick={() => run(async () => {
               await api({ type: "merge_banks", bank_ids: mergeSelection, title: mergeTitle.trim() });
               closeMerge();
               await reloadBanks();

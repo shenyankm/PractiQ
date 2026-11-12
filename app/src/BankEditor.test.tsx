@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { BankEditor } from "./BankEditor";
 
 afterEach(cleanup);
-const initial = { id: "bank", title: "Original bank", description: "Original description" };
+const initial = { id: "bank", title: "Bank", description: "Original description" };
 
 it.each(["Escape", "close"])("closes an unchanged bank immediately through %s", async action => {
   const user = userEvent.setup();
@@ -30,8 +30,8 @@ it.each(["Escape", "close"])("keeps changed bank fields through %s and Continue 
   expect(document.activeElement).toBe(within(confirmation).getByRole("button", { name: "继续编辑" }));
   await user.click(within(confirmation).getByRole("button", { name: "继续编辑" }));
   await user.click(screen.getByRole("button", { name: "保存题库" }));
-  expect(save).toHaveBeenCalledWith({ ...initial, title: "Original bank changed", description: "Original description changed" });
-  expect(initial.title).toBe("Original bank");
+  expect(save).toHaveBeenCalledWith({ ...initial, title: "Bank changed", description: "Original description changed" });
+  expect(initial.title).toBe("Bank");
 });
 
 it("closes a reverted bank without prompting and confirms discarding a dirty bank", async () => {
@@ -82,4 +82,44 @@ it("labels an unchanged new bank dismissal Cancel", async () => {
  await userEvent.click(screen.getByRole("button", {name:"取消"}));
  expect(close).toHaveBeenCalledOnce();
  expect(screen.queryByRole("alertdialog")).toBeNull();
+});
+
+it("counts Unicode characters and blocks bank saves beyond 15 / 50", async () => {
+  const user = userEvent.setup(), save = vi.fn();
+  render(<BankEditor initial={{id:null,title:"",description:""}} busy={false} onClose={vi.fn()} onSave={save}/>);
+  const title = screen.getByLabelText("题库名称"), description = screen.getByLabelText("说明");
+  const button = screen.getByRole("button", {name:"保存题库"});
+  await user.type(title, "题".repeat(15));
+  await user.type(description, "述".repeat(50));
+  expect(screen.getByText("15 / 15 字")).toBeTruthy();
+  expect(screen.getByText("50 / 50 字")).toBeTruthy();
+  await user.click(button);
+  expect(save).toHaveBeenCalledOnce();
+  await user.type(title, "超");
+  expect(button.hasAttribute("disabled")).toBe(true);
+  expect(title.getAttribute("aria-invalid")).toBe("true");
+  await user.clear(title);
+  await user.paste("🐙".repeat(15));
+  expect(screen.getByText("15 / 15 字")).toBeTruthy();
+  expect(button.hasAttribute("disabled")).toBe(false);
+  await user.type(description, "超");
+  expect(button.hasAttribute("disabled")).toBe(true);
+  expect(description.getAttribute("aria-invalid")).toBe("true");
+  expect(save).toHaveBeenCalledOnce();
+});
+
+it("preserves oversized historical metadata until the user shortens it", async () => {
+  const user = userEvent.setup(), save = vi.fn();
+  render(<BankEditor initial={{id:"old",title:"题".repeat(16),description:"述".repeat(51)}} busy={false} onClose={vi.fn()} onSave={save}/>);
+  const title = screen.getByLabelText("题库名称") as HTMLInputElement;
+  const description = screen.getByLabelText("说明") as HTMLTextAreaElement;
+  const button = screen.getByRole("button", {name:"保存题库"});
+  expect(title.value).toHaveLength(16);
+  expect(description.value).toHaveLength(51);
+  expect(button.hasAttribute("disabled")).toBe(true);
+  await user.clear(title);
+  await user.type(title, "新名称");
+  await user.clear(description);
+  await user.click(button);
+  expect(save).toHaveBeenCalledWith({id:"old",title:"新名称",description:""});
 });

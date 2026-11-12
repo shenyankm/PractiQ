@@ -370,6 +370,7 @@ export const en = {
   "共 {0} 题，{1} 题待复核。": "{0} questions; {1} needing review.",
   "导入到": "Import into",
   "新建题库": "New bank",
+  "{0} / {1} 字": "{0} / {1} characters",
   "题库名称": "Bank name",
   "已加载 {0} 张图片，缺失 {1} 个资源。": "Loaded images: {0}; missing resources: {1}.",
   "这是部分解析结果，可能未包含原文的全部题目。": "This is a partial result and may not contain every question in the source.",

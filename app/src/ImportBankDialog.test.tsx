@@ -13,6 +13,19 @@ function mount(status="PARTIAL") {
   render(<ImportBankDialog preview={preview} banks={[{id:"bank",title:"Existing",count:2}]} initialBank="new" busy={false} run={job=>void job()} onClose={vi.fn()} onImported={imported}/>);
   return imported;
 }
+it("blocks an oversized new bank name without blocking append to an existing bank", async () => {
+  const user = userEvent.setup();
+  vi.mocked(api).mockResolvedValue({groups:[],check:"comparison"} as never);
+  mount();
+  const title = screen.getByLabelText("题库名称");
+  await user.clear(title);
+  await user.type(title,"题".repeat(16));
+  expect(screen.getByRole("button",{name:"确认导入"}).hasAttribute("disabled")).toBe(true);
+  expect(api).not.toHaveBeenCalled();
+  await user.selectOptions(screen.getByLabelText("导入到"),"bank");
+  await screen.findByText("发现完全相同的 0 组 / 0 题。");
+  expect(screen.getByRole("button",{name:"确认导入"}).hasAttribute("disabled")).toBe(false);
+});
 it.each(["PARTIAL","SUCCEEDED"])("previews duplicates passively and applies explicit skip for %s",async status=>{
   const user=userEvent.setup();
   vi.mocked(api).mockImplementation(async request=>request.type==="import_duplicates" ? {groups:[{id:"group",stem:"Shared material",count:2}],check:"comparison"} as never : {bankId:"bank",count:1,duplicate:false,skippedCount:2} as never);

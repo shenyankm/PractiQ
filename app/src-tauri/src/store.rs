@@ -19,6 +19,9 @@ thread_local! {
     pub(crate) static OPENS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
 }
 
+pub(crate) const BANK_TITLE_LIMIT: usize = 15;
+pub(crate) const BANK_DESCRIPTION_LIMIT: usize = 50;
+
 pub fn id() -> String {
     Uuid::new_v4().to_string()
 }
@@ -460,6 +463,14 @@ impl Store {
         skipped: &HashSet<String>,
     ) -> Result<Value> {
         let title = valid_title(title)?;
+        // Preserve archived metadata; a newly entered import name uses the editor limit.
+        if bank_id.is_none() && title != p.title.trim() && title.chars().count() > BANK_TITLE_LIMIT
+        {
+            return Err(crate::language::error(
+                "LOCAL_NAME_INVALID",
+                serde_json::json!({}),
+            ));
+        }
         for (digest, (_, bytes)) in &p.assets {
             self.write_asset(digest, bytes)?;
         }
@@ -665,7 +676,13 @@ impl Store {
         description: &str,
     ) -> Result<Value> {
         let title = valid_title(title)?;
-        if description.chars().count() > 20_000 {
+        if title.chars().count() > BANK_TITLE_LIMIT {
+            return Err(crate::language::error(
+                "LOCAL_NAME_INVALID",
+                serde_json::json!({}),
+            ));
+        }
+        if description.chars().count() > BANK_DESCRIPTION_LIMIT {
             return Err(crate::language::error(
                 "LOCAL_DESCRIPTION_TOO_LONG",
                 serde_json::json!({}),

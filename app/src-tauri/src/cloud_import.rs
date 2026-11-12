@@ -14,7 +14,13 @@ pub(crate) fn pending(
     mut resource: impl FnMut(&Value) -> Result<Vec<u8>>,
 ) -> Result<Pending> {
     contract::bank_import(&value)?;
-    let title = text(&value, "title").to_owned();
+    let title = text(&value, "title")
+        .trim()
+        .chars()
+        .take(crate::store::BANK_TITLE_LIMIT)
+        .collect::<String>()
+        .trim_end()
+        .to_owned();
     if title.trim().is_empty() {
         return Err(error("CLOUD_RESPONSE_INVALID"));
     }
@@ -161,6 +167,7 @@ mod tests {
         })
         .unwrap();
         assert!(pending.missing.is_empty());
+        assert_eq!(pending.title, "Direct backend");
         assert!(!pending.assets.is_empty());
         let dir = tempfile::tempdir().unwrap();
         let store = Store::new(dir.path().into()).unwrap();

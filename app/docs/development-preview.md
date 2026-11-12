@@ -6,6 +6,16 @@ Keychain credentials and explicit cloud connection flow. There is no development
 preview panel, automatic demo-data mode or `design-preview` application mode.
 Old `practiq-preview` session-storage values have no effect.
 
+Document import stays in the sidebar, with an additional action for an empty
+bank list. The bank header omits this duplicate action.
+
+New and edited bank names allow 1–15 Unicode characters after trimming, and
+descriptions allow 0–50 characters. The editor shows counts and blocks oversized
+saves without truncating existing text. Merge and ZIP-import name fields use the
+same name limit; generated document-import names use the first 15 characters.
+Existing bank metadata, historical ZIP metadata and backups remain readable and
+retain their full text.
+
 Running `npm --prefix app run dev` starts only the frontend server. A standalone
 browser does not provide the native database, file dialogs or account bridge;
 use `make app-dev` for ordinary development.

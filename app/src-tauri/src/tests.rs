@@ -14,6 +14,71 @@ fn store() -> (tempfile::TempDir, Store) {
     let store = Store::new(dir.path().to_owned()).unwrap();
     (dir, store)
 }
+#[test]
+fn bank_metadata_limits_reject_overflow_without_changing_saved_content() {
+    let (_dir, mut s) = store();
+    let title = "题".repeat(15);
+    let description = "述".repeat(50);
+    let bank = s
+        .save_bank(None, &format!(" {title} "), &description)
+        .unwrap();
+    let bank = bank.as_str().unwrap();
+    assert!(s
+        .save_bank(Some(bank.into()), &"题".repeat(16), &description)
+        .is_err());
+    assert!(s
+        .save_bank(Some(bank.into()), &title, &"述".repeat(51))
+        .is_err());
+    assert!(s.save_bank(None, "   ", "").is_err());
+    let page = s.banks_page(30, 0).unwrap();
+    assert_eq!(page["total"], 1);
+    assert_eq!(page["items"][0]["title"], title);
+    assert_eq!(page["items"][0]["description"], description);
+    s.save_bank(Some(bank.into()), &"🐙".repeat(15), "")
+        .unwrap();
+    assert!(s.save_bank(None, &"🐙".repeat(16), "").is_err());
+    let second = s.save_bank(None, "Second", "").unwrap();
+    let ids = vec![bank.into(), second.as_str().unwrap().into()];
+    assert!(s.merge_banks(&ids, &"题".repeat(16)).is_err());
+    assert!(s.merge_banks(&ids, &format!(" {title} ")).is_ok());
+    let preview = s.preview(sample(), "Imported".into()).unwrap();
+    assert!(s
+        .import(text(&preview, "ticket"), None, &"题".repeat(16))
+        .is_err());
+    assert!(s.import(text(&preview, "ticket"), None, &title).is_ok());
+}
+
+#[test]
+fn historical_bank_metadata_survives_reopen_and_portable_import() {
+    let (dir, mut s) = store();
+    let title = "旧".repeat(16);
+    let description = "述".repeat(51);
+    s.connect()
+        .unwrap()
+        .execute(
+            "INSERT INTO banks VALUES('legacy',?1,?2,1)",
+            rusqlite::params![title, description],
+        )
+        .unwrap();
+    let reopened = Store::new(dir.path().into()).unwrap();
+    assert_eq!(
+        reopened.banks_page(30, 0).unwrap()["items"][0]["title"],
+        title
+    );
+    let path = dir.path().join("legacy.zip");
+    reopened.export_bank("legacy", &path).unwrap();
+    let preview = s.preview_bank_zip(&path).unwrap();
+    let imported = s.import(text(&preview, "ticket"), None, &title).unwrap();
+    let db = s.connect().unwrap();
+    let stored: (String, String) = db
+        .query_row(
+            "SELECT title,description FROM banks WHERE id=?1",
+            [text(&imported, "bankId")],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(stored, (title, description));
+}
 pub(crate) fn fixture_bank_zip(
     root: &Value,
     resources: &std::path::Path,
@@ -2982,7 +3047,7 @@ fn malformed_backup_snapshots_leave_the_store_lock_and_database_usable() {
             .any(|bank| bank["id"] == preserved));
         assert_eq!(target.service_settings().unwrap(), settings);
         target
-            .save_bank(None, &format!("After rejection {index}"), "")
+            .save_bank(None, &format!("Recovered {index}"), "")
             .unwrap();
     }
 }

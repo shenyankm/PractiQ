@@ -414,7 +414,7 @@ impl Store {
             || banks.len() > 1000
             || banks.iter().collect::<HashSet<_>>().len() != banks.len()
             || title.trim().is_empty()
-            || title.chars().count() > 200
+            || title.trim().chars().count() > crate::store::BANK_TITLE_LIMIT
         {
             return Err(crate::language::error(
                 "LOCAL_MERGE_SELECTION_INVALID",
