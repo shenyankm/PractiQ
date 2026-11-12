@@ -14,7 +14,8 @@ descriptions allow 0–50 characters. The editor shows counts and blocks oversiz
 saves without truncating existing text. Merge and ZIP-import name fields use the
 same name limit; generated document-import names use the first 15 characters.
 Existing bank metadata, historical ZIP metadata and backups remain readable and
-retain their full text.
+retain their full text. An unchanged archived ZIP title may exceed 15 characters;
+renaming it during import uses the new limit.
 
 Running `npm --prefix app run dev` starts only the frontend server. A standalone
 browser does not provide the native database, file dialogs or account bridge;

@@ -39,6 +39,7 @@ export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClo
   const duplicateCount = duplicates.reduce((sum,group)=>sum+group.count,0);
   const importTitle = title.trim() || (bank !== "new" ? banks.find(choice => choice.id === bank)?.title || "" : "");
   const titleLength = Array.from(importTitle).length;
+  const titleTooLong = titleLength > BANK_TITLE_LIMIT && importTitle !== preview.title.trim();
   const processing = preview.processing as { quality?: { issues?: DocumentQualityIssue[] }; questionSources?: DocumentQuestionSource[] } | undefined;
   return (
     <Dialog open onOpenChange={open => { if (!open && !busy) onClose(); }}>
@@ -58,7 +59,7 @@ export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClo
             {comparisonError != null ? <div role="alert"><ErrorNotice error={comparisonError}/><Button variant="outline" onClick={()=>setRetry(value=>value+1)}>{t("重试重复题检查")}</Button></div> : !compared ? <p role="status">{t("正在检查重复题…")}</p> : <p role="status">{t("发现完全相同的 {0} 组 / {1} 题。",{0:duplicates.length,1:duplicateCount})}</p>}
             {!!duplicates.length && <><Label htmlFor="duplicate-policy">{t("重复题处理")}</Label><NativeSelect id="duplicate-policy" disabled={busy} value={policy} onValueChange={setPolicy}><NativeSelectOption value="keep">{t("保留重复题")}</NativeSelectOption><NativeSelectOption value="skip">{t("跳过完全相同的题组")}</NativeSelectOption></NativeSelect><details><summary className="cursor-pointer">{t("查看重复题")}</summary><ul className="mt-2 space-y-2">{duplicates.map(group=><li key={group.id}>{group.stem || t("原文未提供题干")} · {t("{0} 题",{0:group.count})}</li>)}</ul></details></>}
           </div>}
-          {bank === "new" && <div className="space-y-2"><Label htmlFor="import-title">{t("题库名称")}</Label><Input id="import-title" disabled={busy} aria-describedby="import-title-count" aria-invalid={titleLength > BANK_TITLE_LIMIT} value={title} onChange={event => setTitle(event.target.value)} /><p id="import-title-count" className="text-xs text-muted-foreground">{t("{0} / {1} 字", { 0: titleLength, 1: BANK_TITLE_LIMIT })}</p></div>}
+          {bank === "new" && <div className="space-y-2"><Label htmlFor="import-title">{t("题库名称")}</Label><Input id="import-title" disabled={busy} aria-describedby="import-title-count" aria-invalid={titleTooLong} value={title} onChange={event => setTitle(event.target.value)} /><p id="import-title-count" className="text-xs text-muted-foreground">{t("{0} / {1} 字", { 0: titleLength, 1: BANK_TITLE_LIMIT })}</p></div>}
           <div className="rounded-lg border p-4 text-sm">
             <p>{t("已加载 {0} 张图片，缺失 {1} 个资源。", { 0: preview.assetCount, 1: preview.missingAssets.length })}</p>
           </div>
@@ -73,7 +74,7 @@ export function ImportBankDialog({ preview, banks, initialBank, busy, run, onClo
         </div>
         <DialogFooter className="shrink-0 border-t bg-background pt-3">
           <Button variant="outline" disabled={busy} onClick={onClose}>{t("取消")}</Button>
-          <Button disabled={busy || !importTitle || (bank === "new" && titleLength > BANK_TITLE_LIMIT) || !compared || (bank !== "new" && comparisonError != null)} aria-describedby={bank !== "new" ? "import-append-risk" : undefined} onClick={() => run(async () => {
+          <Button disabled={busy || !importTitle || (bank === "new" && titleTooLong) || !compared || (bank !== "new" && comparisonError != null)} aria-describedby={bank !== "new" ? "import-append-risk" : undefined} onClick={() => run(async () => {
             if (submitting.current) return;
             submitting.current = true;
             let result;
