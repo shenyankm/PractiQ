@@ -7,12 +7,47 @@ import { api, type Preview } from "./api";
 
 vi.mock("./api", async () => ({ ...await vi.importActual("./api"), api: vi.fn() }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
-function mount(status="PARTIAL") {
-  const preview:Preview={ticket:"ticket",title:"Snapshot",count:3,reviewCount:0,warnings:[],status,processing:null,missingAssets:[],assetCount:0};
+function mount(status="PARTIAL", title="Snapshot") {
+  const preview:Preview={ticket:"ticket",title,count:3,reviewCount:0,warnings:[],status,processing:null,missingAssets:[],assetCount:0};
   const imported=vi.fn();
   render(<ImportBankDialog preview={preview} banks={[{id:"bank",title:"Existing",count:2}]} initialBank="new" busy={false} run={job=>void job()} onClose={vi.fn()} onImported={imported}/>);
   return imported;
 }
+it("preserves an unchanged historical ZIP name while rejecting a new oversized name", async () => {
+  const user = userEvent.setup();
+  const archived = "旧".repeat(16);
+  vi.mocked(api).mockResolvedValue({bankId:"new",count:3,duplicate:false} as never);
+  const imported = mount("SUCCEEDED", archived);
+  const title = screen.getByLabelText("题库名称");
+  const confirm = screen.getByRole("button",{name:"确认导入"});
+  expect(confirm.hasAttribute("disabled")).toBe(false);
+  expect(title.getAttribute("aria-invalid")).toBe("false");
+  await user.clear(title);
+  await user.type(title,"新".repeat(16));
+  expect(confirm.hasAttribute("disabled")).toBe(true);
+  expect(title.getAttribute("aria-invalid")).toBe("true");
+  expect(api).not.toHaveBeenCalled();
+  await user.clear(title);
+  await user.type(title,`  ${archived}  `);
+  expect(confirm.hasAttribute("disabled")).toBe(false);
+  expect(title.getAttribute("aria-invalid")).toBe("false");
+  await user.click(confirm);
+  await waitFor(()=>expect(imported).toHaveBeenCalledWith("new"));
+  expect(api).toHaveBeenCalledExactlyOnceWith({type:"import",ticket:"ticket",bank_id:null,title:archived});
+});
+it("blocks an oversized new bank name without blocking append to an existing bank", async () => {
+  const user = userEvent.setup();
+  vi.mocked(api).mockResolvedValue({groups:[],check:"comparison"} as never);
+  mount();
+  const title = screen.getByLabelText("题库名称");
+  await user.clear(title);
+  await user.type(title,"题".repeat(16));
+  expect(screen.getByRole("button",{name:"确认导入"}).hasAttribute("disabled")).toBe(true);
+  expect(api).not.toHaveBeenCalled();
+  await user.selectOptions(screen.getByLabelText("导入到"),"bank");
+  await screen.findByText("发现完全相同的 0 组 / 0 题。");
+  expect(screen.getByRole("button",{name:"确认导入"}).hasAttribute("disabled")).toBe(false);
+});
 it.each(["PARTIAL","SUCCEEDED"])("previews duplicates passively and applies explicit skip for %s",async status=>{
   const user=userEvent.setup();
   vi.mocked(api).mockImplementation(async request=>request.type==="import_duplicates" ? {groups:[{id:"group",stem:"Shared material",count:2}],check:"comparison"} as never : {bankId:"bank",count:1,duplicate:false,skippedCount:2} as never);

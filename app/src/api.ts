@@ -4,6 +4,8 @@ import { t, locale, MessageError, renderMessage, type LanguageRequest, type Loca
 import { invoke } from "./transport";
 import type { Question, Answer, ArtifactReference, BankImportDiagnostic, ContentBlock as Block } from "./contracts.generated";
 export type { Question, Answer, Block };
+export const BANK_TITLE_LIMIT = 15;
+export const BANK_DESCRIPTION_LIMIT = 50;
 export type Mode = NonNullable<Question["answerMode"]>;
 export function isComposite(q: Pick<Question, "answerMode">) { return COMPOSITE_MODES.includes(q.answerMode || ""); }
 export function modeNames(): Record<string, string> { return {

@@ -141,7 +141,12 @@ it("refreshes merge totals and clamps both lists after restoring a smaller backu
   const dialog=await screen.findByRole("dialog");
   await userEvent.click(within(dialog).getByRole("checkbox",{name:"Bank 0（1 题）"}));
   await userEvent.click(within(dialog).getByRole("checkbox",{name:"Bank 30（1 题）"}));
-  await userEvent.type(within(dialog).getByRole("textbox",{name:"合并后的题库名称"}),"Merged");
+  const mergeName = within(dialog).getByRole("textbox",{name:"合并后的题库名称"});
+  await userEvent.type(mergeName,"题".repeat(16));
+  expect(within(dialog).getByRole("button",{name:"确认合并"}).hasAttribute("disabled")).toBe(true);
+  expect(vi.mocked(api).mock.calls.some(([request])=>request.type==="merge_banks")).toBe(false);
+  await userEvent.clear(mergeName);
+  await userEvent.type(mergeName,"Merged");
   await userEvent.click(within(dialog).getByRole("button",{name:"确认合并"}));
   await screen.findByText("31–32 / 32 条");
   await userEvent.click(screen.getByRole("button",{name:"练习记录"}));

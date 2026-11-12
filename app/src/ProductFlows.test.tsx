@@ -129,10 +129,11 @@ function setup(question = row, failReview = false) {
   });
 }
 
-it("opens document import from the bank header without a ZIP picker", async () => {
+it("opens document import from navigation without a redundant bank header action", async () => {
   setup(); render(<App/>);
   await screen.findByText("English");
-  await userEvent.click(within(screen.getByRole("banner")).getByRole("button", { name: "导入文档" }));
+  expect(within(screen.getByRole("banner")).queryByRole("button", { name: "导入文档" })).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "文档导入" }));
   expect(await screen.findByRole("heading",{name:"文档导入",level:1})).toBeTruthy();
   expect(api).not.toHaveBeenCalledWith({type:"pick_import"});
 });

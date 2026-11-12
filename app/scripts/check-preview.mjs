@@ -364,17 +364,18 @@ for (const kind of ['bank','question']) {
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
   await open();
   await expect(field).toHaveValue(original);
-  await field.fill(`${original} saved`);
+  const saved = `${original} 改`;
+  await field.fill(saved);
   await editor.getByRole('button',{name:kind==='bank'?'保存题库':'保存题目',exact:true}).click();
   await expect(editor).toBeHidden();
   if(kind==='bank'){
-   await page.getByRole('button',{name:`题库操作 ${original} saved`,exact:true}).click();
+   await page.getByRole('button',{name:`题库操作 ${saved}`,exact:true}).click();
    await page.getByRole('menuitem',{name:title,exact:true}).click();
   }else{
-   const row=page.getByRole('button',{name:new RegExp(`${original} saved`)}).locator('..');
+   const row=page.getByRole('button',{name:new RegExp(saved)}).locator('..');
    await editQuestion(page, row.getByRole('button',{name:/^题目更多操作/}));
   }
-  await expect(field).toHaveValue(`${original} saved`);
+  await expect(field).toHaveValue(saved);
   await page.keyboard.press('Escape');
   await expect(editor).toBeHidden();
   await expect(page.getByRole('alertdialog')).toHaveCount(0);

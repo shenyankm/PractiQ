@@ -80,9 +80,9 @@
     "zh-TW": "題庫已不存在，請重新選擇。"
   },
   "LOCAL_DESCRIPTION_TOO_LONG": {
-    "zh-CN": "说明过长。",
-    "en": "Description is too long.",
-    "zh-TW": "說明過長。"
+    "zh-CN": "说明最多 50 个字符。",
+    "en": "Description must contain at most 50 characters.",
+    "zh-TW": "說明最多 50 個字元。"
   },
   "LOCAL_FAVORITE_DELETED": {
     "zh-CN": "原题已删除，不能修改收藏。",
@@ -110,9 +110,9 @@
     "zh-TW": "作答用時不合法。"
   },
   "LOCAL_NAME_INVALID": {
-    "zh-CN": "名称须为 1–255 个字符。",
-    "en": "Name must contain 1–255 characters.",
-    "zh-TW": "名稱須為 1–255 個字元。"
+    "zh-CN": "题库名称须为 1–15 个字符。",
+    "en": "Bank name must contain 1–15 characters.",
+    "zh-TW": "題庫名稱須為 1–15 個字元。"
   },
   "LOCAL_BACKUP_OVERWRITE": {
     "zh-CN": "不能覆盖应用数据。",
@@ -475,9 +475,9 @@
     "zh-TW": "練習紀錄損壞。"
   },
   "LOCAL_MERGE_SELECTION_INVALID": {
-    "zh-CN": "请选择至少两个不同题库，并填写 1–200 字名称。",
-    "en": "Select at least two distinct banks and enter a name of 1–200 characters.",
-    "zh-TW": "請選擇至少兩個不同題庫，並填寫 1–200 字名稱。"
+    "zh-CN": "请选择至少两个不同题库，并填写 1–15 字名称。",
+    "en": "Select at least two distinct banks and enter a name of 1–15 characters.",
+    "zh-TW": "請選擇至少兩個不同題庫，並填寫 1–15 字名稱。"
   },
   "LOCAL_SOURCE_BANK_DELETED": {
     "zh-CN": "来源题库已删除。",

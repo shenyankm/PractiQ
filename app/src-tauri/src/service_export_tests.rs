@@ -565,7 +565,7 @@ fn service_export_imports_partial_media_and_preserves_offline_history() {
     let dir = tempfile::tempdir().unwrap();
     let mut store = Store::new(dir.path().to_owned()).unwrap();
     let bank = store
-        .save_bank(None, "Existing local bank", "Preserve this")
+        .save_bank(None, "Existing bank", "Preserve this")
         .unwrap();
     let bank = bank.as_str().unwrap();
     let mut existing = original("q-known").clone();
@@ -603,7 +603,7 @@ fn service_export_imports_partial_media_and_preserves_offline_history() {
     assert_eq!(imported["count"], 2);
     assert_eq!(imported["duplicate"], false);
     assert_eq!(store.banks().unwrap()[0]["count"], 3);
-    assert_eq!(store.banks().unwrap()[0]["title"], "Existing local bank");
+    assert_eq!(store.banks().unwrap()[0]["title"], "Existing bank");
     assert_eq!(store.session(&previous_id).unwrap(), previous);
     let roots = store.questions(Some(bank), "", "listening", "").unwrap();
     let root = &roots[0];
