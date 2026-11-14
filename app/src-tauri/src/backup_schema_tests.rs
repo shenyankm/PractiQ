@@ -949,8 +949,10 @@ fn restores_backups_with_the_pre_zh_tw_locale_constraint() {
     let source_dir = tempfile::tempdir().unwrap();
     let path = source_dir.path().join("practiq.sqlite");
     let db = Connection::open(&path).unwrap();
-    db.execute_batch(&include_str!("../../desktop/schema.sql").replace("'zh-CN','zh-TW','en'", "'zh-CN','en'"))
-        .unwrap();
+    db.execute_batch(
+        &include_str!("../../desktop/schema.sql").replace("'zh-CN','zh-TW','en'", "'zh-CN','en'"),
+    )
+    .unwrap();
     db.execute_batch("INSERT INTO banks VALUES('old','Old','',1); UPDATE settings SET locale='en',model_id='keep-model',base_url='http://127.0.0.1:8000';")
         .unwrap();
     drop(db);

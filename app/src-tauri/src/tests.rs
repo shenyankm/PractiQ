@@ -916,7 +916,8 @@ fn legacy_and_malicious_backups_do_not_replace_data() {
     let bank = import(&mut s);
     let old = dir.path().join("old.sqlite");
     let db = rusqlite::Connection::open(&old).unwrap();
-    db.execute_batch(include_str!("../../desktop/schema.sql")).unwrap();
+    db.execute_batch(include_str!("../../desktop/schema.sql"))
+        .unwrap();
     db.close().unwrap();
     let bytes = std::fs::read(old).unwrap();
     let archive = dir.path().join("v1.zip");
