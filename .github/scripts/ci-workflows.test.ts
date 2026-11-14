@@ -31,6 +31,22 @@ test("default Make checks and installation use the single Node application", () 
   assert.doesNotMatch(project.scripts.check, /cargo|python|tauri/);
 });
 
+test("historical contract bootstrap resolves the existing interpreter before uv sees it", () => {
+  const step = workflow("app").jobs.quality.steps.find((value: any) => value.name === "Install locked service dependencies for contract checks");
+  const directory = mkdtempSync(join(tmpdir(), "practiq-python reference-")), interpreter = join(directory, "python"), uv = join(directory, "uv"), events = join(directory, "events");
+  try {
+    writeFileSync(interpreter, "#!/bin/sh\nexit 0\n"); chmodSync(interpreter, 0o700);
+    writeFileSync(uv, `#!${process.execPath}\nconst assert=require('node:assert/strict'),fs=require('node:fs');const args=process.argv.slice(2);assert.equal(args[args.indexOf('--python')+1],process.env.REFERENCE_PYTHON);fs.appendFileSync(process.env.REFERENCE_EVENTS,JSON.stringify(args)+'\\n');`); chmodSync(uv, 0o700);
+    const result = spawnSync("bash", ["-e", "-c", step.run], { cwd: root, encoding: "utf8", timeout: 10000, env: { ...process.env, PATH: `${directory}:${process.env.PATH}`, REFERENCE_PYTHON: interpreter, REFERENCE_EVENTS: events } });
+    assert.equal(result.status, 0, result.stderr);
+    const calls = readFileSync(events, "utf8").trim().split("\n").map(value => JSON.parse(value));
+    assert.equal(calls.length, 3); assert.equal(calls[0][0], "export"); assert.ok(calls[0].includes("--locked"));
+    for (const args of calls.slice(1)) { assert.deepEqual(args.slice(0, 2), ["pip", "install"]); assert.ok(args.includes("--break-system-packages")); }
+    assert.ok(calls[2].includes("--no-deps")); assert.deepEqual(calls[2].slice(-2), ["-e", "."]);
+    const requirements = calls[0][calls[0].indexOf("-o") + 1]; assert.equal(calls[1][calls[1].indexOf("-r") + 1], requirements); assert.equal(existsSync(requirements), false);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
 test("native packaging installs locked Electron before building and stops on installation failure", () => {
   const project = JSON.parse(readFileSync(join(root, "app/package.json"), "utf8")), directory = mkdtempSync(join(tmpdir(), "practiq-install-"));
   assert.equal(project.scripts["desktop:install"], "install-electron");

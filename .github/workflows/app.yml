@@ -80,10 +80,11 @@ jobs:
           set -eu
           requirements=$(mktemp)
           trap 'rm -f "$requirements"' EXIT
+          reference_python=$(command -v python)
           cd server
-          uv export --locked --extra dev --no-emit-project --python python -o "$requirements" >/dev/null
-          uv pip install --break-system-packages --python python -r "$requirements"
-          uv pip install --break-system-packages --python python --no-deps -e .
+          uv export --locked --extra dev --no-emit-project --python "$reference_python" -o "$requirements" >/dev/null
+          uv pip install --break-system-packages --python "$reference_python" -r "$requirements"
+          uv pip install --break-system-packages --python "$reference_python" --no-deps -e .
       - run: python app/scripts/export-contracts.py --check
       - run: python app/scripts/check-fixtures.py
       - run: python -m pytest server/tests/test_release_checks.py server/tests/test_release_workflow.py server/tests/test_desktop_package.py
