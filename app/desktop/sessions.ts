@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
-import type { Answer, Attempt, Paper, QuestionRow, Session, SessionPage, SessionSummary } from "../src/api.js";
+import type { Answer, Attempt, Paper, PlaybackState, QuestionRow, Session, SessionPage, SessionSummary } from "../src/api.js";
 import { Assets, hash } from "./assets.js";
 import { sqlRows, transaction } from "./database.js";
 import { invariant } from "./errors.js";
@@ -145,6 +145,46 @@ export class Sessions {
     }
     this.cachedAttempts = Buffer.byteLength(bytes) <= 8 * 1024 * 1024 ? { key: attemptKey, attempts: mutable } : undefined;
     return session;
+  }
+  listeningPlayback(id: string, questionId: string, action: string, position?: number): PlaybackState {
+    invariant(["state", "start", "progress", "pause", "end"].includes(action) && (position === undefined || Number.isFinite(position)), "LOCAL_FILTER_INVALID", "Invalid playback action or position");
+    this.expire(id);
+    return transaction(this.db, () => {
+      const session = this.db.prepare("SELECT kind,submitted_at,finished_at FROM sessions WHERE id=?").get(id);
+      invariant(session, "LOCAL_WORK_UNAVAILABLE", "Session is missing");
+      const row = list(this.document(id), "questions").find(row => text(row, "id") === questionId), q = object(object(row).question);
+      invariant(q.answerMode === "listening", "LOCAL_FILTER_INVALID", "Listening group is not in this session");
+      const start = Number(q.audioStartSeconds ?? 0), end = Number(q.audioEndSeconds ?? 86400), limit = Number(q.examPlayCount ?? 2), restricted = session.kind !== "practice" && session.submitted_at === null;
+      const saved = this.db.prepare("SELECT used,position,active,updated_at,active_elapsed_ms FROM listening_playback WHERE session_id=? AND question_id=?").get(id, questionId);
+      let used = Number(saved?.used ?? 0), pos = Number(saved?.position ?? start), active = Boolean(saved?.active), activeSince = Number(saved?.updated_at ?? 0), activeElapsed = Number(saved?.active_elapsed_ms ?? 0);
+      if (action !== "state") {
+        const at = this.now();
+        invariant(session.submitted_at === null && session.finished_at === null, "LOCAL_FILTER_INVALID", "Session playback is locked; use review playback");
+        if (action === "start") {
+          invariant(this.assets.bytes(text(q.audioRef, "sha256")), "LOCAL_AUDIO_MISSING", "Listening audio is missing");
+          if (!active) {
+            invariant(!restricted || used < limit, "LOCAL_FILTER_INVALID", "No listening plays remaining");
+            invariant(Number.isSafeInteger(used) && used < Number.MAX_SAFE_INTEGER, "LOCAL_FILTER_INVALID", "Invalid saved playback count");
+            used++; pos = start; active = true; activeSince = at; activeElapsed = 0;
+          } else if (activeSince === 0) activeSince = at;
+          else { activeElapsed = Math.ceil(Math.max(0, pos - start - 2) * 1000); activeSince = at; }
+        } else {
+          invariant(position !== undefined && position >= start && position <= end + .1, "LOCAL_FILTER_INVALID", "Invalid playback position");
+          invariant(active, "LOCAL_FILTER_INVALID", "Listening playback has not started");
+          if (activeSince === 0) invariant(action === "pause", "LOCAL_FILTER_INVALID", "Listening playback is paused");
+          else {
+            const elapsed = Math.min(Number.MAX_SAFE_INTEGER, activeElapsed + Math.max(0, at - activeSince));
+            invariant(!restricted || position + .25 >= pos && position - start <= elapsed / 1000 + 2, "LOCAL_FILTER_INVALID", "Seeking is disabled in exams");
+            pos = restricted ? Math.max(pos, position) : position;
+            if (action === "pause") { activeElapsed = elapsed; activeSince = 0; }
+            else if (action === "end") { active = false; activeSince = 0; }
+          }
+        }
+        this.db.prepare("INSERT INTO listening_playback(session_id,question_id,used,position,active,updated_at,active_elapsed_ms) VALUES(?,?,?,?,?,?,?) ON CONFLICT(session_id,question_id) DO UPDATE SET used=excluded.used,position=excluded.position,active=excluded.active,updated_at=excluded.updated_at,active_elapsed_ms=excluded.active_elapsed_ms")
+          .run(id, questionId, used, pos, Number(active), activeSince, activeElapsed);
+      }
+      return { used, position: pos, active, limit, restricted };
+    });
   }
   writeAttempt(id: string, ordinal: number, answer: unknown, elapsed: number, submit: boolean, skip: boolean): void {
     this.expire(id);

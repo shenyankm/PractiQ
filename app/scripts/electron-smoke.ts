@@ -678,6 +678,15 @@ try {
   const history = await bridge({ type: "sessions_page", limit: 10, offset: 0 }); assert.equal(history.ok, true); assert.equal((history.value as { items: unknown[] }).items.length, 2);
   assert.equal((await bridge({ type: "restore", path: backupPath })).error?.code, "LOCAL_FILTER_INVALID");
   await page.screenshot({ path: ".build/evidence/electron-restored.png" });
+  stage = "legacy listening playback";
+  const listening = await bridge({ type: "questions_page", bank_ids: [bank.bankId], search: "", mode: "listening", filter: "", limit: 20, offset: 0 }); assert.equal(listening.ok, true);
+  const listeningRoot = (listening.value as { items: { id: string }[] }).items[0].id;
+  const listeningPaper = await bridge({ type: "preview_paper", request: { bank_ids: [bank.bankId], search: "", mode: "", filter: "", selection: "manual", count: 0, quotas: {}, question_ids: [listeningRoot], random: false, total_cents: 0 } }); assert.equal(listeningPaper.ok, true);
+  const selectedListening = listeningPaper.value as { questionIds: string[]; scores: number[]; digest: string };
+  const listeningSession = await bridge({ type: "start_paper", paper: { question_ids: selectedListening.questionIds, scores: selectedListening.scores, digest: selectedListening.digest, kind: "practice", minutes: null, total_cents: 0 } }); assert.equal(listeningSession.ok, true);
+  const listeningSessionId = (listeningSession.value as { id: string }).id;
+  const playback = await bridge({ type: "listening_playback", id: listeningSessionId, question_id: listeningRoot, action: "start" }); assert.equal(playback.ok, true); assert.equal((playback.value as { used: number }).used, 1);
+  const listeningProgress = await bridge({ type: "listening_playback", id: listeningSessionId, question_id: listeningRoot, action: "progress", position: .1 }); assert.equal(listeningProgress.ok, true);
   const shutdownReceipt = join(directory, "closed-workers.txt");
   stage = "graceful worker shutdown";
   await instance.evaluate(async (_electron, value) => {

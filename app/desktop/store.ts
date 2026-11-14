@@ -117,6 +117,7 @@ export class PracticeStore {
       questions_page: { bank_ids: "strings", search: "string", mode: "string", filter: "string", limit: "number", offset: "number", include_stats: "optionalBoolean" },
       question_stats: { bank_ids: "strings", search: "string", mode: "string", filter: "string" },
       preview_paper: { request: "object" }, start_paper: { paper: "object" },
+      listening_playback: { id: "string", question_id: "string", action: "string", position: "optionalNumber" },
       session: { id: "string", snapshot_key: "optionalString" }, position: { id: "string", position: "number", snapshot_key: "optionalString" },
       sessions_page: { limit: "number", offset: "number", filter: "optionalString" },
       save_draft: { id: "string", ordinal: "number", answer: "json", elapsed_ms: "number" },
@@ -139,7 +140,7 @@ export class PracticeStore {
     const shape = typeof request.type === "string" && Object.hasOwn(shapes, request.type) ? shapes[request.type] : null;
     invariant(shape, "OPERATION_FAILED", "This operation has not been migrated yet");
     invariant(Object.keys(request).every(key => key === "type" || Object.hasOwn(shape, key)) && Object.entries(shape).every(([key, kind]) =>
-      kind === "nullableString" ? request[key] === null || typeof request[key] === "string" : kind === "array" ? Array.isArray(request[key]) : kind === "strings" ? Array.isArray(request[key]) && request[key].every(value => typeof value === "string") : kind === "optionalBoolean" ? request[key] === undefined || typeof request[key] === "boolean" : kind === "optionalString" ? request[key] === undefined || typeof request[key] === "string" : kind === "json" ? Object.hasOwn(request, key) && request[key] !== undefined : kind === "object" ? request[key] !== null && typeof request[key] === "object" && !Array.isArray(request[key]) : typeof request[key] === kind),
+      kind === "nullableString" ? request[key] === null || typeof request[key] === "string" : kind === "array" ? Array.isArray(request[key]) : kind === "strings" ? Array.isArray(request[key]) && request[key].every(value => typeof value === "string") : kind === "optionalBoolean" ? request[key] === undefined || typeof request[key] === "boolean" : kind === "optionalString" ? request[key] === undefined || typeof request[key] === "string" : kind === "optionalNumber" ? request[key] === undefined || typeof request[key] === "number" : kind === "json" ? Object.hasOwn(request, key) && request[key] !== undefined : kind === "object" ? request[key] !== null && typeof request[key] === "object" && !Array.isArray(request[key]) : typeof request[key] === kind),
     "LOCAL_FILTER_INVALID", "Invalid request fields");
     switch (request.type) {
       case "_import_document_bank": return this.packages.importDocument(request.value, request.resources as unknown[], request.selection as import("../src/contracts.generated.js").DesktopDocumentBankSelection);
@@ -170,6 +171,7 @@ export class PracticeStore {
       case "question_stats": return queryQuestions(this.db, request as unknown as Query);
       case "preview_paper": return previewPaper(this.db, this.assets, request.request);
       case "start_paper": return this.sessions.createPaper(request.paper, locale);
+      case "listening_playback": return this.sessions.listeningPlayback(request.id as string, request.question_id as string, request.action as string, request.position as number | undefined);
       case "session": return this.sessions.session(request.id as string, request.snapshot_key as string | undefined);
       case "sessions_page": return this.sessions.list(request.limit as number, request.offset as number, (request.filter as string) || "all");
       case "save_draft": this.sessions.writeAttempt(request.id as string, request.ordinal as number, request.answer, request.elapsed_ms as number, false, false); return null;
