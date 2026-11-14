@@ -56,9 +56,8 @@ export class Assets {
       for (const row of this.db.prepare("WITH refs(visual) AS (SELECT content FROM visuals UNION ALL SELECT value FROM session_documents,json_each(session_documents.content,'$.visuals')) SELECT json_extract(visual,'$.imageRef.sha256') AS image,json_extract(visual,'$.sourceRef.sha256') AS source FROM refs").all()) {
         if (typeof row.image === "string") used.add(row.image); if (typeof row.source === "string") used.add(row.source);
       }
-      if (this.db.prepare("SELECT EXISTS(SELECT 1 FROM assets WHERE media NOT IN ('image/png','image/jpeg')) AS present").get()!.present) {
-        for (const row of this.db.prepare("SELECT json_extract(audio_ref,'$.sha256') AS hash FROM listening_questions UNION SELECT json_extract(value,'$.question.audioRef.sha256') FROM session_documents,json_each(session_documents.content,'$.questions')").all()) if (typeof row.hash === "string") used.add(row.hash);
-      }
+      // Retain referenced audio even when its stored media type is damaged.
+      for (const row of this.db.prepare("SELECT json_extract(audio_ref,'$.sha256') AS hash FROM listening_questions UNION SELECT CASE WHEN json_each.type='object' THEN json_extract(value,'$.question.audioRef.sha256') END FROM session_documents,json_each(session_documents.content,'$.questions')").all()) if (typeof row.hash === "string") used.add(row.hash);
       for (const row of this.db.prepare("SELECT hash FROM assets").all()) if (!used.has(String(row.hash))) this.db.prepare("DELETE FROM assets WHERE hash=?").run(row.hash);
       return used;
     });

@@ -60,3 +60,23 @@ it("collects only unreferenced owned resources and retains image, source and aud
     expect(db.prepare("SELECT COUNT(*) AS count FROM assets").get()!.count).toBe(0); expect(existsSync(assets.path(audio))).toBe(false);
   } finally { db.close(); }
 });
+
+it.each(["question", "snapshot"])("retains legacy audio referenced by a %s when its media metadata is damaged", owner => {
+  const path = directory(), db = openPracticeDatabase(path), assets = new Assets(path, db), bytes = readFileSync(new URL("../fixtures/resources/audio/chimes.wav", import.meta.url)), digest = hash(bytes);
+  const reference = { objectKey: `audio/${digest}`, sha256: digest, mediaType: "audio/wav", sizeBytes: bytes.length };
+  try {
+    assets.write(digest, bytes); db.prepare("INSERT INTO assets VALUES(?,?,?,?)").run(digest, "image/png", bytes.length, `assets/${digest}`);
+    if (owner === "question") {
+      db.exec("INSERT INTO banks VALUES('b','Bank','',0); INSERT INTO questions(id,bank_id,position,mode,content_blocks,confidence,needs_review,missing_fields) VALUES('q','b',0,'listening','[]',1,0,'[]')");
+      db.prepare("INSERT INTO listening_questions VALUES('q','[]',?,0,NULL,'[]',2)").run(JSON.stringify(reference));
+    } else {
+      db.exec("INSERT INTO sessions(id,bank_title,created_at,position,mode) VALUES('s','History',0,0,'ordered')");
+      db.prepare("INSERT INTO session_documents VALUES('s',?)").run(JSON.stringify({ schemaVersion: 3, questions: [{ id: "q", question: { audioRef: reference } }], groups: [], visuals: [] }));
+    }
+    const metadata = db.prepare("SELECT * FROM assets").all(); assets.collect();
+    expect(db.prepare("SELECT * FROM assets").all()).toEqual(metadata);
+    expect(readFileSync(assets.path(digest))).toEqual(bytes);
+    db.exec(owner === "question" ? "DELETE FROM banks" : "DELETE FROM sessions"); assets.collect();
+    expect(assets.bytes(digest)).toBeNull();
+  } finally { db.close(); }
+});
