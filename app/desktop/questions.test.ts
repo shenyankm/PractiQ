@@ -8,6 +8,7 @@ import { transaction } from "./database.js";
 import { validateDocument } from "./document-contract.js";
 import { validateQuestion, validateTree } from "./question-contract.js";
 import { canonical, freeze, QuestionIndex, readQuestions, saveQuestionTree, thaw, writeQuestion } from "./questions.js";
+import { putContext } from "./bank-context.js";
 import type { Question } from "../src/contracts.generated.js";
 
 const stores: PracticeStore[] = [];
@@ -65,4 +66,29 @@ it("hydrates shared options and ancestor material without exposing answer-bearin
   value.db.exec("DELETE FROM questions WHERE id='root'");
   expect(new QuestionIndex(thaw(document)).snapshot("child").question.options).toEqual(parent.options);
   expect(canonical(document)).toBe(frozenBefore);
+});
+
+it("preserves scoped trees and association order across banks and absent references", () => {
+  const value = store(), first = value.saveBank(null, "First", ""), second = value.saveBank(null, "Second", "");
+  const q = (id: string) => ({ id, stem: id, answerMode: "true_false", questionTypeId: "判断", answerPayload: { value: true } });
+  saveQuestionTree(value.db, value.assets, first, null, [{ id: "root", answerMode: "reading", questionTypeId: "阅读", stem: "Material" }, { ...q("child"), parentId: "root" }]);
+  saveQuestionTree(value.db, value.assets, first, null, [q("sibling")]);
+  saveQuestionTree(value.db, value.assets, second, null, [q("other")]);
+  value.db.prepare("INSERT INTO imports VALUES('import',?,'digest',0)").run(first);
+  transaction(value.db, () => putContext(value.db, first, {
+    groups: [{ title: "Both", questionIds: ["child", "sibling"] }, { title: "Child", questionIds: ["child"] }],
+    visualElements: [{ description: "All", questionIds: [] }, { description: "Scoped", questionIds: ["child", "sibling"] }, { description: "Hidden", documentOnly: true, questionIds: [] }],
+  }, new Map(["root", "child", "sibling"].map(id => [id, id])), "import", []));
+  const all = readQuestions(value.db, value.assets), subset = all.filter(row => row.id === "root" || row.id === "child");
+  expect(readQuestions(value.db, value.assets, [], ["root"])).toEqual(subset);
+  expect(readQuestions(value.db, value.assets, [first], ["root", "other", "absent"])).toEqual(subset);
+  expect(readQuestions(value.db, value.assets, [second])).toEqual(all.filter(row => row.bankId === second));
+  expect(readQuestions(value.db, value.assets, [], [])).toEqual([]);
+  expect(readQuestions(value.db, value.assets, [], ["absent"])).toEqual([]);
+  const child = subset.find(row => row.id === "child")!;
+  expect(child.groups.map(group => group.title)).toEqual(["Both", "Child"]);
+  expect(child.groups[0].questionIds).toEqual(["child", "sibling"]);
+  expect(child.visuals.map(visual => visual.description)).toEqual(["All", "Scoped"]);
+  expect(all.find(row => row.id === "other")!.visuals).toEqual([]);
+  expect(value.db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
 });

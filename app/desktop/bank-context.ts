@@ -41,17 +41,20 @@ export function putContext(db: DatabaseSync, bank: string, result: unknown, ids:
   const warning = db.prepare("INSERT INTO import_warnings VALUES(?,?,?)");
   warnings.forEach((value, index) => warning.run(importId, index, value));
   const mapped = (value: unknown) => { const id = ids.get(String(value)); invariant(id, "LOCAL_QUESTION_INDEX_INVALID", "Missing context question", { key: "questionIds", i: String(value) }); return id; };
+  const section = db.prepare("INSERT INTO sections VALUES(?,?,?,?)"), sectionQuestion = db.prepare("INSERT INTO section_questions VALUES(?,?)");
+  const visualRow = db.prepare("INSERT INTO visuals VALUES(?,?,?,?)"), visualQuestion = db.prepare("INSERT INTO question_visuals VALUES(?,?)");
+  const sourceRow = db.prepare("INSERT OR IGNORE INTO question_sources VALUES(?,?,?)");
   for (const group of list(result, "groups")) {
-    const id = randomUUID(); db.prepare("INSERT INTO sections VALUES(?,?,?,?)").run(id, bank, text(group, "title"), object(group).instructions as string ?? null);
-    for (const reference of list(group, "questionIds")) db.prepare("INSERT INTO section_questions VALUES(?,?)").run(id, mapped(reference));
+    const id = randomUUID(); section.run(id, bank, text(group, "title"), object(group).instructions as string ?? null);
+    for (const reference of list(group, "questionIds")) sectionQuestion.run(id, mapped(reference));
   }
   for (const value of list(result, "visualElements")) {
     const id = randomUUID(), visual = object(structuredClone(value)), references = list(visual, "questionIds"); delete visual.questionIds;
-    db.prepare("INSERT INTO visuals VALUES(?,?,?,?)").run(id, bank, JSON.stringify(visual), Number(!references.length));
-    for (const reference of references) db.prepare("INSERT INTO question_visuals VALUES(?,?)").run(id, mapped(reference));
+    visualRow.run(id, bank, JSON.stringify(visual), Number(!references.length));
+    for (const reference of references) visualQuestion.run(id, mapped(reference));
   }
   for (const diagnostic of diagnostics) for (const source of list(object(diagnostic).processing, "questionSources")) {
-    db.prepare("INSERT OR IGNORE INTO question_sources VALUES(?,?,?)").run(mapped(text(source, "questionId")), text(source, "stage"), Number(object(source).unitIndex));
+    sourceRow.run(mapped(text(source, "questionId")), text(source, "stage"), Number(object(source).unitIndex));
   }
   writeDiagnostics(db, importId, remapDiagnostics(diagnostics, ids));
 }

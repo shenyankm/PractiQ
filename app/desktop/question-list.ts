@@ -80,7 +80,16 @@ export function feasibleCounts(weights: number[]): number[] {
   if (weights.length && weights[0] > 0 && weights.every(weight => weight === weights[0])) return Array.from({ length: Math.min(weights.length, Math.floor(1000 / weights[0])) }, (_, i) => (i + 1) * weights[0]);
   const maximum = Math.min(1000, weights.reduce((total, weight) => total + weight, 0)), reachable = new Uint8Array(maximum + 1);
   reachable[0] = 1;
-  for (const weight of weights) if (weight > 0 && weight <= maximum) for (let n = maximum; n >= weight; n--) if (reachable[n - weight]) reachable[n] = 1;
+  const counts = new Map<number, number>();
+  for (const weight of weights) if (weight > 0 && weight <= maximum) counts.set(weight, (counts.get(weight) ?? 0) + 1);
+  for (const [weight, count] of counts) {
+    let remaining = Math.min(count, Math.floor(maximum / weight));
+    // Binary bundles preserve every usable multiplicity without repeating identical groups.
+    for (let size = 1; remaining > 0; size *= 2) {
+      const used = Math.min(size, remaining), bundled = used * weight; remaining -= used;
+      for (let n = maximum; n >= bundled; n--) if (reachable[n - bundled]) reachable[n] = 1;
+    }
+  }
   return Array.from(reachable.keys()).filter(n => n > 0 && reachable[n] === 1);
 }
 export function rootMetadata(db: DatabaseSync, ids: string[]): { id: string; category: string; weight: number }[] {

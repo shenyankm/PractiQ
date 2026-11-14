@@ -66,9 +66,11 @@ export function writeQuestion(db: DatabaseSync, q: Question, bank: string, impor
 }
 
 export function readQuestions(db: DatabaseSync, assets: Assets, banks: string[] = [], roots?: string[]): QuestionRow[] {
-  const bankScope = JSON.stringify(banks), rootScope = roots ? JSON.stringify(roots) : null;
-  const records = db.prepare("WITH RECURSIVE selected(id) AS (SELECT value FROM json_each(?) UNION SELECT q.id FROM questions q JOIN selected s ON q.parent_id=s.id) SELECT q.*,b.title AS bank_title,r.reviewed_at FROM questions q JOIN banks b ON b.id=q.bank_id LEFT JOIN question_reviews r ON r.question_id=q.id WHERE (?='[]' OR q.bank_id IN (SELECT value FROM json_each(?))) AND (? IS NULL OR q.id IN selected) ORDER BY b.created_at DESC,q.position,q.id")
-    .all(rootScope, bankScope, bankScope, rootScope);
+  const parameters: SQLInputValue[] = [], conditions: string[] = [];
+  if (roots) { conditions.push("q.id IN selected"); parameters.push(JSON.stringify(roots)); }
+  if (banks.length) { conditions.push("q.bank_id IN (SELECT value FROM json_each(?))"); parameters.push(JSON.stringify(banks)); }
+  const records = db.prepare(`${roots ? "WITH RECURSIVE selected(id) AS (SELECT value FROM json_each(?) UNION SELECT q.id FROM questions q JOIN selected s ON q.parent_id=s.id) " : ""}SELECT q.*,b.title AS bank_title,r.reviewed_at FROM questions q JOIN banks b ON b.id=q.bank_id LEFT JOIN question_reviews r ON r.question_id=q.id${conditions.length ? ` WHERE ${conditions.join(" AND ")}` : ""} ORDER BY b.created_at DESC,q.position,q.id`)
+    .all(...parameters);
   if (!records.length) return [];
   const scope = JSON.stringify(records.map(row => row.id)), byDetail = new Map<string, Record<string, unknown>>();
   for (const [mode, [table]] of Object.entries(details)) if (records.some(row => row.mode === mode)) {
@@ -104,12 +106,12 @@ export function readQuestions(db: DatabaseSync, assets: Assets, banks: string[] 
       latestScore: typeof last.earnedCents === "number" && typeof last.maxCents === "number" ? { earnedCents: last.earnedCents, maxCents: last.maxCents, gradeKind: last.gradeKind } : null,
       sources: sources.get(id) ?? [], warnings: warnings.get(String(record.import_id)) ?? [], groups: [], visuals: [], missingAssets: false } as unknown as QuestionRow;
   });
-  const loadedIds = new Set(rows.map(row => row.id));
+  const byId = new Map(rows.map(row => [row.id, row]));
   const groups = db.prepare("SELECT id,title,instructions FROM sections WHERE id IN (SELECT section_id FROM section_questions WHERE question_id IN (SELECT value FROM json_each(?))) ORDER BY rowid").all(scope);
   const groupRefs = related(db, "SELECT section_id,json_quote(question_id) FROM section_questions WHERE section_id IN (SELECT value FROM json_each(?)) ORDER BY section_id,question_id", JSON.stringify(groups.map(row => row.id)));
   for (const row of groups) {
     const group = { id: String(row.id), title: String(row.title), instructions: row.instructions === null ? null : String(row.instructions), questionIds: (groupRefs.get(String(row.id)) ?? []) as string[] };
-    for (const target of rows) if (group.questionIds.includes(target.id)) target.groups.push(group);
+    for (const id of group.questionIds) byId.get(id)?.groups.push(group);
   }
   const visuals = db.prepare("SELECT id,content,bank_id,document_level FROM visuals WHERE bank_id IN (SELECT value FROM json_each(?)) AND (document_level=1 OR id IN (SELECT visual_id FROM question_visuals WHERE question_id IN (SELECT value FROM json_each(?)))) ORDER BY rowid")
     .all(JSON.stringify([...new Set(rows.map(row => row.bankId))]), scope);
@@ -119,7 +121,7 @@ export function readQuestions(db: DatabaseSync, assets: Assets, banks: string[] 
     if (visual.documentOnly === true) continue;
     visual.id = String(row.id); visual.questionIds = visualRefs.get(String(row.id)) ?? [];
     const targets = row.document_level ? rows.filter(target => target.bankId === row.bank_id).map(target => target.id) : list(visual, "questionIds");
-    for (const target of rows) if (loadedIds.has(target.id) && targets.includes(target.id)) target.visuals.push(visual as unknown as QuestionRow["visuals"][number]);
+    for (const id of targets) byId.get(String(id))?.visuals.push(visual as unknown as QuestionRow["visuals"][number]);
   }
   assets.markMissing(rows as unknown as Record<string, unknown>[]);
   return rows;
