@@ -10,6 +10,7 @@ import { canonical, freeze, QuestionIndex, readQuestions, thaw } from "./questio
 import { validatePage } from "./question-list.js";
 import { redactSnapshot } from "./redaction.js";
 import { SessionClock } from "./session-clock.js";
+import { listeningAddress } from "../../shared/listening.js";
 
 type WireAttempt = Omit<Attempt, "snapshot"> & { snapshot?: QuestionRow };
 export type SessionWire = Omit<Session, "attempts"> & { attempts: WireAttempt[]; snapshotDocument?: unknown[]; attemptsBase?: string; attemptCount?: number };
@@ -161,7 +162,7 @@ export class Sessions {
         const at = this.now();
         invariant(session.submitted_at === null && session.finished_at === null, "LOCAL_FILTER_INVALID", "Session playback is locked; use review playback");
         if (action === "start") {
-          invariant(this.assets.bytes(text(q.audioRef, "sha256")), "LOCAL_AUDIO_MISSING", "Listening audio is missing");
+          invariant(listeningAddress(q as unknown as QuestionRow["question"]) || this.assets.bytes(text(q.audioRef, "sha256")), "LOCAL_AUDIO_MISSING", "Listening audio is missing");
           if (!active) {
             invariant(!restricted || used < limit, "LOCAL_FILTER_INVALID", "No listening plays remaining");
             invariant(Number.isSafeInteger(used) && used < Number.MAX_SAFE_INTEGER, "LOCAL_FILTER_INVALID", "Invalid saved playback count");

@@ -3,6 +3,7 @@ import { AppError, invariant } from "./errors.js";
 import type { Question } from "../src/contracts.generated.js";
 import { sourceCasefold } from "./source-casefold.js";
 import { SOURCE_WHITESPACE, sourceLines, sourceTrim, sourceWithoutWhitespace } from "./source-text.js";
+import { LISTENING_ADDRESS_ROLE, listeningAddress, playbackAddress } from "../../shared/listening.js";
 
 export const object = (value: unknown): Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 export const list = (value: unknown, key: string): unknown[] => Array.isArray(object(value)[key]) ? object(value)[key] as unknown[] : [];
@@ -76,6 +77,8 @@ function validateQuestionWithRules(input: unknown, source: boolean): Question {
   const blocks = [...list(q, "contentBlocks"), ...list(q, "passage"), ...list(q, "transcript")];
   for (const block of blocks) invariant(text(block, "partType") === "blank" || ["textValue", "markdownValue", "latexValue"].some(key => source ? Boolean(trim(text(block, key))) : filled(object(block)[key])) || object(block).jsonValue != null, "LOCAL_CONTENT_EMPTY", "Content block is empty");
   const mode = text(q, "answerMode"), kind = text(q, "questionKind"), answer = object(q.answerPayload);
+  const addresses = list(q, "contentBlocks").filter(block => text(block, "role") === LISTENING_ADDRESS_ROLE);
+  check(addresses.length <= 1 && addresses.every(block => mode === "listening" && text(block, "partType") === "text" && typeof object(block).textValue === "string" && playbackAddress(object(block).textValue) === object(block).textValue), "Invalid listening playback address");
   if (mode === "fill_blank" && answerComplete(q)) {
     check(q.blankCount == null || q.blankCount === list(answer, "answers").length, "blankCount must match the number of reference answers");
     q.blankCount = list(answer, "answers").length;
@@ -140,7 +143,7 @@ function validateQuestionWithRules(input: unknown, source: boolean): Question {
   }
   if (!composite(q) && !answerComplete(q)) missing.push("answerPayload");
   for (const key of ["analysis", "sourceText"]) if (!filled(q[key])) missing.push(key);
-  if (mode === "listening" && !(q.audioRef !== null && typeof q.audioRef === "object")) missing.push("media");
+  if (mode === "listening" && !(q.audioRef !== null && typeof q.audioRef === "object") && !listeningAddress(q as unknown as Question)) missing.push("media");
   for (const key of ["media", "material"]) if (list(q, "missingFields").includes(key) && !missing.includes(key)) missing.push(key);
   if (missing.length || answerSourceConflictWithRules(q, source)) q.needsReview = true;
   q.missingFields = missing;

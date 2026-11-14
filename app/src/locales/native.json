@@ -980,9 +980,9 @@
     "zh-TW": "請使用公開的 HTTP/HTTPS 網址（80/443 埠），不能包含帳號密碼或指向本機、內網位址。"
   },
   "LOCAL_AUDIO_DOWNLOAD_FAILED": {
-    "zh-CN": "获取资源失败，请检查网址和网络；资源可能需要登录或已过期。也可下载音频后选择本地文件。",
-    "en": "Could not fetch this resource. Check the URL and connection; it may require sign-in or have expired. You can also download the audio and choose the local file.",
-    "zh-TW": "取得資源失敗，請檢查網址與網路；資源可能需要登入或已過期。也可先下載音訊，再選擇本機檔案。"
+    "zh-CN": "获取资源失败，请检查网址和网络；资源可能需要登录或已过期。请更换公开播放地址。",
+    "en": "Could not load this resource. Check the address and connection; it may require sign-in or have expired. Use another public playback address.",
+    "zh-TW": "取得資源失敗，請檢查網址與網路；資源可能需要登入或已過期。請更換公開播放位址。"
   },
   "LOCAL_AUDIO_DOWNLOAD_SIZE": {
     "zh-CN": "资源过大：音频最多 25 MiB，网页最多 2 MiB。",
@@ -990,9 +990,9 @@
     "zh-TW": "資源過大：音訊最多 25 MiB，網頁最多 2 MiB。"
   },
   "LOCAL_AUDIO_NO_LINKS": {
-    "zh-CN": "未找到公开音频链接。需要登录或运行脚本的网页，请自行下载音频后选择本地文件。",
-    "en": "No public audio links found. For pages requiring sign-in or scripts, download the audio yourself and choose the local file.",
-    "zh-TW": "找不到公開音訊連結。需要登入或執行指令碼的網頁，請自行下載音訊後選擇本機檔案。"
+    "zh-CN": "未找到公开音频链接。请粘贴音频直链，或识别包含播放地址的二维码。",
+    "en": "No public audio links found. Paste a direct audio address or decode a QR code containing one.",
+    "zh-TW": "找不到公開音訊連結。請貼上音訊直接連結，或辨識包含播放位址的 QR Code。"
   },
   "LOCAL_AUDIO_QR_INVALID": {
     "zh-CN": "未识别到有效的公开网址二维码。请选择清晰的 PNG/JPEG 图片（宽高不超过 4096 像素），或直接粘贴网址。",
@@ -1000,14 +1000,14 @@
     "zh-TW": "未辨識到有效的公開網址 QR Code。請選擇清晰的 PNG/JPEG 圖片（寬高不超過 4096 像素），或直接貼上網址。"
   },
   "LOCAL_AUDIO_INVALID": {
-    "zh-CN": "资源不是有效的 MP3、M4A/AAC 或 WAV 音频，或音频暂存空间已满。",
-    "en": "The resource is not valid MP3, M4A/AAC or WAV audio, or audio staging storage is full.",
-    "zh-TW": "資源不是有效的 MP3、M4A/AAC 或 WAV 音訊，或音訊暫存空間已滿。"
+    "zh-CN": "资源不是有效的 MP3、M4A/AAC 或 WAV 音频。",
+    "en": "The resource is not valid MP3, M4A/AAC or WAV audio.",
+    "zh-TW": "資源不是有效的 MP3、M4A/AAC 或 WAV 音訊。"
   },
   "LOCAL_AUDIO_MISSING": {
-    "zh-CN": "音频暂存已失效，请重新导入音频后保存。",
-    "en": "The staged audio is no longer available. Import the audio again before saving.",
-    "zh-TW": "音訊暫存已失效，請重新匯入音訊後儲存。"
+    "zh-CN": "历史音频不可用，请检查备份或补充公开播放地址。",
+    "en": "Existing audio is unavailable. Check the backup or add a public playback address.",
+    "zh-TW": "歷史音訊無法使用，請檢查備份或補充公開播放位址。"
   },
   "LOCAL_BACKUP_RESOURCE_INVALID": {
     "zh-CN": "当前数据含不支持或损坏的图片、音频，备份已取消；已有备份未被覆盖。",

@@ -3,6 +3,9 @@ import { invariant } from "./errors.js";
 import type { ImageInputs, ImageInputLimits } from "./image-inputs.js";
 import { runPreparation } from "./preparation.js";
 import { MAX_CROPS, MAX_CROP_BYTES } from "./vision-crops.js";
+import { playbackAddress } from "../../shared/listening.js";
+import type { ListeningLink } from "./listening-web.js";
+import { validateContract } from "./contracts.js";
 
 const helper = (input: Record<string, unknown>, source: () => Uint8Array) => {
   const bytes = Uint8Array.from(source()); invariant(bytes.length > 0 && bytes.length <= 150 * 1024 * 1024, "IMAGE_FORMAT_UNSUPPORTED", "Invalid image source size");
@@ -20,5 +23,14 @@ export function prepareCrops(source: () => Uint8Array, boxes: number[][], kinds:
   return runPreparation(signal, 120000, { failed: "CROP_FAILED", timeout: "CROP_FAILED" }, () => helper({ type: "crops", boxes, kinds }, source), value => {
     invariant(Array.isArray(value) && value.length === boxes.length, "CROP_FAILED", "Invalid crop preparation result"); let total = 0;
     return value.map(item => { invariant(item && Object.keys(item).length === 2 && typeof item.rejected === "boolean" && (item.bytes === null || item.bytes instanceof Uint8Array && item.bytes.length > 0 && item.bytes.length <= MAX_CROP_BYTES && (total += item.bytes.length) <= MAX_CROPS * MAX_CROP_BYTES) && (!item.rejected || item.bytes === null), "CROP_FAILED", "Invalid crop bytes or rejection"); return { bytes: item.bytes === null ? null : Buffer.from(item.bytes), rejected: item.rejected }; });
+  });
+}
+export function prepareListeningQr(source: () => Uint8Array, signal?: AbortSignal): Promise<ListeningLink[]> {
+  return runPreparation(signal, 15000, { failed: "LOCAL_AUDIO_QR_INVALID", timeout: "LOCAL_AUDIO_QR_INVALID" }, () => helper({ type: "listening-qr" }, () => {
+    const bytes = source(); invariant(bytes.length > 0 && bytes.length <= 25 * 1024 * 1024, "LOCAL_AUDIO_QR_INVALID", "Invalid QR image size"); return bytes;
+  }), value => {
+    invariant(Array.isArray(value) && value.length > 0 && value.length <= 50, "LOCAL_AUDIO_QR_INVALID", "Invalid QR address list");
+    for (const link of value) { validateContract("DesktopListeningLink", link); invariant(playbackAddress(link.url) === link.url, "LOCAL_AUDIO_QR_INVALID", "Invalid QR address"); }
+    return value;
   });
 }

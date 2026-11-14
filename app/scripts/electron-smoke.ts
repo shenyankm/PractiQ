@@ -1,6 +1,6 @@
 import { _electron as electron } from "playwright";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, mkdir, readFile, writeFile, realpath } from "node:fs/promises";
+import { mkdtemp, rm, mkdir, readFile, writeFile, realpath, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:http";
@@ -645,7 +645,10 @@ try {
   const roundtrip = await bridge({ type: "pick_import" }); assert.equal(roundtrip.ok, true); assert.equal((roundtrip.value as { count: number }).count, 20);
   await instance.evaluate(({ dialog }) => { dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] }); });
   assert.deepEqual(await bridge({ type: "pick_import" }), { ok: true, value: null });
-  assert.equal((await bridge({ type: "add_example_bank" })).ok, true);
+  const exampleBank = await bridge({ type: "add_example_bank" }); assert.equal(exampleBank.ok, true);
+  const exampleListening = await bridge({ type: "questions_page", bank_ids: [(exampleBank.value as { bankId: string }).bankId], search: "", mode: "listening", filter: "", limit: 20, offset: 0 }); assert.equal(exampleListening.ok, true);
+  const exampleDetail = await bridge({ type: "question_detail", id: (exampleListening.value as { items: { id: string }[] }).items[0].id }); assert.equal(exampleDetail.ok, true);
+  assert.equal((exampleDetail.value as { question: { audioRef: unknown } }).question.audioRef, null, "New example banks must not store recordings");
   await instance.evaluate(({ dialog }, selected) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [selected] }); }, exportedPath);
   const beforeImport = (await bridge({ type: "banks" })).value as unknown[];
   await page.getByRole("button", { name: "设置", exact: true }).click();
@@ -687,6 +690,44 @@ try {
   const listeningSessionId = (listeningSession.value as { id: string }).id;
   const playback = await bridge({ type: "listening_playback", id: listeningSessionId, question_id: listeningRoot, action: "start" }); assert.equal(playback.ok, true); assert.equal((playback.value as { used: number }).used, 1);
   const listeningProgress = await bridge({ type: "listening_playback", id: listeningSessionId, question_id: listeningRoot, action: "progress", position: .1 }); assert.equal(listeningProgress.ok, true);
+  stage = "listening QR and address-only playback";
+  const beforeListeningFiles = (await readdir(join(practiceDirectory, "assets"))).sort();
+  await instance.evaluate(({ dialog }, path) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] }); }, resolve("fixtures/listening-qr.png"));
+  const qr = await bridge({ type: "pick_audio_qr" }); assert.equal(qr.ok, true); assert.deepEqual(qr.value, [{ url: "https://example.com/listening.wav", label: "" }]);
+  await instance.evaluate(({ dialog }) => { dialog.showOpenDialog = async () => ({ canceled: true, filePaths: [] }); });
+  assert.equal((await bridge({ type: "pick_audio_qr" })).value, null);
+  assert.equal((await bridge({ type: "load_listening_audio", url: "http://127.0.0.1/private" })).error?.code, "LOCAL_AUDIO_URL_INVALID");
+  const addressBank = await bridge({ type: "save_bank", id: null, title: "链接听力", description: "仅保存播放地址" }); assert.equal(addressBank.ok, true);
+  const addressRoot = randomUUID(), addressChild = randomUUID(), playbackAddress = "https://example.com/listening.wav";
+  const savedAddress = await bridge({ type: "save_question_tree", bank_id: addressBank.value, root_id: null, questions: [
+    { id: addressRoot, stem: "链接听力验证", answerMode: "listening", questionKind: "listening", contentBlocks: [{ partType: "text", role: "listening_audio_url", textValue: playbackAddress }], needsReview: false },
+    { id: addressChild, parentId: addressRoot, stem: "Choose", answerMode: "choice", choiceVariant: "single", options: [{ label: "A", content: "One" }, { label: "B", content: "Two" }], answerPayload: { correct: ["A"] }, needsReview: false },
+  ] }); assert.equal(savedAddress.ok, true);
+  await instance.evaluate((_electron, value) => {
+    const { ListeningWeb } = process.getBuiltinModule("node:module").createRequire(value.module)(value.module), original = ListeningWeb.prototype.fetch;
+    const state = { loads: 0 }; Reflect.set(globalThis, "practiqListeningSmoke", state);
+    ListeningWeb.prototype.fetch = async function(raw: unknown, mode: "links" | "audio") {
+      if (raw !== value.url || mode !== "audio") return original.call(this, raw, mode);
+      state.loads++; const bytes = process.getBuiltinModule("node:fs").readFileSync(value.audio);
+      return { bytes: Uint8Array.from(bytes).buffer, mediaType: "audio/wav" };
+    };
+  }, { module: join(runtimeDirectory, "listening-web.js"), url: playbackAddress, audio: resolve("fixtures/resources/audio/chimes.wav") });
+  const addressPaper = await bridge({ type: "preview_paper", request: { bank_ids: [addressBank.value], search: "", mode: "", filter: "", selection: "manual", count: 0, quotas: {}, question_ids: [addressRoot], random: false, total_cents: 0 } }); assert.equal(addressPaper.ok, true);
+  const selectedAddress = addressPaper.value as { questionIds: string[]; scores: number[]; digest: string };
+  const addressSession = await bridge({ type: "start_paper", paper: { question_ids: selectedAddress.questionIds, scores: selectedAddress.scores, digest: selectedAddress.digest, kind: "practice", minutes: null, total_cents: 0 } }); assert.equal(addressSession.ok, true);
+  await page.getByRole("button", { name: "练习记录", exact: true }).click();
+  await page.locator("[data-slot='card']").filter({ has: page.getByRole("heading", { name: /链接听力/ }) }).getByRole("button", { name: "继续练习", exact: true }).click();
+  const addressPlayer = page.getByRole("region", { name: "听力播放器" }); await addressPlayer.waitFor();
+  assert.equal(await instance.evaluate(() => Reflect.get(globalThis, "practiqListeningSmoke").loads), 0, "Passive practice must not load remote audio");
+  await addressPlayer.locator("audio").evaluate(audio => { (audio as HTMLAudioElement).muted = true; });
+  await addressPlayer.getByRole("button", { name: "播放听力", exact: true }).click();
+  await addressPlayer.getByRole("button", { name: "暂停播放", exact: true }).waitFor();
+  assert.equal(await instance.evaluate(() => Reflect.get(globalThis, "practiqListeningSmoke").loads), 1);
+  assert.ok(await addressPlayer.locator("audio").evaluate(audio => (audio as HTMLAudioElement).currentSrc.startsWith("blob:") && (audio as HTMLAudioElement).duration > 0));
+  await addressPlayer.getByRole("button", { name: "暂停播放", exact: true }).click();
+  assert.deepEqual((await readdir(join(practiceDirectory, "assets"))).sort(), beforeListeningFiles, "QR and URL playback must not persist recordings");
+  await addressPlayer.scrollIntoViewIfNeeded();
+  await addressPlayer.screenshot({ path: ".build/evidence/electron-listening-address.png" });
   const shutdownReceipt = join(directory, "closed-workers.txt");
   stage = "graceful worker shutdown";
   await instance.evaluate(async (_electron, value) => {
@@ -700,7 +741,7 @@ try {
   assert.deepEqual((await readFile(shutdownReceipt, "utf8")).trim().split("\n"), ["start:AiClient", "closed:AiClient", "start:DatabaseClient", "closed:DatabaseClient"], "Keep SQLite available until AI results and both workers drain");
   assert.equal(modelCalls, 2);
   assert.deepEqual(unexpectedHttpApis, []);
-  await writeFile(receipt, JSON.stringify({ checkedAt: new Date().toISOString(), ...installation, passed: true, stage: "completed", systemOnlyPath: Boolean(executable), runtimeDirectory, gracefulWorkerShutdown: true, directGradingCalls: modelCalls, documentModelCalls, rasterGraphs: (codecReport as typeof codecReport & { rasterGraphs: unknown }).rasterGraphs, nativeDialogs: "substituted", providerCalls: "local substitutes" }, null, 2) + "\n");
+  await writeFile(receipt, JSON.stringify({ checkedAt: new Date().toISOString(), ...installation, passed: true, stage: "completed", systemOnlyPath: Boolean(executable), runtimeDirectory, gracefulWorkerShutdown: true, directGradingCalls: modelCalls, documentModelCalls, rasterGraphs: (codecReport as typeof codecReport & { rasterGraphs: unknown }).rasterGraphs, listeningAddressPlayback: true, passiveAudioLoads: 0, newAudioFiles: 0, audioTransport: "memory-only substitute with real Chromium decoding", nativeDialogs: "substituted", providerCalls: "local substitutes" }, null, 2) + "\n");
   console.log("Electron smoke passed: sandbox, IPC, five Tencent ZIP codecs, LangGraph text/OCR/PDF/image completion, bounded PDFium rendering, source crop calibration and passive completion guards in bounded workers, passive source tickets/copy/fences, explicit source repair/quarantine, fenced task deletion/recovery and stable pagination, complete/revised/selected/stopped-unit bank ZIP export without model work, SQLite CRUD, objective/subjective practice, OS-encrypted test credentials, explicit model calls, all-type ZIP roundtrip, bundled examples, and Settings import/backup/confirmed restore through native-dialog substitutes");
 } catch (error) {
   const window = instance.windows()[0];

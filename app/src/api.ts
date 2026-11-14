@@ -2,7 +2,7 @@ import { COMPOSITE_MODES } from "./contracts.generated";
 import nativeMessages from "./locales/native.json";
 import { t, locale, MessageError, renderMessage, type LanguageRequest, type Locale } from "./i18n";
 import { invoke } from "./transport";
-import type { Question, Answer, ArtifactReference, BankImportDiagnostic, ContentBlock as Block } from "./contracts.generated";
+import type { Question, Answer, ArtifactReference, BankImportDiagnostic, ContentBlock as Block, DesktopListeningLink, DesktopListeningRequest } from "./contracts.generated";
 export type { Question, Answer, Block };
 export const BANK_TITLE_LIMIT = 15;
 export const BANK_DESCRIPTION_LIMIT = 50;
@@ -185,8 +185,7 @@ export interface PaperPreview { questionIds: string[]; digest: string; questions
 export interface QuestionStats { count: number; types: Record<string, number>; feasibleCounts?: number[] }
 interface PaperSelection { bank_ids: string[]; search: string; mode: string; filter: string; selection: string; count: number; quotas: Record<string,number>; question_ids: string[]; random: boolean; total_cents: number; budgets?: Record<string,number> }
 export interface PlaybackState { used:number; position:number; active:boolean; limit:number; restricted:boolean }
-export interface AudioLink { url: string; label: string }
-export interface StagedAudio { lease: string; reference: NonNullable<Question["audioRef"]>; duration: number }
+export type AudioLink = DesktopListeningLink;
 export type MistakeCause = "knowledge" | "misread" | "calculation" | "other";
 export interface QuestionNote { body: string; cause: MistakeCause | null; updatedAt: number }
 export interface BackupStatus { lastBackupAt: number | null; newAttempts: number; changedNotes: number; due: boolean }
@@ -201,11 +200,7 @@ export type Request =
   | { type: "question_note"; id: string }
   | { type: "save_question_note"; id: string; body: string; cause: MistakeCause | null }
   | { type: "import_duplicates"; ticket: string; bank_id: string }
-  | { type:"pick_audio" }
-  | { type:"pick_audio_qr" }
-  | { type:"decode_audio_qr"; hash:string }
-  | { type:"import_audio_url"; url:string }
-  | { type:"release_audio"; lease:string }
+  | DesktopListeningRequest
   | { type:"listening_playback"; id:string; question_id:string; action:"state"|"start"|"progress"|"pause"|"end"; position?:number }
   | { type: "banks_page"; limit: number; offset: number }
   | { type: "sessions_page"; limit: number; offset: number; filter?: SessionFilter }
@@ -261,11 +256,10 @@ type ResponseMap = {
   save_question_note: QuestionNote;
   import_duplicates: ImportDuplicates;
   asset: ArrayBuffer;
-  pick_audio: StagedAudio|null;
   pick_audio_qr: AudioLink[]|null;
   decode_audio_qr: AudioLink[];
-  import_audio_url: {audio:StagedAudio|null;links:AudioLink[]};
-  release_audio: null;
+  listening_links: AudioLink[];
+  load_listening_audio: { bytes: ArrayBuffer; mediaType: string };
   listening_playback: PlaybackState;
   backup: { path: string; reminderError?: string } | null;
   banks: BankChoice[];

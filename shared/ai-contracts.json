@@ -5714,6 +5714,94 @@
         "dailyLimitMicros",
         "recent"
       ]
+    },
+    "DesktopListeningLink": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 160
+        }
+      },
+      "required": [
+        "url",
+        "label"
+      ]
+    },
+    "DesktopListeningRequest": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "pick_audio_qr"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "decode_audio_qr"
+            },
+            "hash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "type",
+            "hash"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "listening_links"
+            },
+            "url": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "type",
+            "url"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "load_listening_audio"
+            },
+            "url": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "type",
+            "url"
+          ]
+        }
+      ]
     }
   },
   "wireModels": [
@@ -5845,6 +5933,8 @@
     "DesktopCostPreferences",
     "DesktopCostTotal",
     "DesktopCostReceipt",
-    "DesktopCostReport"
+    "DesktopCostReport",
+    "DesktopListeningLink",
+    "DesktopListeningRequest"
   ]
 }

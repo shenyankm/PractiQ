@@ -10,7 +10,10 @@ import { AiClient } from "./ai-client.js";
 import { gradeAction } from "./grade-action.js";
 import { SOURCE_FORMATS, sourceFileName } from "./ai-storage.js";
 import { documentAction } from "./document-action.js";
-import { writeNewFile, syncDirectory } from "./filesystem.js";
+import { writeNewFile, syncDirectory, readBounded } from "./filesystem.js";
+import { ListeningWeb } from "./listening-web.js";
+import { prepareListeningQr } from "./image-preparation.js";
+import { validateContract } from "./contracts.js";
 
 const base = dirname(fileURLToPath(import.meta.url));
 const origin = "practiq://app";
@@ -27,6 +30,11 @@ let closeApproved = false;
 let quitRequested = false;
 let quitReady = false;
 let shuttingDown: Promise<unknown> | undefined;
+const listeningWeb = new ListeningWeb(), listeningAbort = new AbortController();
+const listeningJobs = new Set<Promise<unknown>>();
+async function listeningWork<T>(work: Promise<T>): Promise<T> {
+  listeningJobs.add(work); try { return await work; } finally { listeningJobs.delete(work); }
+}
 
 function trustedSender(event: Electron.IpcMainInvokeEvent): void {
   invariant(window && event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame &&
@@ -93,6 +101,27 @@ else {
       invariant(Buffer.byteLength(JSON.stringify(request)) <= 16 * 1024 * 1024, "LOCAL_FILE_TOO_LARGE", "Request exceeds size limit");
       invariant(request && typeof request === "object" && !Array.isArray(request) && typeof (request as Record<string, unknown>).type === "string" && !(request as { type: string }).type.startsWith("_"), "LOCAL_FILTER_INVALID", "Invalid request type");
       const input = request as Record<string, unknown>;
+      if (input.type === "listening_links" || input.type === "load_listening_audio") {
+        invariant(!shuttingDown, "LOCAL_AUDIO_DOWNLOAD_FAILED", "Listening resources are closing");
+        validateContract("DesktopListeningRequest", input);
+        return { ok: true, value: await listeningWork(listeningWeb.fetch(input.url, input.type === "listening_links" ? "links" : "audio")) };
+      }
+      if (input.type === "pick_audio_qr" || input.type === "decode_audio_qr") {
+        invariant(!shuttingDown, "LOCAL_AUDIO_QR_INVALID", "Listening resources are closing");
+        validateContract("DesktopListeningRequest", input);
+        let bytes: Uint8Array;
+        if (input.type === "pick_audio_qr") {
+          const selected = await dialog.showOpenDialog(window!, { properties: ["openFile"], filters: [{ name: "QR image", extensions: ["png", "jpg", "jpeg"] }] });
+          if (selected.canceled || selected.filePaths.length !== 1) return { ok: true, value: null };
+          listeningAbort.signal.throwIfAborted();
+          bytes = readBounded(selected.filePaths[0], 25 * 1024 * 1024);
+        } else {
+          const resource = await database!.request({ type: "asset", hash: input.hash }, locale as string | undefined);
+          if (!resource.ok) return resource;
+          invariant(resource.value instanceof ArrayBuffer, "LOCAL_AUDIO_QR_INVALID", "QR resource is unavailable"); bytes = new Uint8Array(resource.value);
+        }
+        return { ok: true, value: await listeningWork(prepareListeningQr(() => bytes, listeningAbort.signal)) };
+      }
       if (input.type === "document_request") {
         invariant(Object.keys(input).sort().join() === "request,type", "LOCAL_FILTER_INVALID", "Invalid document request fields");
         return { ok: true, value: await documentAction(input.request, aiSettings, () => aiRuntime(), database, async document => {
@@ -168,7 +197,8 @@ else {
   app.on("will-quit", event => {
     if (quitReady) return;
     event.preventDefault();
-    shuttingDown ??= Promise.allSettled([ai?.close()]).then(() => Promise.allSettled([database?.close()])).then(() => { quitReady = true; app.quit(); });
+    listeningWeb.close(); listeningAbort.abort();
+    shuttingDown ??= Promise.allSettled([ai?.close(), ...listeningJobs]).then(() => Promise.allSettled([database?.close()])).then(() => { quitReady = true; app.quit(); });
   });
   });
 }

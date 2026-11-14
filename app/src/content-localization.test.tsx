@@ -95,21 +95,21 @@ it("keeps localized missing-answer fallbacks out of the content language", async
   expect(content("参考答案不完整").hasAttribute("lang")).toBe(false);
 });
 
-it.each(["file", "url"] as const)("retranslates a stored audio %s error without making a new audio request", async kind => {
+it.each(["qr", "url"] as const)("retranslates a stored audio %s error without making a new audio request", async kind => {
   const failure = {code:"LOCAL_AUDIO_NO_LINKS"};
   const original = vi.mocked(invoke).getMockImplementation()!;
   vi.mocked(invoke).mockImplementation(async (command,args) => {
     const request=args!.request as {type:string};
-    if (["pick_audio","import_audio_url"].includes(request.type)) throw failure;
+    if (["pick_audio_qr","listening_links"].includes(request.type)) throw failure;
     return original(command,args);
   });
   wrap(<EnglishFields question={{...blankQuestion(),answerMode:"listening",questionKind:"listening",audioRef:null}} patch={()=>{}} onPendingChange={()=>{}}/>); await ready();
   if (kind === "url") await userEvent.type(screen.getByRole("textbox",{name:"听力资源网址"}),"https://example.com/audio");
-  await userEvent.click(screen.getByRole("button",{name:kind === "file"?"选择听力音频":"从网址获取音频"}));
+  await userEvent.click(screen.getByRole("button",{name:kind === "qr"?"识别二维码图片":"查找网页中的播放地址"}));
   const before = screen.getByRole("alert").textContent;
   const requests=vi.mocked(invoke).mock.calls.length;
   await change("en");
-  expect(screen.getByRole("alert").textContent).toBe(kind === "file"?t("音频加载或播放失败，请检查文件后重试。"):errorMessage(failure));
+  expect(screen.getByRole("alert").textContent).toBe(errorMessage(failure));
   expect(screen.getByRole("alert").textContent).not.toBe(before);
   expect(vi.mocked(invoke).mock.calls.slice(requests).map(([,args])=>(args!.request as {type:string}).type)).toEqual(["save_language"]);
 });

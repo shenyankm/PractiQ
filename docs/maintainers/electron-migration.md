@@ -12,10 +12,11 @@ The independent service is a migration reference, not a permanent dependency.
 The user confirmed two desktop scope changes on 2026-11-14. Office files above
 the active transport/type limit must be exported as PDF before import; the app
 must explain this before admitting paid work and must not discover LibreOffice.
-New listening content stores a QR code or playback address, without downloading
-or persisting recordings. Existing audio files and their frozen practice and
-backup references remain supported. QR/address editing and playback are still
-pending acceptance.
+New listening input accepts QR codes and stores playback addresses without
+persisting recordings. Existing audio files and their frozen practice and
+backup references remain supported. QR/address editing, guarded in-memory
+playback, ZIP/backup round trips and native Electron playback are implemented
+and locally verified. Acceptance of the final package remains required.
 
 ## Acceptance ledger
 
@@ -103,6 +104,31 @@ retain their own IDs and preserve source-bank visual scope. Resource collection
 retains immutable session dependencies. Image validation uses bounded Sharp
 decoding; macOS CoreAudio validates audio in a temporary directory under a
 filesystem/network sandbox with time and output limits.
+
+New listening content stores a single canonical public playback address in a
+`ContentBlock` with role `listening_audio_url` and a `textValue`. The existing
+strict content-block wire contract, schema-11 JSON column, immutable snapshots,
+ZIP exports and version-4 backups retain it without a database migration. Local
+PNG/JPEG QR decoding returns validated addresses; it neither fetches a URL nor
+saves the selected image. Applying an address is also offline. Only explicit
+page-link discovery or playback performs network reads. Playback bytes and Blob
+URLs live in memory and are released after use; no audio asset is published.
+
+The Node transport retains the Rust reference's public-address restrictions,
+all-answer DNS checks and pinning, no-proxy requests, five-redirect limit,
+45-second overall deadline, 10-second connection bound, 25 MiB audio cap and
+2 MiB HTML cap. An unresolved timed-out DNS lookup remains fenced until it
+returns. HTML is parsed without executing scripts. QR work uses a bounded,
+cancellable helper with a 4096-pixel-per-side limit. Native smoke acceptance
+uses a memory-only audio transport substitute and real Chromium decoding;
+unit regressions separately exercise DNS/redirect/body guards. No live website
+availability is claimed.
+
+The bundled example bank omits recordings and marks listening media pending
+until a user supplies an address. Historical ZIPs, snapshots and backups retain
+their original audio files and existing offline playback. New addresses need
+network access and may expire; the app never downloads them during passive
+reads, export, backup or restore.
 
 Run from `app/`:
 

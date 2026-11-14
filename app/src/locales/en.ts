@@ -820,4 +820,12 @@ export const en = {
   "腾讯识别价格（每页）": "Tencent recognition price (per page)",
   "金额最多六位小数，均使用以上币种；至少填写一个正数限额，留空表示不限制。模型输入按完整请求字节数保守估算，腾讯按已知页数或页数上限预留。": "Use the currency above and up to six decimal places. Set at least one positive limit; blank means unlimited. Model input uses complete request bytes as a conservative token estimate; Tencent uses known pages or the page ceiling.",
   "费用预留仅覆盖模型与腾讯识别的估算，不含 COS 存储、流量等费用。": "Cost reservations estimate only model and Tencent recognition charges, excluding COS storage, traffic and other fees.",
+  "请输入公开的 HTTP 或 HTTPS 播放地址。": "Enter a public HTTP or HTTPS playback address.",
+  "网址尚未应用，请先应用播放地址或清空网址后保存。": "Apply the playback address or clear it before saving.",
+  "应用播放地址": "Apply playback address",
+  "查找网页中的播放地址": "Find playback addresses on page",
+  "仅保存播放地址；二维码识别和应用地址不会联网。查找网页或播放时才联网，不保存音频文件。": "Only the playback address is saved. QR decoding and applying an address stay offline. Finding page links or playing connects to the network without saving audio files.",
+  "请选择播放地址，再点击应用。": "Choose a playback address, then apply it.",
+  "支持 MP3、M4A/AAC、WAV，单次播放最多加载 25 MiB；历史音频仍可离线播放。": "Supports MP3, M4A/AAC and WAV, up to 25 MiB per load. Existing audio files remain available offline.",
+  "在线播放，不保存音频文件。": "Online playback; audio files are not saved.",
 } as const;
