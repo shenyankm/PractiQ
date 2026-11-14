@@ -551,7 +551,7 @@ test('listening URL drafts survive every implicit dismissal without triggering d
  expect(remoteRequests).toEqual([]);
 });
 
-test('applied listening URLs become guarded when their audio is removed or replaced',async ({page})=>{
+test('listening address changes remain guarded when removed, switched or replaced by a QR draft',async ({page})=>{
  const remoteRequests=[];
  page.on('request',request=>{if(request.url().startsWith('https://example.com/'))remoteRequests.push(request.url());});
  await page.goto('/');
@@ -561,20 +561,22 @@ test('applied listening URLs become guarded when their audio is removed or repla
  const input=editor.getByRole('textbox',{name:'听力资源网址',exact:true});
  const save=editor.getByRole('button',{name:'保存题目',exact:true});
  const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
- for(const action of ['remove','mode','file']){
+ for(const action of ['remove','mode','qr']){
   await editQuestion(page, page.getByRole('button',{name:/Listening — chimes/}).locator('..').getByRole('button',{name:/^题目更多操作/}));
   const url=`https://example.com/${action}.wav`;
   await input.fill(url);
-  await editor.getByRole('button',{name:'从网址获取音频',exact:true}).click();
+  await editor.getByRole('button',{name:'应用播放地址',exact:true}).click();
   await expect(save).toBeEnabled();
   if(action==='remove')await editor.getByRole('button',{name:'移除音频',exact:true}).click();
   else if(action==='mode'){
    await chooseOption(editor.getByRole('combobox',{name:'答题方式',exact:true}), 'short_answer');
    await chooseOption(editor.getByRole('combobox',{name:'答题方式',exact:true}), 'listening');
-  }else await editor.getByRole('button',{name:'选择听力音频',exact:true}).click();
-  await expect(save).toBeDisabled();
-  await expect(input).toHaveValue(url);
-  await expect(editor.getByRole('status').filter({hasText:'网址尚未应用'})).toBeVisible();
+  }else await editor.getByRole('button',{name:'识别二维码图片',exact:true}).click();
+  const draft=action==='qr';
+  const value=draft?'https://example.com/listening.mp3':'';
+  await expect(save).toBeEnabled({enabled:!draft});
+  await expect(input).toHaveValue(value);
+  await expect(editor.getByRole('status').filter({hasText:'网址尚未应用'})).toHaveCount(draft?1:0);
   for(const dismiss of ['Escape','close','outside']){
    await input.focus();
    if(dismiss==='Escape')await page.keyboard.press('Escape');
@@ -582,8 +584,8 @@ test('applied listening URLs become guarded when their audio is removed or repla
    else await page.mouse.click(8,8);
    await expect(confirmation).toBeVisible();
    await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
-   await expect(input).toHaveValue(url);
-   await expect(save).toBeDisabled();
+   await expect(input).toHaveValue(value);
+   await expect(save).toBeEnabled({enabled:!draft});
   }
   await input.fill('');
   await expect(save).toBeEnabled();
