@@ -1,6 +1,6 @@
 # Ten source-validation performance rounds
 
-The [acceptance report](../../history/performance/ten-rounds-20261105.md) records
+The [acceptance report](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/history/performance/ten-rounds-20261105.md) records
 all ten experiments, seven retained changes, three rejected changes, checks and
 limits. All fixtures are synthetic. No real provider calls or user databases are
 used. Legacy table inputs test saved-record compatibility only.

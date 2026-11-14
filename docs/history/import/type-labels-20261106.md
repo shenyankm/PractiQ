@@ -1,7 +1,7 @@
 # PNG type-label correction — November 6, 2026
 
 Baseline: `47e2d8c93c8af4930a966c68d99abd649c54eeb1`. The original
-[November 5 failure](../performance/ocr-review-20261105.md) contained three correct
+[November 5 failure](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/history/performance/ocr-review-20261105.md) contained three correct
 true/false questions with `questionTypeId=null`. Its source and failed evidence
 remain unchanged. [New evidence](../../evidence/2026-11-06-type-labels/) separates
 each run and its source identity.

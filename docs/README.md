@@ -72,7 +72,7 @@ JSON/rendering reference owns detailed field and type mappings.
 | --- | --- |
 | Prepare issues/PRs and choose checks | [Contributing](../CONTRIBUTING.md) |
 | Review daily practice, notes, duplicate import and backup reminder acceptance | [Offline learning features](evidence/2026-11-02-learning-features/README.md) |
-| Reproduce performance work-count and bounded timing checks | [Service I/O](../server/docs/performance-io.md), [document pipeline](../server/docs/performance-pipeline.md), [native data](../app/docs/performance-native.md), [frontend](../app/docs/performance-import.md) |
+| Reproduce current performance measurements | [Electron/Node audit](../app/docs/performance-desktop.md), [frontend work bounds](../app/docs/performance-import.md) |
 | Reproduce connected App import and native practice acceptance | [Unified workflow acceptance](history/performance/workflow-20261102.md) |
 | Report vulnerabilities and review dependencies | [Security policy](../SECURITY.md) |
 | Review dependency risks and repository safeguards | [Dependency security](maintainers/dependency-security.md) |

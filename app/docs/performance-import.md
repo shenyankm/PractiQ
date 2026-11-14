@@ -20,7 +20,7 @@ empty drafts, fixed status order and all answer buttons remain unchanged.
 and `AnswerCardStatus.test.tsx` cover these boundaries. The opt-in answer-card
 probe records complete output hashes, noncurrent answer reads and React/JSDOM
 render durations, including small controls. See the
-[acceptance record](../../docs/history/performance/read-paths-20261030.md) for raw
+[acceptance record](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/history/performance/read-paths-20261030.md) for raw
 paired measurements and limits; these are not native WebView latency guarantees.
 
 These optimizations remove redundant work without changing task APIs, result
