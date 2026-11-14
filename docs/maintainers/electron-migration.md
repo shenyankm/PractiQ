@@ -2552,3 +2552,36 @@ encryption/restart decryption. Its aggregate failed later in the now-retired
 Tauri license-preparation step, so that run is not reported as green. The next
 source revision must pass the updated remote gates; final-current-source manual
 and live-provider acceptance and old-runtime removal remain incomplete.
+
+## TypeScript diagnostic and reference checks
+
+The localization source guard now parses the active TypeScript error constructors
+and invariants instead of scanning Rust. Its regression first reproduced missing
+translations and interpolation parameters. The fix adds localized embedded-AI
+errors and preserves field/reference details and restore recovery paths/codes
+without copying document text or provider secrets into diagnostics. Generic
+operation errors retain their diagnostic details; summary-only views hide them.
+
+Wire-schema and grounded-grading reference fixtures now live under `app/fixtures/`
+with their original paths, source revision and byte hashes recorded in
+`migration-reference.md`. Tests no longer read the Rust/Python source trees for
+these inputs. The TypeScript exporter generates current TypeScript types without
+rewriting the frozen references. The historical Python exporter check still
+passes against its retained artifacts until that implementation is removed.
+
+Remote App run `43572744325` at `3d79ce25` passed every required job, including
+Electron packaging, copied-app workflows and installed-DMG credential recovery.
+The separate Embedded AI run failed one oversized-preview test at its 15-second
+deadline. Profiling found the fixture generation and native image operations
+were fast; the general deep-equality assertion over a roughly 3 MB Buffer was
+the expensive step. Using `Buffer.equals` preserves exact byte equality and
+reduced the local four-test file from about 4.2 seconds to 0.47 seconds without
+changing production code, timeouts or image assertions. Fixture-generator and
+worker-loading experiments showed no gain and were reverted.
+
+Local verification on 2026-11-14 passes 5,836 embedded-runtime tests with coverage
+of 91.62% statements, 92.92% lines, 92.31% functions and 87.27% branches; 916 UI
+tests pass and seven remain intentionally skipped. Frontend types/lint, packaging
+types and both contract exporter checks pass. Reports remain ignored under
+`app/.build/evidence/` and `coverage/`. New-head remote gates and final-source
+manual/live-provider acceptance remain pending; no paid provider calls ran.

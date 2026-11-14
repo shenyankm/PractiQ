@@ -4,7 +4,7 @@ import { contractSource, schemaFor, validateContract } from "./contracts.js";
 import scores from "../fixtures/tencent/source-scores.json" with { type: "json" };
 
 it("preserves every legacy exported wire schema exactly", () => {
-  const legacy = JSON.parse(readFileSync(new URL("../src-tauri/contracts.json", import.meta.url), "utf8"));
+  const legacy = JSON.parse(readFileSync(new URL("../fixtures/legacy-wire-schemas.json", import.meta.url), "utf8"));
   for (const [key, name] of Object.entries(contractSource.exports)) expect(schemaFor(name)).toEqual(legacy[key]);
 });
 

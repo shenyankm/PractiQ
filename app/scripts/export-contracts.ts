@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { contractSource as source, schemaFor, type Schema } from "../desktop/contract-source.ts";
+import { contractSource as source, type Schema } from "../desktop/contract-source.ts";
 
 const root = new URL("../", import.meta.url);
 function write(path: string, content: string): void {
@@ -24,8 +24,6 @@ function type(node: Schema): string {
   if (Object.keys(node).every(key => ["title", "description", "default"].includes(key))) return "unknown";
   throw new Error(`Unsupported schema type: ${JSON.stringify(node)}`);
 }
-// Preserve the legacy schema exports while both implementations verify parity.
-write("src-tauri/contracts.json", JSON.stringify(Object.fromEntries(Object.entries(source.exports).map(([key, name]) => [key, schemaFor(name)])), null, 2) + "\n");
 const definitions = structuredClone(source.definitions) as Record<string, Schema>;
 definitions.ParsedQuestion.required = ["stem", "answerMode", "questionTypeId", "options", "items", "answerPayload", "contentBlocks", "confidence", "needsReview", "missingFields"].sort();
 const answerFields = Object.assign({}, ...Object.entries(definitions).filter(([name]) => name.endsWith("AnswerPayload") || name === "ShortAnswerPayload").map(([, node]) => node.properties));
@@ -47,9 +45,3 @@ lines.push(`export const IMPORT_SOURCE_TYPES = ${strings(metadata.importSourceTy
 lines.push(`export const COMPOSITE_MODES: readonly string[] = ${strings(metadata.compositeModes)};`);
 lines.push(`export const COMPOSITE_FILTERS: readonly string[] = ${strings([...new Set([...metadata.compositeModes, ...Object.entries(metadata.questionKindModes).filter(([, mode]) => metadata.compositeModes.includes(mode)).map(([kind]) => kind)])].sort())};`);
 write("src/contracts.generated.ts", lines.join("\n") + "\n");
-let rust = `${header}\n`;
-rust += `pub const COMPOSITE_MODES: &[&str] = &[${metadata.compositeModes.map(value => JSON.stringify(value)).join(", ")}];\n`;
-rust += `pub const FILTER_MODES: &[&str] = &[\n${metadata.filterModes.map(value => `    ${JSON.stringify(value)},\n`).join("")}];\n`;
-rust += `pub const QUESTION_KIND_MODES: &[(&str, &str)] = &[\n${Object.entries(metadata.questionKindModes).map(([key, value]) => `    (${JSON.stringify(key)}, ${JSON.stringify(value)}),\n`).join("")}];\n`;
-rust += `pub const COMPOSITE_SQL: &str = ${JSON.stringify(metadata.compositeModes.map(mode => `'${mode}'`).join(","))};\n`;
-write("src-tauri/src/question_metadata.rs", rust);

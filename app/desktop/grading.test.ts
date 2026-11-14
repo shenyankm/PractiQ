@@ -141,7 +141,7 @@ it("uses exact integer score scaling and ties-to-even source maxima", () => {
   expect(() => verifyGradeEvidence({ ...scored(), criteria: [] }, { scoringRubric: "Reference evidence", sourceScore: 5 }, "Student answer")).toThrow();
 });
 
-const evidenceCases = JSON.parse(readFileSync(new URL("../../server/evals/badcases/grading-evidence-v2.json", import.meta.url), "utf8")).cases as { name: string; valid: boolean; input: { question: unknown; answer: string }; result: GradeResult }[];
+const evidenceCases = JSON.parse(readFileSync(new URL("../fixtures/grading-evidence-v2.json", import.meta.url), "utf8")).cases as { name: string; valid: boolean; input: { question: unknown; answer: string }; result: GradeResult }[];
 it.each(evidenceCases)("matches the original grading evidence corpus: $name", entry => {
   const verify = () => verifyGradeEvidence(entry.result, entry.input.question, entry.input.answer);
   if (entry.valid) expect(verify).not.toThrow(); else expect(verify).toThrow();
