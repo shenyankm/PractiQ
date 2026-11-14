@@ -132,6 +132,21 @@ threads. This closes the runtime migration ledger; publication remains a
 separate explicit action. Native dialogs are substituted in automated package
 tests; publisher signing/notarization and live provider fidelity are not claimed.
 
+Repository-level CodeQL default setup is separate from the tracked App/AI
+workflows. A complete PR-check inventory found that its retained Rust analysis
+failed after source retirement with exit code 32, "could not process any code
+written in Rust". The default-setup language configuration now retains Actions,
+JavaScript/TypeScript and the preserved historical Python evidence, and removes
+only the retired Rust analysis. GET-before/after verification confirms that code
+scanning stays configured and its query suite, threat model, weekly schedule and
+runner settings are unchanged. JavaScript/TypeScript aliases returned by GitHub
+are preserved. The operation uses GitHub's documented
+[default-setup API](https://docs.github.com/en/rest/code-scanning/code-scanning#update-a-code-scanning-default-setup-configuration);
+its request and configuration receipts remain ignored under
+`app/.build/evidence/codeql-default-*.json`. The final PR head must pass its new
+CodeQL analysis as well as the normal App/AI gates; a prior workflow-only green
+result is not a complete inventory of repository checks.
+
 ## Engineering safeguard parity
 
 This map preserves the original safeguards, including recovery paths. The Node
