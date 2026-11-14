@@ -301,6 +301,7 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
     if (current.active) { deleteCompleted.current = true; setSelected(value => value === id ? null : value); setListRevision(value => value + 1); setDeleteTarget(null); setNotice(t("任务已删除。")); }
   }
   function chooseFiles(chosen: SourceFile[]) {
+    if (!chosen.length) return;
     setFileError(null);
     if (!capabilities) return;
     const pending = files.filter(item => item.state === "failed");

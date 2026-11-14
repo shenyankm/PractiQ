@@ -59,6 +59,22 @@ function fixture() {
 beforeEach(() => { window.practiq = { request: vi.fn(), close: vi.fn(), onCloseRequested: () => () => {} }; history.replaceState(null, "", "/"); localStorage.clear(); });
 afterEach(() => { cleanup(); delete window.practiq; setNativeBridge(null); vi.clearAllMocks(); });
 
+it("keeps the current document selection when the native picker is cancelled", async () => {
+  const f = fixture(), user = userEvent.setup(); render(<I18nProvider><CloudPage /></I18nProvider>);
+  const button = await screen.findByRole("button", { name: "选择文档" });
+  const pick = vi.spyOn(nativeBridge()!, "pickSources");
+  pick.mockResolvedValueOnce([]); await user.click(button);
+  expect(screen.queryByText("一次请选择 1–10 个文件。")).toBeNull();
+  await user.click(button); await screen.findByText("local-source.txt");
+  pick.mockResolvedValueOnce([]); await user.click(button);
+  expect(screen.getByText("local-source.txt")).toBeTruthy();
+  expect(screen.queryByText("一次请选择 1–10 个文件。")).toBeNull();
+  expect(f.calls.some(call => call.type === "upload_document_source")).toBe(false);
+  expect(f.calls.some(call => call.type === "document_request" && (call.request as DesktopDocumentRequest).type === "create")).toBe(false);
+  await user.click(screen.getByRole("button", { name: /开始导入/ }));
+  await waitFor(() => expect(f.calls.filter(call => call.type === "upload_document_source")).toEqual([{ type: "upload_document_source", ticket: "opaque-ticket" }]));
+});
+
 it("saves exact monetary preferences only explicitly and reports missing reservations without inventing a zero bill", async () => {
   const f = fixture(), user = userEvent.setup(); render(<I18nProvider><CloudPage settingsOnly /></I18nProvider>); await user.click(await screen.findByText("费用预留限制（可选）")); await user.click(screen.getByLabelText("启用费用预留限制"));
   for (const [label, value] of [["预算币种（三位大写代码）", "cny"], ["单任务费用限额", "1.000001"], ["UTC 每日费用限额", "2"], ["模型输入价格（每百万估算 tokens）", "2"], ["模型输出价格（每百万 tokens）", "8"], ["腾讯识别价格（每页）", "0.1"]]) await user.type(screen.getByLabelText(label), value);
