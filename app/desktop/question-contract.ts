@@ -113,7 +113,7 @@ function validateQuestionWithRules(input: unknown, source: boolean): Question {
     const valid = key === "value" ? typeof value === "boolean" : key === "text" ? typeof value === "string" && [...value].length <= 120000 :
       Array.isArray(value) && value.length <= 100 && value.every(item => item === null ||
         (["correct", "answers"].includes(key) ? typeof item === "string" : key === "order" ? Number.isSafeInteger(item) : key === "matches" && item !== null && typeof item === "object" && !Array.isArray(item) && Object.entries(item).every(([field, id]) => ["left", "right"].includes(field) && (id === null || Number.isSafeInteger(id)))));
-    invariant(valid, "LOCAL_ANSWER_FIELD_INVALID", "Invalid answer field");
+    invariant(valid, "LOCAL_ANSWER_FIELD_INVALID", "Invalid answer field", { key });
   }
   if (mode === "choice") {
     check(text(q, "choiceVariant") !== "single" || list(answer, "correct").length <= 1, "Single choice requires one answer");

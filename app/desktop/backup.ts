@@ -168,7 +168,7 @@ export class Backups {
           renameSync(previous, join(root, "practiq.sqlite")); syncDirectory(root);
           const db = new DatabaseSync(join(root, "practiq.sqlite"), { readOnly: true });
           try { settings.finish(false, db); } finally { db.close(); }
-        } catch { throw new AppError("LOCAL_RESTORE_ROLLBACK_FAILED", "Restore recovery is required; restart the application", { path: recoveryPath }); }
+        } catch (rollback) { throw new AppError("LOCAL_RESTORE_ROLLBACK_FAILED", "Restore recovery is required; restart the application", { path: recoveryPath, error: error instanceof AppError ? error.code : "OPERATION_FAILED", rollback: rollback instanceof AppError ? rollback.code : "OPERATION_FAILED" }); }
         this.store.reopen(); suspended = false; throw error;
       }
       this.store.reopen(); suspended = false;
@@ -176,7 +176,7 @@ export class Backups {
       return { recoveryPath };
     } catch (error) {
       try { if (settings.read().pending && !suspended) { this.store.suspend(); suspended = true; } } catch { if (!suspended) { this.store.suspend(); suspended = true; } }
-      if (repair && recoveryPath) throw new AppError("LOCAL_RESTORE_RECOVERY_FAILED", "Recovery did not finish; original evidence is preserved", { path: recoveryPath, cause: error instanceof AppError ? error.code : "OPERATION_FAILED" });
+      if (repair && recoveryPath) throw new AppError("LOCAL_RESTORE_RECOVERY_FAILED", "Recovery did not finish; original evidence is preserved", { path: recoveryPath, cause: error instanceof AppError ? error.code : "OPERATION_FAILED", error: error instanceof AppError ? error.code : "OPERATION_FAILED" });
       throw error;
     } finally { if (!suspended) rmSync(candidate.directory, { recursive: true, force: true }); }
   }

@@ -8,7 +8,7 @@ import type { QuestionRow } from "../src/api.js";
 
 export function remapQuestion(input: unknown, ids: Map<string, string>): Record<string, unknown> {
   const q = object(structuredClone(input));
-  const mapped = (id: string) => { const value = ids.get(id); invariant(value, "LOCAL_QUESTION_INDEX_INVALID", "Unknown question reference"); return value; };
+  const mapped = (id: string) => { const value = ids.get(id); invariant(value, "LOCAL_QUESTION_INDEX_INVALID", "Unknown question reference", { key: "questions", i: id }); return value; };
   for (const key of ["id", "parentId", "optionSourceId"]) if (typeof q[key] === "string") q[key] = mapped(q[key] as string);
   for (const block of list(q, "passage")) if (typeof object(block).questionId === "string") object(block).questionId = mapped(text(block, "questionId"));
   return q;
@@ -40,7 +40,7 @@ export function putContext(db: DatabaseSync, bank: string, result: unknown, ids:
   for (const field of list(result, "missingFields")) if (!warnings.includes(`PRACTIQ_MISSING:${field}`)) warnings.push(`PRACTIQ_MISSING:${field}`);
   const warning = db.prepare("INSERT INTO import_warnings VALUES(?,?,?)");
   warnings.forEach((value, index) => warning.run(importId, index, value));
-  const mapped = (value: unknown) => { const id = ids.get(String(value)); invariant(id, "LOCAL_QUESTION_INDEX_INVALID", "Missing context question"); return id; };
+  const mapped = (value: unknown) => { const id = ids.get(String(value)); invariant(id, "LOCAL_QUESTION_INDEX_INVALID", "Missing context question", { key: "questionIds", i: String(value) }); return id; };
   for (const group of list(result, "groups")) {
     const id = randomUUID(); db.prepare("INSERT INTO sections VALUES(?,?,?,?)").run(id, bank, text(group, "title"), object(group).instructions as string ?? null);
     for (const reference of list(group, "questionIds")) db.prepare("INSERT INTO section_questions VALUES(?,?)").run(id, mapped(reference));

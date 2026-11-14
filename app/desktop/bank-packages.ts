@@ -40,7 +40,7 @@ function treeSignature(rows: QuestionRow[]): string {
   for (const key of ["groups", "visuals"]) {
     document[key] = list(document, key).map(value => {
       const item = object(value); delete item.id;
-      item.questionIds = list(item, "questionIds").map(id => { const mapped = ids.get(String(id)); invariant(mapped, "LOCAL_QUESTION_INDEX_INVALID", "Missing group reference"); return mapped; }).sort();
+      item.questionIds = list(item, "questionIds").map((id, i) => { const mapped = ids.get(String(id)); invariant(mapped, "LOCAL_QUESTION_INDEX_INVALID", "Missing group reference", { key: `${key}.questionIds`, i }); return mapped; }).sort();
       return item;
     }).sort((a, b) => canonical(a) < canonical(b) ? -1 : canonical(a) > canonical(b) ? 1 : 0);
   }

@@ -267,7 +267,7 @@ export class DocumentTasks {
     for (const reference of [output.manifest, output.result, output.processing]) if (reference) invariant(canonical(byKey.get(reference.objectKey)) === canonical(reference), "INVALID_REFERENCE", "Stage output reference was not verified");
     invariant(output.failures === undefined || Array.isArray(output.failures) && output.failures.length <= 2000, "LOCAL_RESPONSE_INVALID", "Invalid failed-unit metadata");
     for (const failure of output.failures ?? []) { validateContract("UnitFailure", failure); invariant(Number.isSafeInteger(failure.index), "LOCAL_RESPONSE_INVALID", "Invalid failed-unit index"); }
-    if (output.progress) { validateContract("TaskProgress", output.progress); invariant(Object.values(output.progress).every(count => Object.values(count).every(Number.isSafeInteger) && count.total === count.succeeded + count.failed + count.remaining), "LOCAL_PROCESSING_COUNT_INVALID", "Invalid task progress totals"); }
+    if (output.progress) { validateContract("TaskProgress", output.progress); invariant(Object.values(output.progress).every(count => Object.values(count).every(Number.isSafeInteger) && count.total === count.succeeded + count.failed + count.remaining), "LOCAL_PROCESSING_COUNT_INVALID", "Invalid task progress totals", { key: "progress" }); }
     invariant(output.status === undefined || ["SUCCEEDED", "PARTIAL"].includes(output.status), "LOCAL_RESPONSE_INVALID", "Invalid document result status");
     return byKey;
   }

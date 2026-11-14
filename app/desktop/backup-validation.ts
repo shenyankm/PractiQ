@@ -83,7 +83,7 @@ export function validateBackupContents(db: DatabaseSync, assets: Assets): void {
   for (const bank of db.prepare("SELECT id FROM banks").all()) readDiagnostics(db, String(bank.id));
   const document = freeze(rows); context(list(document, "groups"), list(document, "visuals"), ids);
   for (const saved of db.prepare("SELECT session_id,content FROM session_documents").iterate()) {
-    const raw = String(saved.content); invariant(Buffer.byteLength(raw) <= BACKUP_LIMIT, "LOCAL_BACKUP_SNAPSHOT_FIELD", "Snapshot exceeds backup limit");
+    const raw = String(saved.content); invariant(Buffer.byteLength(raw) <= BACKUP_LIMIT, "LOCAL_BACKUP_SNAPSHOT_FIELD", "Snapshot exceeds backup limit", { key: "session_documents.content" });
     const document = object(JSON.parse(raw)), rows = thaw(document);
     invariant(rows.every(row => row.id === row.question.id), "LOCAL_BACKUP_RELATIONS", "Frozen question identity mismatch");
     const questions = validateTree(rows.map(row => row.question)); rows.forEach((row, i) => { row.question = questions[i]; });

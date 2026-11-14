@@ -77,25 +77,23 @@ it("routes application JSX copy and accessible labels through the dictionary", (
 });
 function nativeCalls(source: string) {
   const calls: {code: string; params: Set<string>; line: number}[] = [];
-  // Shared constructors and existing wrappers; external runtime codes remain opaque.
-  for (const match of source.matchAll(/\b(language::error|error|failure|exclusive|AppError::new)\(\s*"([A-Z][A-Z0-9_]+)"/g)) {
-    const tail = source.slice(match.index! + match[0].length);
-    const object = tail.match(/^\s*,\s*(?:serde_json::)?json!\(\s*\{([\s\S]*?)\}\s*\)/);
-    const params = new Set<string>();
-    let depth = 0;
-    // Parameter names belong to the outer object, never nested diagnostic data.
-    for (const token of object?.[1].matchAll(/"(?:\\.|[^"\\])*"|[{}[\]()]/g) ?? []) {
-      if (token[0].startsWith('"')) {
-        if (!depth && /^\s*:/.test(object![1].slice(token.index! + token[0].length))) params.add(token[0].slice(1,-1));
-      } else if ("{[(".includes(token[0])) depth++;
-      else depth--;
+  const ast = parse(source, { sourceType: "module", plugins: ["typescript"] });
+  const codes = (node: any): string[] => node?.type === "StringLiteral" ? (/^[A-Z][A-Z0-9_]+$/.test(node.value) ? [node.value] : [])
+    : node?.type === "ConditionalExpression" ? [...codes(node.consequent), ...codes(node.alternate)]
+    : node?.type === "LogicalExpression" ? [...codes(node.left), ...codes(node.right)] : [];
+  function visit(node: any) {
+    if (!node || typeof node !== "object") return;
+    const invariant = node.type === "CallExpression" && node.callee.type === "Identifier" && node.callee.name === "invariant";
+    const constructor = node.type === "NewExpression" && node.callee.type === "Identifier" && node.callee.name === "AppError" || node.type === "CallExpression" && node.callee.type === "Super";
+    if (invariant || constructor) {
+      const parameters = node.arguments[invariant ? 3 : 2], params = new Set<string>();
+      if (parameters?.type === "ObjectExpression") for (const property of parameters.properties) if (property.type === "ObjectProperty" && !property.computed) params.add(property.key.name ?? property.key.value);
+      for (const code of codes(node.arguments[invariant ? 1 : 0])) calls.push({ code, params, line: node.loc.start.line });
     }
-    calls.push({code:match[2],params,line:source.slice(0,match.index).split("\n").length});
+    for (const value of Object.values(node)) if (Array.isArray(value)) value.forEach(visit); else if (value && typeof value === "object") visit(value);
   }
-  // Only match-arm results are emitted; e.g. OFFICE_ENGINE_INVALID is an input alias.
-  for (const match of source.matchAll(/\berror\(\s*match\b[\s\S]*?\}\s*\)/g)) {
-    for (const result of match[0].matchAll(/=>\s*"([A-Z][A-Z0-9_]+)"/g)) calls.push({code:result[1],params:new Set(),line:source.slice(0,match.index).split("\n").length});
-  }
+  // Computed provider/runtime codes remain opaque; concrete local outputs must be translated.
+  visit(ast);
   return calls;
 }
 function nativeFailures(calls: ReturnType<typeof nativeCalls>, messages: Record<string,Record<string,string>>) {
@@ -108,12 +106,13 @@ function nativeFailures(calls: ReturnType<typeof nativeCalls>, messages: Record<
   });
 }
 it("collects native constructor outputs and interpolation parameters", () => {
-  const calls = nativeCalls('language::error("LOCAL_PATH", json!({"key": reference.objectKey})); error("OFFICE_BUSY"); failure("LOCAL_AUDIO_URL_INVALID"); error(match code { "OFFICE_ENGINE_INVALID" => "OFFICE_NOT_FOUND", _ => "OFFICE_CONVERSION_FAILED" }); let input = "LOCAL_UNUSED";');
-  expect(calls.map(c => c.code)).toEqual(["LOCAL_PATH", "OFFICE_BUSY", "LOCAL_AUDIO_URL_INVALID", "OFFICE_NOT_FOUND", "OFFICE_CONVERSION_FAILED"]);
+  const calls = nativeCalls('new AppError("LOCAL_PATH", "Path", {key: reference.objectKey}); invariant(ready, "OFFICE_BUSY", "Busy"); new AppError(available ? "OFFICE_NOT_FOUND" : "OFFICE_CONVERSION_FAILED", "Failed"); const input = "LOCAL_UNUSED";');
+  expect(calls.map(c => c.code)).toEqual(["LOCAL_PATH", "OFFICE_BUSY", "OFFICE_NOT_FOUND", "OFFICE_CONVERSION_FAILED"]);
   expect([...calls[0].params]).toEqual(["key"]);
-  expect(nativeFailures(nativeCalls('language::error("LOCAL_PATH", json!({}));'), {LOCAL_PATH:{en:"Path {key}","zh-CN":"路径 {key}"}})).toEqual(["LOCAL_PATH: missing parameter key"]);
-  expect(nativeCalls('language::error("LOCAL_PATH", json!({"diagnostic":{"key":"nested"},"name":func("key: text")}));')[0].params).toEqual(new Set(["diagnostic","name"]));
-  expect(nativeCalls('AppError::new("RESTORE_BUSY", "Restore pending"); exclusive("LOCAL_CONFIGURE_BUSY"); AppError::new(endpoint.code, endpoint.message);').map(c => c.code)).toEqual(["RESTORE_BUSY", "LOCAL_CONFIGURE_BUSY"]);
+  expect(nativeFailures(nativeCalls('new AppError("LOCAL_PATH", "Path", {});'), {LOCAL_PATH:{en:"Path {key}","zh-CN":"路径 {key}"}})).toEqual(["LOCAL_PATH: missing parameter key"]);
+  expect(nativeCalls('invariant(false, "LOCAL_PATH", "Path", {diagnostic:{key:"nested"}, name:func("key: text")});')[0].params).toEqual(new Set(["diagnostic","name"]));
+  expect(nativeCalls('class Pending extends AppError { constructor() { super("RESTORE_BUSY", "Pending"); } } new AppError(endpoint.code, endpoint.message);').map(c => c.code)).toEqual(["RESTORE_BUSY"]);
+  expect(nativeCalls('// new AppError("LOCAL_UNUSED", "unused");\nconst text = `new AppError("LOCAL_UNUSED", "unused")`;')).toEqual([]);
 });
 it("ends every native error in terminal punctuation for all languages", async () => {
   const {default:messages} = await import("./locales/native.json");
@@ -133,8 +132,8 @@ it("translates native error outputs and supplies their interpolation parameters"
   const { en } = await import("./locales/en");
   const mapped = Object.fromEntries([...readFileSync('src/api.ts','utf8').matchAll(/([A-Z_]+): t\("([^"]+)"\)/g)].map(([,code,key]) => [code,{en:en[key as keyof typeof en],"zh-CN":key}]));
   const calls: ReturnType<typeof nativeCalls> = [];
-  for (const file of readdirSync('src-tauri/src').filter(f=>f.endsWith('.rs') && !f.includes('tests'))) {
-    calls.push(...nativeCalls(readFileSync(join('src-tauri/src',file),'utf8').split('#[cfg(test)]')[0]).map(c => ({...c, code:`${file}:${c.line}:${c.code}`})));
+  for (const file of readdirSync('desktop').filter(f=>/\.(?:ts|cts)$/.test(f) && !f.endsWith('.test.ts'))) {
+    calls.push(...nativeCalls(readFileSync(join('desktop',file),'utf8')).map(c => ({...c, code:`${file}:${c.line}:${c.code}`})));
   }
   expect(calls.length).toBeGreaterThan(0);
   expect(nativeFailures(calls, {...mapped,...messages})).toEqual([]);

@@ -179,11 +179,11 @@ export function freeze(rows: QuestionRow[]): Record<string, unknown> {
 }
 export function thaw(input: unknown): QuestionRow[] {
   const doc = object(input);
-  invariant(doc.schemaVersion === 3, "LOCAL_BACKUP_SNAPSHOT_FIELD", "Unsupported session snapshot");
-  for (const key of ["questions", "groups", "visuals"]) invariant(Array.isArray(doc[key]) && (doc[key] as unknown[]).every(value => value !== null && typeof value === "object" && !Array.isArray(value)), "LOCAL_BACKUP_SNAPSHOT_FIELD", "Invalid snapshot field");
+  invariant(doc.schemaVersion === 3, "LOCAL_BACKUP_SNAPSHOT_FIELD", "Unsupported session snapshot", { key: "schemaVersion" });
+  for (const key of ["questions", "groups", "visuals"]) invariant(Array.isArray(doc[key]) && (doc[key] as unknown[]).every(value => value !== null && typeof value === "object" && !Array.isArray(value)), "LOCAL_BACKUP_SNAPSHOT_FIELD", "Invalid snapshot field", { key });
   const rows = structuredClone(doc.questions) as QuestionRow[];
   for (const row of rows) {
-    invariant(row.question !== null && typeof row.question === "object" && !Array.isArray(row.question), "LOCAL_BACKUP_SNAPSHOT_FIELD", "Invalid snapshot question");
+    invariant(row.question !== null && typeof row.question === "object" && !Array.isArray(row.question), "LOCAL_BACKUP_SNAPSHOT_FIELD", "Invalid snapshot question", { key: "questions[].question" });
     row.groups = list(doc, "groups").filter(item => list(item, "questionIds").includes(row.id)) as QuestionRow["groups"];
     row.visuals = list(doc, "visuals").filter(item => !list(item, "questionIds").length || list(item, "questionIds").includes(row.id)) as QuestionRow["visuals"];
   }

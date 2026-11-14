@@ -18,10 +18,10 @@ function strict(input: unknown, fields: string[]): Record<string, unknown> {
 function url(value: unknown): string | null {
   invariant(value == null || typeof value === "string", "LOCAL_URL_INVALID", "Invalid legacy URL");
   if (typeof value !== "string" || !value.trim()) return null;
-  const raw = value.trim(); invariant(Buffer.byteLength(raw) <= 2048, "LOCAL_URL_TOO_LONG", "Legacy URL exceeds its size limit");
+  const raw = value.trim(); invariant(Buffer.byteLength(raw) <= 2048, "LOCAL_URL_TOO_LONG", "Legacy URL exceeds its size limit", { name: "URL" });
   const parsed = new URL(raw), loopback = parsed.hostname === "localhost" || parsed.hostname === "[::1]" || /^127(?:\.[0-9]{1,3}){3}$/.test(parsed.hostname);
-  invariant(parsed.protocol === "https:" || parsed.protocol === "http:" && loopback, "LOCAL_URL_HTTPS_REQUIRED", "HTTPS is required for a non-loopback endpoint");
-  invariant(parsed.hostname && !parsed.username && !parsed.password && !raw.includes("?") && !raw.includes("#"), "LOCAL_URL_CREDENTIALS_FORBIDDEN", "Legacy URLs cannot contain credentials, queries or fragments");
+  invariant(parsed.protocol === "https:" || parsed.protocol === "http:" && loopback, "LOCAL_URL_HTTPS_REQUIRED", "HTTPS is required for a non-loopback endpoint", { name: "URL" });
+  invariant(parsed.hostname && !parsed.username && !parsed.password && !raw.includes("?") && !raw.includes("#"), "LOCAL_URL_CREDENTIALS_FORBIDDEN", "Legacy URLs cannot contain credentials, queries or fragments", { name: "URL" });
   return parsed.href.replace(/\/+$/, "");
 }
 export function validateLegacyConfig(input: unknown): LegacyConfig | null {

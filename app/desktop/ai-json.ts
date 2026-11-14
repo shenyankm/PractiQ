@@ -46,7 +46,7 @@ export function parseAiJson(source: string, schema?: Schema): unknown {
   function expand(nodes: Schema[], seen = new Set<string>()): Schema[] {
     return nodes.flatMap(node => {
       if (node.$ref) {
-        invariant(!seen.has(node.$ref), "LOCAL_SCHEMA_INVALID", "Recursive scalar schema"); const name = node.$ref.split("/").at(-1)!, target = (schema?.$defs as Record<string, Schema> | undefined)?.[name] ?? contractSource.definitions[name]; invariant(target, "LOCAL_SCHEMA_INVALID", "Missing local model schema");
+        invariant(!seen.has(node.$ref), "LOCAL_SCHEMA_INVALID", "Recursive scalar schema", { path: node.$ref, detail: "Recursive scalar schema" }); const name = node.$ref.split("/").at(-1)!, target = (schema?.$defs as Record<string, Schema> | undefined)?.[name] ?? contractSource.definitions[name]; invariant(target, "LOCAL_SCHEMA_INVALID", "Missing local model schema", { path: node.$ref, detail: "Missing local model schema" });
         // Audio/artifact references retain Pydantic's non-strict byte-count coercion.
         const resolved = ["AudioReference", "ArtifactReference"].includes(name) ? { ...target, properties: { ...target.properties, sizeBytes: { ...target.properties!.sizeBytes, type: "number" } } } : target;
         return expand([resolved], new Set([...seen, node.$ref]));

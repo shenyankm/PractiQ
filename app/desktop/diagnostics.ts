@@ -13,12 +13,12 @@ export function readDiagnostics(db: DatabaseSync, bank: string): Record<string, 
     invariant(Buffer.byteLength(raw) <= MAX_JSON_BYTES, "LOCAL_RESPONSE_INVALID", "Import diagnostics exceed size limit");
     const values: unknown = JSON.parse(raw);
     invariant(Array.isArray(values) && values.length <= 1000, "LOCAL_RESPONSE_INVALID", "Too many import diagnostics");
-    for (const value of values) {
+    for (const [i, value] of values.entries()) {
       const refs = list(value, "questionIds").filter(id => typeof id === "string") as string[];
       // Validate the retained record before filtering references to deleted questions.
       importDiagnostics({ result: { questions: refs.map(id => ({ id })) }, importDiagnostics: [value] });
       const missing = refs.filter(id => !ids.has(id));
-      if (missing.length) invariant(!db.prepare("SELECT EXISTS(SELECT 1 FROM questions WHERE bank_id<>? AND id IN (SELECT value FROM json_each(?))) AS foreign_ref").get(bank, JSON.stringify(missing))!.foreign_ref, "LOCAL_QUESTION_INDEX_INVALID", "Import diagnostics reference another bank");
+      if (missing.length) invariant(!db.prepare("SELECT EXISTS(SELECT 1 FROM questions WHERE bank_id<>? AND id IN (SELECT value FROM json_each(?))) AS foreign_ref").get(bank, JSON.stringify(missing))!.foreign_ref, "LOCAL_QUESTION_INDEX_INVALID", "Import diagnostics reference another bank", { key: "importDiagnostics", i });
       const diagnostic = object(structuredClone(value));
       diagnostic.questionIds = refs.filter(id => ids.has(id));
       const processing = object(diagnostic.processing);

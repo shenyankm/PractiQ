@@ -1,4 +1,179 @@
 {
+  "AI_CALL_CONFLICT": {
+    "zh-CN": "此请求的执行目标已变化，请核对调用记录后再显式重试。",
+    "zh-TW": "此請求的執行目標已變更，請核對呼叫紀錄後再明確重試。",
+    "en": "This request belongs to a different execution target. Review its call record before explicitly retrying."
+  },
+  "AI_CALL_FAILED": {
+    "zh-CN": "模型调用未完成，请核对调用记录和用量后再操作。",
+    "zh-TW": "模型呼叫未完成，請核對呼叫紀錄和用量後再操作。",
+    "en": "The model call did not complete. Review its call record and usage before continuing."
+  },
+  "AI_INPUT_TOO_LARGE": {
+    "zh-CN": "模型输入超过限制，请缩小所选内容后再提交。",
+    "zh-TW": "模型輸入超過限制，請縮小所選內容後再提交。",
+    "en": "The model input exceeds its limit. Select less content before submitting again."
+  },
+  "AI_OUTPUT_INCOMPLETE": {
+    "zh-CN": "模型响应不完整，未采用该结果。请先核对调用记录。",
+    "zh-TW": "模型回應不完整，未採用該結果。請先核對呼叫紀錄。",
+    "en": "The model response is incomplete and was not used. Review the call record first."
+  },
+  "AI_REQUEST_REJECTED": {
+    "zh-CN": "模型服务拒绝了请求，请核对配置和调用记录。",
+    "zh-TW": "模型服務拒絕了請求，請核對設定和呼叫紀錄。",
+    "en": "The model provider rejected the request. Review the configuration and call record."
+  },
+  "AI_RESPONSE_ENCODING": {
+    "zh-CN": "模型响应的编码不受支持，未采用该结果。",
+    "zh-TW": "模型回應的編碼不受支援，未採用該結果。",
+    "en": "The model response uses an unsupported encoding and was not used."
+  },
+  "AI_RESPONSE_INVALID": {
+    "zh-CN": "模型响应未通过校验，请核对任务记录。",
+    "zh-TW": "模型回應未通過驗證，請核對任務紀錄。",
+    "en": "The model response failed validation. Review the task record."
+  },
+  "AI_RESPONSE_TOO_LARGE": {
+    "zh-CN": "模型响应超过大小限制，未采用该结果。",
+    "zh-TW": "模型回應超過大小限制，未採用該結果。",
+    "en": "The model response exceeds its size limit and was not used."
+  },
+  "AI_VALIDATOR_FAILED": {
+    "zh-CN": "模型结果校验无法完成，已停止后续处理。",
+    "zh-TW": "模型結果驗證無法完成，已停止後續處理。",
+    "en": "Model-result validation could not complete. Further processing has stopped."
+  },
+  "CHUNK_INPUTS_INVALID": {
+    "zh-CN": "分段来源校验失败，请核对原文件和任务记录。",
+    "zh-TW": "分段來源驗證失敗，請核對原始檔案和任務紀錄。",
+    "en": "Chunk-source validation failed. Review the original file and task record."
+  },
+  "DOCUMENT_ENCODING_INVALID": {
+    "zh-CN": "文本文件不是有效的 UTF-8 编码，请另存为 UTF-8 后导入。",
+    "zh-TW": "文字檔案不是有效的 UTF-8 編碼，請另存為 UTF-8 後匯入。",
+    "en": "The text file is not valid UTF-8. Save it as UTF-8 before importing."
+  },
+  "DOCUMENT_STOP_REQUESTED": {
+    "zh-CN": "已请求停止文档处理，请等待当前操作结束后刷新状态。",
+    "zh-TW": "已請求停止文件處理，請等待目前操作結束後重新整理狀態。",
+    "en": "Document processing was asked to stop. Wait for the current operation to finish, then refresh."
+  },
+  "GRADING_EVIDENCE_INVALID": {
+    "zh-CN": "评分依据未通过校验，本题仍未评分。请核对参考答案或评分细则。",
+    "zh-TW": "評分依據未通過驗證，本題仍未評分。請核對參考答案或評分規準。",
+    "en": "Grading evidence failed validation. This question remains ungraded. Review its reference answer or rubric."
+  },
+  "PDF_ENGINE_CHANGED": {
+    "zh-CN": "PDF 处理引擎与原任务不一致，已停止处理。请核对应用版本。",
+    "zh-TW": "PDF 處理引擎與原任務不一致，已停止處理。請核對應用程式版本。",
+    "en": "The PDF engine differs from the original task. Processing stopped. Check the application version."
+  },
+  "PDF_ENGINE_INVALID": {
+    "zh-CN": "应用内的 PDF 处理引擎校验失败，请重新安装完整的应用包。",
+    "zh-TW": "應用程式內的 PDF 處理引擎驗證失敗，請重新安裝完整的應用程式套件。",
+    "en": "The bundled PDF engine failed validation. Reinstall the complete application package."
+  },
+  "PDF_FONT_UNAVAILABLE": {
+    "zh-CN": "PDF 所需的字体资源不可用，未继续识别。",
+    "zh-TW": "PDF 所需的字型資源無法使用，未繼續辨識。",
+    "en": "Required PDF font resources are unavailable. Recognition did not continue."
+  },
+  "PDF_MEMORY_LIMIT": {
+    "zh-CN": "PDF 处理超过内存限制，请拆分文件后重新导入。",
+    "zh-TW": "PDF 處理超過記憶體限制，請分割檔案後重新匯入。",
+    "en": "PDF processing exceeded its memory limit. Split the file before importing again."
+  },
+  "PDF_PAGE_LIMIT_EXCEEDED": {
+    "zh-CN": "PDF 页数超过限制，请拆分文件后重新导入。",
+    "zh-TW": "PDF 頁數超過限制，請分割檔案後重新匯入。",
+    "en": "The PDF exceeds its page limit. Split the file before importing again."
+  },
+  "PDF_PROCESSING_FAILED": {
+    "zh-CN": "PDF 处理失败，请核对文件是否完整并查看诊断详情。",
+    "zh-TW": "PDF 處理失敗，請核對檔案是否完整並查看診斷詳情。",
+    "en": "PDF processing failed. Check that the file is complete and review the diagnostic details."
+  },
+  "REVIEW_TOO_LARGE": {
+    "zh-CN": "复核内容超过大小限制，请缩小所选范围。",
+    "zh-TW": "複核內容超過大小限制，請縮小所選範圍。",
+    "en": "The review content exceeds its size limit. Select a smaller range."
+  },
+  "STORE_INDEX_UNSUPPORTED": {
+    "zh-CN": "任务存储不支持此索引操作。",
+    "zh-TW": "任務儲存不支援此索引操作。",
+    "en": "Task storage does not support this indexing operation."
+  },
+  "STORE_QUERY_UNSUPPORTED": {
+    "zh-CN": "任务存储不支持此查询操作。",
+    "zh-TW": "任務儲存不支援此查詢操作。",
+    "en": "Task storage does not support this query."
+  },
+  "TASK_CHECKPOINT_UNREADABLE": {
+    "zh-CN": "任务检查点无法读取，已保留原记录。请核对诊断信息。",
+    "zh-TW": "任務檢查點無法讀取，已保留原始紀錄。請核對診斷資訊。",
+    "en": "The task checkpoint cannot be read. Its original record was retained. Review the diagnostic information."
+  },
+  "TENCENT_API_UNAVAILABLE": {
+    "zh-CN": "腾讯识别服务暂时不可用，请先刷新已有任务状态。",
+    "zh-TW": "騰訊辨識服務暫時無法使用，請先重新整理既有任務狀態。",
+    "en": "Tencent recognition is currently unavailable. Refresh the existing task status first."
+  },
+  "TENCENT_INPUTS_INVALID": {
+    "zh-CN": "腾讯识别的来源清单校验失败，未继续提交。",
+    "zh-TW": "騰訊辨識的來源清單驗證失敗，未繼續提交。",
+    "en": "Tencent recognition input validation failed. Submission did not continue."
+  },
+  "TENCENT_JOB_CONFLICT": {
+    "zh-CN": "识别任务与保存的提交记录不一致，请先核对回执。",
+    "zh-TW": "辨識任務與儲存的提交紀錄不一致，請先核對回執。",
+    "en": "The recognition job differs from its saved submission record. Review the receipt first."
+  },
+  "TENCENT_JOB_FAILED": {
+    "zh-CN": "腾讯识别任务失败，请核对任务回执后再显式重试。",
+    "zh-TW": "騰訊辨識任務失敗，請核對任務回執後再明確重試。",
+    "en": "The Tencent recognition job failed. Review its receipt before explicitly retrying."
+  },
+  "TENCENT_JOB_UNKNOWN": {
+    "zh-CN": "腾讯识别任务状态未确认，请先核对已有回执，勿重复提交。",
+    "zh-TW": "騰訊辨識任務狀態未確認，請先核對既有回執，勿重複提交。",
+    "en": "The Tencent recognition job status is unconfirmed. Review existing receipts before submitting again."
+  },
+  "TENCENT_QUERY_REJECTED": {
+    "zh-CN": "腾讯拒绝了任务查询，请核对识别配置和已有回执。",
+    "zh-TW": "騰訊拒絕了任務查詢，請核對辨識設定和既有回執。",
+    "en": "Tencent rejected the job query. Review the recognition configuration and existing receipts."
+  },
+  "TENCENT_REQUEST_REJECTED": {
+    "zh-CN": "腾讯拒绝了识别请求，请核对配置、文件和提交回执。",
+    "zh-TW": "騰訊拒絕了辨識請求，請核對設定、檔案和提交回執。",
+    "en": "Tencent rejected the recognition request. Review the configuration, file and submission receipt."
+  },
+  "TENCENT_RESULT_INVALID": {
+    "zh-CN": "腾讯识别结果未通过校验，未采用该结果。",
+    "zh-TW": "騰訊辨識結果未通過驗證，未採用該結果。",
+    "en": "The Tencent recognition result failed validation and was not used."
+  },
+  "TENCENT_RESULT_TOO_LARGE": {
+    "zh-CN": "腾讯识别结果超过大小限制，未继续处理。",
+    "zh-TW": "騰訊辨識結果超過大小限制，未繼續處理。",
+    "en": "The Tencent recognition result exceeds its size limit. Processing did not continue."
+  },
+  "TENCENT_SOURCE_TOO_LARGE": {
+    "zh-CN": "文件超过当前腾讯识别限制，请缩小文件；Office 文件请先导出为 PDF。",
+    "zh-TW": "檔案超過目前騰訊辨識限制，請縮小檔案；Office 檔案請先匯出為 PDF。",
+    "en": "The file exceeds the current Tencent recognition limit. Reduce the file size; export Office files as PDF first."
+  },
+  "TENCENT_SUBMISSION_UNKNOWN": {
+    "zh-CN": "腾讯识别提交结果未确认，请先核对任务和回执，勿重复提交。",
+    "zh-TW": "騰訊辨識提交結果未確認，請先核對任務和回執，勿重複提交。",
+    "en": "The Tencent submission outcome is unconfirmed. Review the task and receipt before submitting again."
+  },
+  "UNIT_RESULT_INVALID": {
+    "zh-CN": "来源单元结果校验失败，未采用该结果。请核对任务记录。",
+    "zh-TW": "來源單元結果驗證失敗，未採用該結果。請核對任務紀錄。",
+    "en": "A source-unit result failed validation and was not used. Review the task record."
+  },
   "OFFICE_EXPORT_PDF_REQUIRED": {
     "zh-CN": "Word、Excel 或 PPT 超过当前大小限制，请先导出为 PDF 后导入。",
     "zh-TW": "Word、Excel 或 PPT 超過目前大小限制，請先匯出為 PDF 後匯入。",
@@ -350,9 +525,9 @@
     "zh-TW": "visualElements.description 不能為空。"
   },
   "LOCAL_QUESTION_INDEX_INVALID": {
-    "zh-CN": "{key}[{i}].questionIndexes: 越界。",
-    "en": "{key}[{i}].questionIndexes: out of bounds.",
-    "zh-TW": "{key}[{i}].questionIndexes: 超出範圍。"
+    "zh-CN": "{key}[{i}]: 题目引用无效。",
+    "en": "{key}[{i}]: invalid question reference.",
+    "zh-TW": "{key}[{i}]: 題目引用無效。"
   },
   "LOCAL_VISUAL_BBOX_INVALID": {
     "zh-CN": "visualElements[{i}].bbox: 无效区域。",

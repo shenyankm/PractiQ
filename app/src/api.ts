@@ -387,6 +387,7 @@ export function errorMessage(error: unknown, includeDiagnostics = true): string 
     return includeDiagnostics ? `${summary}${diagnostic}${detail ? ` (${detail})` : ""}` : summary;
   }
   const actions: Record<string, string> = {
+    OPERATION_FAILED: t("操作失败，请查看诊断详情。"),
     STALE_RUN: t("请刷新任务状态。"),
     TASK_BUSY: t("请等待当前运行结束后刷新。"),
     AI_PROVIDER_AUTH_ERROR: t("AI 服务的模型鉴权失败，请检查服务端模型配置后重试。"),

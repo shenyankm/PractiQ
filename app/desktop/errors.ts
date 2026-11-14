@@ -5,6 +5,6 @@ export class AppError extends Error {
   toJSON() { return { code: this.code, message: this.message, params: this.params }; }
 }
 
-export function invariant(condition: unknown, code: string, message: string): asserts condition {
-  if (!condition) throw new AppError(code, message);
+export function invariant(condition: unknown, code: string, message: string, params: Record<string, unknown> = {}): asserts condition {
+  if (!condition) throw new AppError(code, message, params);
 }
