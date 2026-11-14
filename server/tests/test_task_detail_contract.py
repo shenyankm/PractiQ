@@ -125,7 +125,7 @@ async def test_completed_task_http_preserves_result_processing_usage_and_expiry(
         assert detail.progress.chunks.succeeded == detail.progress.chunks.total == 1
         assert detail.progress.chunks.remaining == detail.progress.chunks.failed == 0
         assert len(detail.usage) == len(model.calls) == 1
-        assert detail.modelBudget.reserved > 0
+        assert detail.modelBudget.reserved is not None and detail.modelBudget.reserved > 0
         for field, value in [('state', 'NEW_STATE'), ('phase', 'NEW_PHASE'), ('allowedActions', ['new_action']),
                              ('failures', [{'stage': 'NEW_STAGE', 'index': 0, 'code': 'ERROR', 'retryable': False}])]:
             with pytest.raises(ValidationError) as error:
