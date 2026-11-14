@@ -1,0 +1,1861 @@
+[
+  {
+    "name": "RGB-black-255",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAIAAADCEmNlAAABAklEQVR4nO3cIQ7AIBAAQa7p/79MRTWuXTWjUJBsLieZvffif1fwBkJ3THRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHbk/uWVm3oP/bE5GmobVERE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhF6NB4mxCcOCZHXxAAAAAElFTkSuQmCC",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGB-red-255",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAIAAADCEmNlAAABAklEQVR4nO3cIQ7AIBAAQa7p/79MTX1NWTWjUJBsLieZvffivCt4A6E7JjoidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjtz/XDPzHvxncza0vl+sjojQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6IvRqPMFwB8cDFRDNAAAAAElFTkSuQmCC",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGB-blue-255",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAIAAADCEmNlAAABAklEQVR4nO3cIQ7AIBAAQa7p/79MTX1NWTWjUJBsLieZvffivCt4A6E7JjoidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjty/3DLzHnxncza0vp+sjojQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6IvRqPMVuB8fGljusAAAAAElFTkSuQmCC",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-black-0",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAARklEQVR4nO3BMQEAAADCoPVPbQsvoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACgqwG75AABp6V7DAAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-black-64",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAVUlEQVR4nO3NoQ0AMAwEsc9mHT2jhRZXSpGNjl0CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMCbyq5zdS+/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAADy1QCoWAEC7qp+GwAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-black-105",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAVUlEQVR4nO3NoQ0AMAwEsc+4nSjrhhZXSpGNjl0CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMCbyq5zdS+/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAADy1QCqRAECT/LcZAAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-black-106",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAVUlEQVR4nO3NoQ0AMAwEsc+6HSjzhhZXSpGNjl0CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMCbyq5zdS+/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAADy1QCqUAECPb7aDQAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-black-128",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAUElEQVR4nO3GsQkAQAgEsHPzH90JbIQvhKRKAgAAAAAAAAAAAAAAAAAAAAAAAAAAAADATuWvNxwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIOc1q1gBAi+lB2oAAAAASUVORK5CYII=",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-black-200",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAVUlEQVR4nO3NoQ0AMAwEsc9W3R9lrNDiSimy0bFLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB4U9nVV5/lFwAAAAAAAAAAAAAAAAAAAAAAAAAAAABAvhquuAECaHjwIQAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-black-255",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAATklEQVR4nO3NQQ0AAAgEoLN/aO3gpi8oQAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwE7lVj9eAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB5NbFMAQLxbT9PAAAAAElFTkSuQmCC",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-red-0",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAUElEQVR4nO3NQQ0AMAgEsMO/6OGBhPFpDTQBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGCmsuj9igAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcqABtEwBAimyBVQAAAAASUVORK5CYII=",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-red-64",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAVUlEQVR4nO3NMREAIAwEsK8zpOOsrMzclSkxkAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgDeVQZ2sK9qTFwAAAAAAAAAAAAAAAAAAAAAAAAAAAABAfjtCzgICFWLLdwAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-red-105",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAVUlEQVR4nO3NMREAIAwEsK9cFCG3rMzclSkxkAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgDeVQZ2sK9qTFwAAAAAAAAAAAAAAAAAAAAAAAAAAAABAfjtEugICpxK4FQAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-red-106",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAVUlEQVR4nO3NMREAIAwEsK9dBGG3rMzclSkxkAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgDeVQZ2sK9qTFwAAAAAAAAAAAAAAAAAAAAAAAAAAAABAfjtExgICYBMnSwAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-red-128",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAVElEQVR4nO3NIQ7AIADAwPLz/RwcmSbBkDtV1wIAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4Mzoolnfb7QbAAAAAAAAAAAAAAAAAAAAAAAAAAAAAKAXLEXOAgKhIks+AAAAAElFTkSuQmCC",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-red-200",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAVklEQVR4nO3NoREAIAwEsO9W7K/Yqlg0d0UlCyQBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOBNZVAn+4rW5AUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkN8OSS4CAlk3o5AAAAAASUVORK5CYII=",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-red-255",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAVUlEQVR4nO3NsQkAMAwEsff+Q8fgIgMEnEri+ksAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHhTWXSmO1p9AQAAAAAAAAAAAAAAAAAAAAAAAAAAAADktwZLwgICHoSwAQAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-blue-0",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAATklEQVR4nO3NQQ0AAAgEoLN/aO3gpi8oQAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwE7lVP9VAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB5NrJMAQLxQpU7AAAAAElFTkSuQmCC",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-blue-64",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAVUlEQVR4nO3NMREAIAwEsK8zpOOsrMzclSkxkAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgDeVUb2uas9eAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD56wBAzgICSvl9/wAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-blue-105",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAVUlEQVR4nO3NMREAIAwEsK9cFCG3rMzclSkxkAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgDeVUb2uas9eAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD56wBCugICd+uZygAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-blue-106",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAVUlEQVR4nO3NMREAIAwEsK9dBGG3rMzclSkxkAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgDeVUb2uas9eAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD56wBCxgICsOoGlAAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-blue-128",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAVElEQVR4nO3NoQ0AMAwEsc/m3bylwZUCItno2CUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPypjLqnrVoDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGS/B0POAgKufxY3AAAAAElFTkSuQmCC",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-blue-200",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAVUlEQVR4nO3NoREAIAwEsO9W7K/Yqlg0d0UlCyQBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOBNZVTvq1qzFwAAAAAAAAAAAAAAAAAAAAAAAAAAAABA/jpHLgIC58B4ZQAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "RGBA-blue-255",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAYAAABNcPQyAAAAUklEQVR4nO3NsQ0AMAgDsPD/0XTtjAST/YATAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABmKqu6v2r5AgAAAAAAAAAAAAAAAAAAAAAAAAAAAADIrQdJwgICZLqEvgAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "left",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAIAAADCEmNlAAABAklEQVR4nO3cIQ7AIBAAQa7p/79MRTWuXTWjUJBsLieZvffif1fwBkJ3THRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHbk/uWVm3oP/bE5GmobVERE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhF6NB4mxCcOCZHXxAAAAAElFTkSuQmCC",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "right",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAIAAADCEmNlAAABBElEQVR4nO3csQnAMAwAQStk/5WdLguYHAT+KneCR7jU7L1XvneBGSm000YjhUYKjRQaKTRSaKTQSKGRQiOFRgqNFBopNFJopNBIoZFCI4VGCo0UGik0Umik0EihkUIjhUYKjRQaKTRSaKTQSKGRQiOFRgqNFBopNFJopNBIoZFCI4VGCo0UGik0Umik0MitBv3PzLzv8zs906kfo68DKTRSaKTQSKGRQiOFRgqNFBopNFJopNBIoZFCI4VGCo0UGik0Umik0EihkUIjhUYKjRQaKTRSaKTQSKGRQiOFRgqNFBopNFJopNBIoZFCI4VGCo0UGik0Umik0EihkUIjhUYKvYwHAZwJw+TMpAYAAAAASUVORK5CYII=",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "top",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAIAAADCEmNlAAABAElEQVR4nO3ZwQnAMAwEQSv99+xUkcU4Mw0Ilvtp9t6L7z3BDYTuWHRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0R+t+hZ2bd5dDQ9xH636H3db/5Q0PfR+iI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0KvxgtvagbFIolxagAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "bottom",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAIAAADCEmNlAAABAElEQVR4nO3dwQnAMAwEQSv99+xUkcU4Mw0Ilvtr9t6L7z3BDYTuWHRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQ/w49M+suh4a+j9ARof8del/3N/TQ0PcROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjgi9Gi+QwwbFI+Yx+QAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "corner",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAIAAADCEmNlAAABBklEQVR4nO3ZwQnAIBAAQU3/PV86yMssJMwUoLDI+bg9M4v3XcEdCN3xoiNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQnwq99z5yzo+dCT0zWkejQ+tuRluoP/AZRoSOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiL0atxpygzFgrrtQwAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": true,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "enclosed",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAIAAADCEmNlAAABP0lEQVR4nO3VgQkDMAgF0Z/uv7OF7tCLmrsFhIfoqarY//sAM0xoLjcaSmgooaGEhhIaSmgooaGEhhIaSmgooaGEhhIaSmgooaGEhhIaSmgooaGEhhIaSmgooaGEhhIaSmgooaGEhhIaSmgooaGEhhIaSmgooaGEhhJ6O/Q5Jy91DbqqnrK+eTrqJevLN7qesb7/DOsN6/vQecO6BXQesO4Cne3WjaCz2roXdPZat4POUuuO0Nlo3RQ666z7QmeXdWvoLLLuDp0t1gOgs8J6BnTmW4+BznDrSdCZbD0MOmOt50HnZ51pjYSemNBQQkMJDSU0lNBQQkMJDSU0lNBQQkMJDSU0lNBQQkMJDSU0lNBQQkMJDSU0lNBQQkMJDSU0lNBQQkMJDSU0lNBQQkMJDSU0lNBQQkMJDSU0lNBh+gIyS0LFLxFUaQAAAABJRU5ErkJggg==",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "detached",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAIAAADCEmNlAAABAUlEQVR4nO3YwQmAQAwAwYv99xyb0EVwpoELy5FHZncP77uCNxC640dHhI4IHRE6InRE6IjQ3wg9M9Uk/w69u1pHq8Mx5BF2dEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IfRo3U8sJxeFkFx8AAAAASUVORK5CYII=",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "nonwhite",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAIAAADCEmNlAAABBUlEQVR4nO3cIQ7AIBAAQWj6KP6veFYFuq5dNaNQkGwuJ5l778H/ruANhO6Y6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6cn9yy1rrHPxn82ZK07A6IkJHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0KPxAB14CHkmgmllAAAAAElFTkSuQmCC",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "faint",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAIAAADCEmNlAAABCElEQVR4nO3cMQ6AIBAAQTV+lhfxXCz8Am5hZiqqu2RDKDnXWgffu4IdCN1xoyNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToyL1lypzzPYwxtgz8n9NXPw1PR0ToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEfpoPJmDCcNq7+t9AAAAAElFTkSuQmCC",
+    "boxes": [
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.2,
+        0.8,
+        0.8
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          72,
+          60
+        ]
+      }
+    ]
+  },
+  {
+    "name": "whole",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAIAAADCEmNlAAAB0UlEQVR4nO3aS4oDMAwE0Xbuf2cPjLINJCRu61N9AcPDUBstSXtvscN77L3XWqefYY/40et/cJyFDmu+tgM6hrUJGmsfNNY+aPLogyaPPugYeTRBY+2DxtoHTR590OTRBx0jjyZorH3QWPugyaMPmjz6oGPk0QSNtQ8aax80efRBk0cfdIw8mqCx9kFj7YMmjz5o8uiDju3xF34maI239kFrtrUVWoMvV93Qmnq5egE6Ns36GrSGWd+E1iTry9Aak8f70JqRxxTQsd7WiaDV2joXtPpap4NW0zxmhFbHPCaFjnWyTg2tRtbZodXFugC0WuSxBrTq57EMdKyudTFolbWuB62a1iWhVTCPVaFVLY+FoWNVrMtDq4h1B2hVsG4CrfR57AOt3HlsBR3Lad0QWimte0Irn3VbaCXLY2doZcpjc+hYBusR0EpgPQVat60HQetqHmdB614ex0HH/NZDoWW3ngstr/VoaBnzOB1arjwC/dxpa6BN1kCbrIE25RFoUx6BfrnfWgNtsgbaZA20KY9Am/II9Af7xhpokzXQJmugTXkE2pRHoL/a+9ZAm6yBNlkDbcoj0KY8Av3jvbIG2mQNtMkaaFMegTblEWidXlj/AXQSaNSd51EXAAAAAElFTkSuQmCC",
+    "boxes": [
+      [
+        0,
+        0,
+        1,
+        1
+      ],
+      [
+        0,
+        0,
+        1,
+        1
+      ],
+      [
+        0,
+        0,
+        1,
+        1
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          120,
+          100
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          120,
+          100
+        ]
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          120,
+          100
+        ]
+      }
+    ]
+  },
+  {
+    "name": "individual-invalid-bounds",
+    "png": "iVBORw0KGgoAAAANSUhEUgAAAHgAAABkCAIAAADCEmNlAAAA80lEQVR4nO3SQQ0AMAwDsW78OXcodi+bQKRTzu4O/91gA6E7Hh0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCB0ROiJ0ROiI0BGhI0JHhI4IHRE6InRE6IjQEaEjQkeEjggdEToidEToiNARoSNCR4SOCD2NBx2BA8XhW+JZAAAAAElFTkSuQmCC",
+    "boxes": [
+      [
+        0.5,
+        0.5,
+        0.5,
+        0.6
+      ],
+      [
+        0,
+        0,
+        1,
+        1
+      ],
+      [
+        0.7,
+        0.7,
+        0.3,
+        0.3
+      ]
+    ],
+    "kinds": [
+      "diagram",
+      "image",
+      "table"
+    ],
+    "expected": [
+      {
+        "hasBytes": false,
+        "rejected": false,
+        "size": null
+      },
+      {
+        "hasBytes": true,
+        "rejected": false,
+        "size": [
+          120,
+          100
+        ]
+      },
+      {
+        "hasBytes": false,
+        "rejected": false,
+        "size": null
+      }
+    ]
+  }
+]

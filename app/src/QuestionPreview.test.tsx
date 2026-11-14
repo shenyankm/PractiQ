@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { QuestionPreview } from "./QuestionPreview";
 import { blankQuestion } from "./api";
 
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("./transport", () => ({ invoke: vi.fn() }));
 afterEach(cleanup);
 
 it("filters review issues, preserves material context and focuses the next issue across pages", async () => {

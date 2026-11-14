@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, expect, it, vi } from "vitest";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./transport";
 import { ai } from "./ai-api";
 import {
   api,
@@ -10,7 +10,7 @@ import {
 import fixture from "../fixtures/native-ipc.json";
 import historicalErrors from "../fixtures/legacy-grading-errors.json";
 
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("./transport", () => ({ invoke: vi.fn() }));
 
 beforeEach(async () => {
   vi.mocked(invoke).mockReset().mockResolvedValueOnce(null);

@@ -6,7 +6,7 @@ import App from "./App";
 import { api, blankQuestion, type QuestionPage, type QuestionRow } from "./api";
 import { toast } from "./notifications";
 
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => false }));
+vi.mock("./transport", () => ({ invoke: vi.fn() }));
 vi.mock("./api", async () => ({ ...await vi.importActual("./api"), api: vi.fn() }));
 vi.mock("./notifications", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 HTMLElement.prototype.hasPointerCapture = () => false;

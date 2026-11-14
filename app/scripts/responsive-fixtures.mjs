@@ -1,3 +1,4 @@
+import { mockDesktop } from "./mock-desktop.mjs";
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
@@ -36,12 +37,11 @@ selected.set(tableAnswer.key, tableAnswer);
 export const layoutSnapshots = [...selected.values()];
 
 export async function installLayoutSession(page, { submitted = false, locale = 'zh-CN', failPositionOnce = false, failInfo = false } = {}) {
-  await page.addInitScript(({ snapshots, image, portrait, audio, submitted, locale, failPositionOnce, failInfo }) => {
-    window.isTauri = false;
+  await mockDesktop(page); await page.addInitScript(({ snapshots, image, portrait, audio, submitted, locale, failPositionOnce, failInfo }) => {
     const bank = { id: 'layout-bank', title: '布局检查题库', description: 'Synthetic browser fixture', count: snapshots.length, createdAt: 1 };
     const session = { id: 'layout-session', title: '布局检查 · 全题型', kind: 'practice', createdAt: 1, submittedAt: null, finishedAt: null, position: 0, mode: 'ordered', attempts: snapshots.map((snapshot, ordinal) => ({ ordinal, snapshot, answer: submitted ? snapshot.question.answerPayload : null, autoResult: null, result: null, gradeKind: 'ungraded', maxCents: null, earnedCents: null, submittedAt: submitted ? 1 : null, skipped: false, elapsedMs: 0 })) };
     window.__layoutNativeCalls = [];
-    window.__TAURI_INTERNALS__ = { invoke: async (command, args) => {
+    window.__practiqNativeMock = { invoke: async (command, args) => {
       window.__layoutNativeCalls.push({ command, request: args?.request });
       if (command === 'read_asset') {
         const visual = snapshots.find(s => s.key === 'rich-choice').visuals[0];

@@ -10,17 +10,38 @@ Do not replace these with a generic SPDX identifier or infer copyright holders.
 Retain upstream text verbatim. Any `note` marks source applicability that needs
 release review; the notice checker fails rather than silently accepting it.
 
-`app/scripts/check_licenses.py` inventories the selected target's Cargo packages,
-npm production dependency closure. It
-checks supplemental hashes and returns nonzero for missing text or unverified
-source applicability. Build packages include the combined text in
-`bundled/THIRD-PARTY.txt`. Preparation fails on unresolved entries. An inventory is not a decision
-about all redistribution obligations. Repeat it for each platform's final package.
+The Electron packager and `app/scripts/release.ts` use
+`app/scripts/release-licenses.ts`. It inventories the installed target's entire
+npm production closure, including bundled renderer dependencies and embedded AI
+workers. Only absent optional dependencies for another OS/CPU are excluded.
+Missing texts, altered text/provenance hashes and unresolved source-applicability
+notes block packaging and final staging. A license declaration alone is not a
+license text. The installed package includes complete combined terms in
+`Contents/Resources/THIRD-PARTY.txt`, a source-bound inventory and content-addressed
+texts in `Contents/Resources/DEPENDENCY-LICENSES/`. Final staging regenerates and
+compares both with the selected source. An inventory does not decide all
+redistribution obligations; independent release review remains required.
 
-The checker validates schema 2 desktop build metadata and limits Cargo entries to
-the platform-filtered resolve graph. AI service dependencies and its configured
-Office engine are independently deployed and require their own license review.
-They are never claimed as redistributed desktop components.
+The former Python/Cargo checker remains a migration reference until those tools
+are retired. Its historical inventories do not establish Electron acceptance.
+
+## Embedded AI dependency terms
+
+Missing texts for `@cfworker/json-schema` 4.1.6, `js-tiktoken` 1.0.21 and `saxes`
+6.0.0 are retained from their exact registry `gitHead` revisions. `lzma-purejs`
+0.9.3 and its `commander` 2.0.0 retain the complete license sections in their
+published README bytes. Their provenance records bind the package version,
+reviewed npm integrity, upstream source and text hashes. Original declarations
+are preserved, including differences between a package label and its actual
+upstream terms.
+
+The arm64 libvips distribution retains its exact published third-party notice
+and component-version list, together with complete GNU LGPLv3 and GPLv3 terms
+from a pinned GCC upstream revision. The distribution's README selects LGPLv3
+through the earlier versions' any-later-version clause. This does not complete
+the native subcomponents' source/redistribution-obligations review or publisher
+acceptance; those remain part of final release review. No generic SPDX string
+substitutes for these retained terms and sources.
 
 The jsonschema-regex and jsonschema-value 0.58.6 archives omit license files.
 Their published VCS identities and workspace declarations bind the supplemental

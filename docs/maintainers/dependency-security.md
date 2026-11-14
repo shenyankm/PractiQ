@@ -74,6 +74,13 @@ format. Retain the complete audit and both macOS target-graph checks.
 
 ## Repository and deployment safeguards
 
+The migration branch updates `quinn-proto` to 0.11.19 and `quinn-udp` to 0.5.16
+for RUSTSEC-2026-0523, RUSTSEC-2026-0524 and RUSTSEC-2026-0538. It also updates
+`rustix` to 1.1.6 and `tokio` to 1.53.3 for RUSTSEC-2026-0486 and
+RUSTSEC-2026-0386. These are compatible patch updates to the temporary Rust
+reference implementation; the complete audit and macOS graph checks remain
+required until that implementation is removed. No advisory is newly ignored.
+
 [Dependabot configuration](../../.github/dependabot.yml) schedules weekly GitHub
 Actions, App/Web npm, Cargo and Docker base-image updates.
 Actions and the combined npm entry each allow two version-update PRs; Cargo,

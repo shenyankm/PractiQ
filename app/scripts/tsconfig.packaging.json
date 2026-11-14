@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.json",
+  "include": [
+    "../../.github/scripts/*.ts",
+    "release*.ts",
+    "bump-version.ts",
+    "electron-smoke.ts",
+    "package-electron.ts",
+    "verify-electron-package.ts",
+    "verify-existing-data.ts"
+  ]
+}

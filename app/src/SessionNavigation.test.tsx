@@ -3,12 +3,12 @@ import { useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./transport";
 import { api, type Session } from "./api";
 import { Practice } from "./Practice";
 import fixture from "../fixtures/session-navigation.json";
 
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("./transport", () => ({ invoke: vi.fn() }));
 afterEach(() => { cleanup(); vi.mocked(invoke).mockReset(); });
 
 function History({ initial }: { initial: Session }) {

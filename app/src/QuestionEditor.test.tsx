@@ -30,7 +30,7 @@ it("opens listening settings when switching to a listening question", async () =
   render(<QuestionEditor initial={blankQuestion()} busy={false} onClose={vi.fn()} onSave={vi.fn()}/>);
   await user.selectOptions(screen.getByRole("combobox", { name: "答题方式" }), "listening");
   expect(screen.getByText("更多设置", { selector: "summary" }).closest("details")?.open).toBe(true);
-  expect(screen.getByRole("button", { name: "选择听力音频" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "识别二维码图片" })).toBeTruthy();
 });
 
 it("invalidates cached child answer defaults when shared options change and become empty again", async () => {

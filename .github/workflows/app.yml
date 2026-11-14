@@ -44,14 +44,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          python-version: '3.14'
+          node-version: '22'
       - id: scope
         env:
           GH_TOKEN: ${{ github.token }}
           CI_FULL_CHECKS: ${{ inputs.ref != '' }}
-        run: python server/scripts/ci_scope.py scope desktop
+        run: node .github/scripts/ci-scope.ts scope desktop
   quality:
     name: App quality
     needs: changes
@@ -67,36 +67,30 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: app/package-lock.json
-      - name: Install pinned Rust toolchain
-        run: rustup show
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
-        with:
-          workspaces: app/src-tauri
-          key: quality
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: '3.14'
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-        with:
-          version: '0.12.13'
-          enable-cache: true
-          cache-dependency-glob: server/uv.lock
-      - name: Install locked service dependencies for contract checks
-        run: make install-locked AI_PYTHON=python
-      - run: python app/scripts/export-contracts.py --check
-      - run: python app/scripts/check-fixtures.py
-      - run: python -m pytest server/tests/test_ci.py server/tests/test_ci_scope.py server/tests/test_release_checks.py server/tests/test_release_workflow.py server/tests/test_desktop_package.py
-        env:
-          PRACTIQ_REQUIRE_NATIVE_BUILD_GUARD: '1'
       - run: npm ci
         working-directory: app
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - name: Verify Node CI guards
+        run: node --test .github/scripts/*.test.ts
+      - name: Verify TypeScript migration contracts and types
+        working-directory: app
+        run: |
+          npm run contracts:check
+          npm run desktop:build
+          npm run check:packaging
+      - name: Verify TypeScript release tools
+        working-directory: app
+        run: npm run test:tooling
       - name: Check frontend types, lint and coverage
         env:
           VITEST_MAX_WORKERS: '2'
         working-directory: app
         run: npm run check:ui
-      - name: Use Ubuntu archive mirror
-        run: printf '%s\n' 'https://mirrors.edge.kernel.org/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
+      - name: Configure Ubuntu archive fallback
+        run: |
+          printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' 'https://azure.archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
+          printf '%s\n' 'Acquire::Retries "3";' 'Acquire::http::Timeout "15";' 'Acquire::https::Timeout "15";' | sudo tee /etc/apt/apt.conf.d/80-retries > /dev/null
       - run: npx playwright install --with-deps chromium --only-shell
         working-directory: app
       - run: npm run test:browser
@@ -110,10 +104,6 @@ jobs:
           retention-days: 7
       - run: npm audit --audit-level=high
         working-directory: app
-      - run: cargo fmt --manifest-path app/src-tauri/Cargo.toml --check
-      - name: Install pinned Rust advisory checker
-        run: cargo install cargo-audit --locked --version 0.22.2 --registry crates-io
-      - run: make audit-rust
       - name: Upload frontend coverage
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -134,40 +124,31 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
+          fetch-depth: ${{ inputs.release && '0' || '1' }}
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: app/package-lock.json
-      - name: Install pinned Rust toolchain
-        run: rustup show
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
-        with:
-          workspaces: app/src-tauri
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: '3.14'
       - run: npm ci
         working-directory: app
-      - name: Verify Rust flows and lint
-        env:
-          TAURI_CONFIG: '{"bundle":{"resources":[]}}'
-        run: |
-          cargo test --locked --manifest-path app/src-tauri/Cargo.toml
-          cargo clippy --locked --manifest-path app/src-tauri/Cargo.toml --all-targets -- -D warnings
-      - run: python app/scripts/prepare-package.py
-      - run: npm run tauri -- build
+      - name: Build standalone Electron package
         working-directory: app
-      - name: Verify packaged macOS desktop payload
-        run: python app/scripts/check-installer.py --installer app/src-tauri/target/release/bundle/dmg/*.dmg --output server/reports/checks/desktop-bundle.json
-      - name: Archive macOS application
-        if: github.event_name != 'pull_request'
-        run: ditto -c -k --keepParent app/src-tauri/target/release/bundle/macos/PractiQ.app app/PractiQ-macOS.zip
+        run: |
+          npm run check:packaging
+          npm run package:electron -- .build/electron-ci
+      - name: Verify copied Electron application workflows
+        run: |
+          ditto app/.build/electron-ci/PractiQ.app "$RUNNER_TEMP/PractiQ-electron/PractiQ.app"
+          npm --prefix app run test:electron:installed -- "$RUNNER_TEMP/PractiQ-electron/PractiQ.app/Contents/MacOS/PractiQ"
+      - name: Verify installed Electron DMG and protected credentials
+        working-directory: app
+        run: npm run test:package -- .build/electron-ci
       - name: Verify final installer and stage release assets
         if: inputs.release
         env:
           RELEASE_TAG: ${{ inputs.tag }}
-        run: python app/scripts/release.py stage --tag "$RELEASE_TAG"
+        run: node app/scripts/release.ts stage --tag "$RELEASE_TAG" --package app/.build/electron-ci --output app/.build/release --reports app/.build/release-reports --acceptance app/.build/evidence/electron-package-acceptance.json
       - name: Upload gated release assets
         if: inputs.release
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -183,19 +164,18 @@ jobs:
         with:
           name: desktop-checks-macOS
           path: |
-            server/reports/checks/desktop-bundle.json
-            server/reports/checks/release/
-            app/src-tauri/bundled/build-manifest.json
-            app/src-tauri/bundled/THIRD-PARTY.txt
+            app/.build/electron-ci/package-report.json
+            app/.build/release-reports/
+            app/.build/evidence/electron-*-smoke.json
+            app/.build/evidence/electron-package-*-acceptance.json
           retention-days: 7
-      - name: Upload installers
+          include-hidden-files: true
+      - name: Upload Electron installer
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: PractiQ-macOS
-          path: |
-            app/src-tauri/target/release/bundle/dmg/*.dmg
-            app/PractiQ-macOS.zip
+          path: app/.build/electron-ci/*.dmg
           if-no-files-found: error
           retention-days: 14
   desktop-gate:
@@ -213,9 +193,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          python-version: '3.14'
+          node-version: '22'
       - env:
           NEEDS: ${{ toJSON(needs) }}
-        run: python server/scripts/ci_scope.py gate desktop
+        run: node .github/scripts/ci-scope.ts gate desktop

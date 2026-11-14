@@ -17,7 +17,7 @@
 *.p12
 *.pfx
 
-# Python dependencies, caches and builds
+# Historical Python state stays ignored after runtime retirement
 .venv/
 __pycache__/
 *.py[cod]
@@ -33,11 +33,13 @@ __pycache__/
 /server/**/build/
 /server/**/dist/
 
-# React / Vite / Tauri dependencies and builds
+# React / Vite / Electron builds and retained Tauri build state
 node_modules/
+.electron-gyp/
 *.tsbuildinfo
 /app/dist/
 /app/.build/
+.practiq-electron-*/
 /app/src-tauri/target/
 /app/src-tauri/gen/*
 *.jks
@@ -79,6 +81,10 @@ playwright-report/
 .local/
 # Retained local state from earlier LangGraph development runs
 .langgraph_api/
+# Embedded AI sources/results and OS-encrypted credential records
+ai-storage/
+electron-ai-settings-v1.json
+.ai-settings-*
 *.db
 *.db-journal
 *.db-wal
@@ -111,6 +117,9 @@ image.tar
 *.tmp
 *.temp
 *.cache
+*.cpuprofile
+*.heapprofile
+*.heapsnapshot
 *.bak
 *.orig
 .cache/

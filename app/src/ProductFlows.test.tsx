@@ -6,7 +6,7 @@ import App from "./App";
 import { api, blankQuestion, type QuestionRow, type SessionSummary } from "./api";
 import fixture from "../fixtures/sample.json";
 
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => false }));
+vi.mock("./transport", () => ({ invoke: vi.fn() }));
 vi.mock("./api", async () => ({ ...await vi.importActual("./api"), api: vi.fn() }));
 vi.mock("./notifications", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 HTMLElement.prototype.hasPointerCapture = () => false;
@@ -70,7 +70,7 @@ it("keeps desktop navigation focused on offline practice without AI import reque
   expect(screen.queryByRole("textbox", { name: "模型 API 地址" })).toBeNull();
   expect(screen.queryByLabelText("模型 ID")).toBeNull();
   expect(vi.mocked(api).mock.calls.some(([request]) => ["save_settings", "test_settings"].includes(request.type))).toBe(false);
-  const { invoke } = await import("@tauri-apps/api/core");
+  const { invoke } = await import("./transport");
   expect(vi.mocked(invoke).mock.calls.some(([command]) => command === "ai_request" || command === "office_request")).toBe(false);
 });
 

@@ -1,0 +1,33 @@
+{
+  "wire": {
+    "result": "fd5cc08cfa12484b09f837a9ba329298a883d0a6dc76a0f92b8935a075c11f06",
+    "processing": "d6c29ca7eb0e5bf2462d19f89533180ee69b8e3b1d27c9845548d26f347dc349",
+    "bankImportDiagnostic": "30be5c8ac3cc3a2e8801c104e9821aa6af118c4fa340fcd3622c4a7c99bc6605",
+    "taskSummary": "b58c7f1651d867116e788cf0f4d5c12174ecc5f75d0233dc4ba5065ab2b9d9dd",
+    "taskReview": "87171231fcb53a0d5e8c2a9af41582fa7e7cf0fc35435cfb8611b408c7718551",
+    "taskDetail": "3a8bf13f723df41c0a7539552f748af1b69277201e4ea42c10f2c02fee91a180",
+    "gradeResult": "8086277c87df7feb3f0045436a6478e417f31685284b22723e521718d151ead0",
+    "bankImport": "86c0e09f44780383eda6155bdf3f58e3df5812af6a710d77bccac5a3ac3d1848"
+  },
+  "models": {
+    "AudioReference": "16c087595b4b3383e4f71c956af41b17914a11340f5a51b6bd95d8d536fb812f",
+    "ChoiceAnswerPayload": "7674ee044fe75e3bddb798f1604d7539b21bae079eb81eaa0d54b375102a14a2",
+    "ContentBlock": "17fe479d3f95810dda7840720d264f5886750bcd754b09f0f4155f7c73ebafd8",
+    "FillBlankAnswerPayload": "5ed059a5e7b8d9151b90ef706cb389ea5848a25acf25704956b9ff6d3b2d98cc",
+    "MatchPair": "c6dd57450bacfbe12647c511be9549e47ebba7c5c733d48f7dcb597361bcb699",
+    "MatchingAnswerPayload": "e056760fcc3da15dfd64434b84125834d68682fc318594ae02a2ffe74723e8e9",
+    "OrderingAnswerPayload": "c5b5d4084883f3476462c86caa3c51c1f00b031436e7410011e16ffc3b38cda4",
+    "ParsedGroup": "778a9b4da1ce009a3e86941d87263988793590022d3d88975be321a81e6e9efc",
+    "ParsedItem": "3970094c7762f11dd1ef69118f69423936c5ff4a1651036967f01661a696b57b",
+    "ParsedOption": "617adda237c97622d9473abd456ac7a48531fe0e7c68f06b80389e9afef86229",
+    "ParsedQuestion": "91f7d6e74041fca024aedb8a7656dd65b2f74f811591a8d8acec9f3e0c21bd47",
+    "ShortAnswerPayload": "206919be7ed1c97695a814d15a4134c97e1efc6a8b7600dc7aa663099f2aa9c6",
+    "TrueFalseAnswerPayload": "e5467d1efb074f8392094a35011a6baa374ac133dbf02fb056341df12308a9c9",
+    "UnitParseResult": "ae374f52816694f28e1d8a3fdc8456aaf346a4598413f9a770521ce993b0876c",
+    "OcrFigureAssociation": "fe82debd4b44caa9a0bbfac8ed36b60bc05b7940434bc1d8be597e44333d425c",
+    "OcrPageParseResult": "ff491aad4e9b8f229552ce73983925ca6df5b7e865a05c228d4f70c45163d41a",
+    "PageFigure": "453657b2d566f925d8dade3fd55f7f4b75e1fc9fe58d61702cbd21883e7c4e45",
+    "PageParseResult": "052b0c10ba77c8c44cf5ead86c8e613b5d650c808edc7bdbc2f879ca48720151",
+    "GeneratedAnswer": "27f87d1a1b8cf4555601d8277f70418bc499ed6c7c384e48c49cc8e89fab12b9"
+  }
+}

@@ -1,0 +1,171 @@
+[
+  {
+    "page": {
+      "page": 0,
+      "format": "table",
+      "elements": [
+        {
+          "layout_xml": "<table><tr><td>stem</td><td>answer</td></tr><tr><td> Q  text </td><td> A\n B </td></tr></table>"
+        }
+      ],
+      "figures": []
+    },
+    "expected": "stem\tanswer\nQ text\tA B"
+  },
+  {
+    "page": {
+      "page": 0,
+      "format": "table",
+      "elements": [
+        {
+          "layout_xml": "<table><tr><td rowspan=\"2\">stem</td><td>answer</td></tr><tr><td>A</td></tr></table>"
+        }
+      ],
+      "figures": []
+    },
+    "expected": "stem\nanswer\nA"
+  },
+  {
+    "page": {
+      "page": 0,
+      "format": "table",
+      "elements": [
+        {
+          "layout_xml": "<table><tr><td colspan=\"01\">Q</td></tr></table>"
+        }
+      ],
+      "figures": []
+    },
+    "expected": "Q"
+  },
+  {
+    "page": {
+      "page": 0,
+      "format": "table",
+      "elements": [
+        {
+          "layout_xml": "<table><tr><td>﻿ Q  x&#x20;</td></tr></table>"
+        }
+      ],
+      "figures": []
+    },
+    "expected": "﻿ Q x"
+  },
+  {
+    "page": {
+      "page": 0,
+      "format": "table",
+      "elements": [
+        {
+          "layout_xml": "<table xmlns=\"urn:sheet\"><tr><td>namespaced</td></tr></table>"
+        }
+      ],
+      "figures": []
+    },
+    "expected": ""
+  },
+  {
+    "page": {
+      "page": 0,
+      "format": "table",
+      "elements": [
+        {
+          "layout_xml": "<table><td>outside</td><tr/></table>"
+        }
+      ],
+      "figures": []
+    },
+    "expected": ""
+  },
+  {
+    "page": {
+      "page": 0,
+      "format": "table",
+      "elements": [
+        {
+          "layout_xml": "<table><tr><td>outer<table><tr><td>inner</td></tr></table>tail</td></tr></table>"
+        }
+      ],
+      "figures": []
+    },
+    "expected": "outerinnertail\tinner\ninner"
+  },
+  {
+    "page": {
+      "page": 0,
+      "format": "table",
+      "elements": [
+        {
+          "layout_xml": "<table><tr><td><![CDATA[a<b&c]]></td><td>&amp; &lt; &#x85;</td></tr></table>"
+        }
+      ],
+      "figures": []
+    },
+    "expected": "a<b&c\t& <"
+  },
+  {
+    "page": {
+      "page": 0,
+      "format": "table",
+      "elements": [
+        {
+          "layout_xml": "<table><tr><td colspan=\"2\"> A  B </td></tr></table>"
+        }
+      ],
+      "figures": []
+    },
+    "expected": " A  B "
+  },
+  {
+    "page": {
+      "page": 0,
+      "format": "table",
+      "elements": [
+        {
+          "layout_xml": "<table><tr><td>stem</td><td>answer</td></tr><tr><td> Q  text </td><td> A\n B </td></tr></table>"
+        },
+        {
+          "layout_xml": "<table><tr><td rowspan=\"2\">stem</td><td>answer</td></tr><tr><td>A</td></tr></table>"
+        }
+      ],
+      "figures": []
+    },
+    "expected": "stem\nanswer\n Q  text \n A\n B \nstem\nanswer\nA"
+  },
+  {
+    "page": {
+      "page": 0,
+      "format": "table",
+      "elements": [
+        {
+          "text_info": {
+            "content": "literal evidence"
+          }
+        }
+      ],
+      "figures": []
+    },
+    "expected": "literal evidence"
+  },
+  {
+    "page": {
+      "page": 0,
+      "elements": [
+        {
+          "text_info": {
+            "content": "line1line2\r\nline3\n"
+          }
+        }
+      ],
+      "figures": []
+    },
+    "expected": "line1\nline2\nline3"
+  },
+  {
+    "page": {
+      "page": 0,
+      "failed": true
+    },
+    "expected": ""
+  }
+]

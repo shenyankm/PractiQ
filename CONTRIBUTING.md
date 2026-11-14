@@ -1,5 +1,48 @@
 # Contribute to PractiQ
 
+The approved Electron/TypeScript migration is tracked in
+[the acceptance ledger](docs/maintainers/electron-migration.md) and issue #549.
+The old runtime source is retired; frozen fixtures and Git history retain the
+behavioral reference. New desktop work belongs in `app/desktop/`; it must not forward unported
+operations to the old runtime. Test with isolated data directories.
+
+Run `make app-install` to install locked npm dependencies and the locked Electron
+binary. From `app/`, the equivalent is `npm ci` followed by
+`npm run desktop:install`; npm dependency installation alone does not install
+Electron's binary. Packaging also runs this explicit installation step before
+building and stops if it fails.
+
+`make app-dev` (or `npm run desktop` from `app/`) now starts Electron with the
+embedded Node AI runtime. It does not prepare Tauri resources or start a Python
+service. The production renderer requires Electron's typed preload bridge;
+browser test data is installed only by the explicit browser harness. The import
+workspace and model settings use the embedded runtime without a service URL.
+`make app-build` now creates a fresh Electron app and DMG; `make app-package-check`
+builds and independently verifies that same output. Set `APP_PACKAGE_DIRECTORY`
+on the Make command line to choose a fresh output directory. Default install,
+test and verification commands now use Node. Release candidate
+validation, DMG staging and draft assembly now use `app/scripts/release.ts`.
+
+From `app/`, use `npm run desktop:build` and `npm run test:desktop` for the new
+runtime and its type checks. `npm run check:packaging` checks the maintainer tools;
+`npm run package:electron` builds a local macOS application and DMG. Verify it with
+`npm run test:package -- /absolute/package-output`. An optional second argument
+selects a legacy profile for copy-only compatibility checks. The standalone
+`npm run verify:existing-data -- /absolute/legacy/profile` also operates only on
+private copies and requires a current `npm run desktop:build` first. Retain its
+ignored `.build/evidence/` reports and copies locally. These are migration tools;
+they do not authorize replacing an existing profile.
+Local packages use ad-hoc signing and are not notarized distribution builds.
+
+`npm run test:electron` exercises the complete compiled desktop with local provider
+substitutes. To run the same workflows against a package, copy `PractiQ.app`
+outside the checkout, then run
+`npm run test:electron:installed -- /absolute/copied/PractiQ.app/Contents/MacOS/PractiQ`.
+The installed check uses a private profile, system-only PATH and the package's
+compiled modules; file dialogs remain substituted. macOS CI builds and checks both
+the copied app workflows and the installed DMG, including protected credentials.
+Reports distinguish these local checks from live provider and remote CI results.
+
 Use this guide to prepare a focused contribution. The [installation guide](docs/guides/installation.md) covers setup; [README.md](README.md) covers the product and supported platforms; [AGENTS.md](AGENTS.md) defines architecture and coding rules; the [documentation index](docs/README.md) links to detailed guides.
 
 Follow our [Code of Conduct](CODE_OF_CONDUCT.md) in all project community spaces.
@@ -62,28 +105,39 @@ Keep `origin` as your fork's push target and use `upstream` to fetch project upd
 
 ### Set up the affected components
 
-Install only what your change needs. App development requires Node.js 22.18+ within the 22.x line, or 24.11+ (Babel 8's supported versions). Service work, shared-contract generation, and package preparation use an existing Python 3.14+ interpreter and uv. Select it with `AI_PYTHON=/path/to/python3.14`; do not create a project `.venv`.
+App development requires macOS on Apple Silicon and Node.js 22.18+ within the
+22.x line, or 24.11+. Python, Rust, PostgreSQL and RabbitMQ are not part of the
+desktop install, development, test or package commands.
 
 Run the relevant commands from the repository root:
 
-| Area | Install and develop |
+| Task | Command |
 | --- | --- |
-| Practice app — macOS | `make app-install`, then `make app-dev AI_PYTHON=/path/to/python3.14` |
-| AI service | `make install-locked AI_PYTHON=/path/to/python3.14`; follow the [installation guide's service setup](docs/guides/installation.md#install-the-ai-import-service-optional) for configuration and `make server-dev AI_PYTHON=/path/to/python3.14` |
+| Install locked dependencies and Electron | `make install` or `make install-locked` |
+| Start the desktop and embedded AI workers | `make dev` |
+| Run UI and backend tests with coverage | `make test` |
+| Verify contracts, types, lint, tests, release tooling and production build | `make verify` or `make app-check` |
+| Build a fresh application and DMG | `make build` |
 
-See the [installation requirements](docs/guides/installation.md#before-you-start) for native toolchains. Service integration and recovery tests need Docker for disposable PostgreSQL/RabbitMQ instances; pure tests must not start Docker. Model-substitute tests need no real model credentials or running AI service.
-
-Shared-contract checks need the locked service dependencies, even when the AI service itself is not being developed or started. On hosts with GNU Make, install them with `make install-locked AI_PYTHON=/path/to/python3.14`. App package preparation uses standard-library/local Python modules and does not require the AI-service environment.
+Model-substitute tests need no real model credentials or external services.
+All current CI and contract checks use Node. Frozen wire/model, grading and
+native IPC references preserve the old contract checks without installing the
+historical Python or Rust implementation.
 
 ### Respect component boundaries
 
 | Area | Responsibility |
 | --- | --- |
-| `app/` | Offline Tauri/React practice app with Rust and SQLite, targeting macOS. Imports bank ZIPs and supports explicit model/service connection checks; only explicit AI grading or retry starts model work. |
-| `server/` | Python/LangGraph document processing and grading, with PostgreSQL state, RabbitMQ delivery, and local file storage. |
+| `app/desktop/` | Electron main/preload, bounded background workers, SQLite practice/AI state, local files, LangGraph.js orchestration, checkpoints and Store. |
+| `app/src/` | Sandboxed React renderer using the validated typed preload bridge. |
 | `shared/` | Import workspace, rendering and theme code used inside the App; validate affected native and browser-harness flows. |
+| `server/` and ignored old App directories | Retained deployment files, fixtures, reports and local state. Runtime source is retired; never use these as current startup instructions or remove unrelated data. |
 
-App packages contain no Python or LibreOffice runtime. Passive reads, polling, export, and backup must not start model work. All AI calls and provider credentials stay in the service; document import and grading use the same App-configured backend origin; the service remains a personal self-hosted deployment without user management or built-in billing. Follow the [service recovery guide](server/docs/rabbitmq.md) when changing durable state or delivery.
+App packages contain no Python or LibreOffice runtime. Passive reads, polling,
+export and backup must not start model work. Model calls run in embedded workers
+after explicit actions; current credentials use macOS-protected encrypted local
+storage and remain outside learning backups. Uncertain paid outcomes require
+explicit recovery. There are no accounts, cloud sync or built-in billing.
 
 Preserve review flags, immutable practice and score snapshots, resource checksums, and the database/backup compatibility and recovery rules in [AGENTS.md](AGENTS.md). Do not delete existing data or credentials to make a change work.
 
@@ -92,56 +146,66 @@ Preserve review flags, immutable practice and score snapshots, resource checksum
 - Reuse existing code, components, and dependencies.
 - Add a focused regression for each behavior change. Test observable behavior with current contracts and complete valid fixtures; rejection tests should change only the intended field and assert its error.
 - Reset mocks and global stubs per test. Use events, fake time, or retrying assertions for asynchronous work. Keep UI behavior in component tests, layout/focus in Playwright, and persistence/recovery in native or service integration tests.
-- Update affected documentation, contracts, and `.env.example`. Desktop frontend copy uses Simplified Chinese message keys with English and Traditional Chinese translations in `app/src/locales/en.ts` and `app/src/locales/zh-TW.ts`.
+- Update affected documentation and contracts. Desktop frontend copy uses Simplified Chinese message keys with English and Traditional Chinese translations in `app/src/locales/en.ts` and `app/src/locales/zh-TW.ts`.
 - Keep secrets, personal learning data, local databases, and generated build output out of Git. Never put API keys in SQLite, logs, fixtures, or backups.
 
 Check new ignore rules with `git check-ignore -v --no-index <path>` and audit already tracked matches with `git ls-files -ci --exclude-standard`. Use `git rm --cached <path>` to stop tracking disposable output while keeping the local file. Keep referenced historical reports, fixtures, and curated evidence versioned; add a narrow `.gitignore` exception for an intentionally retained file instead of force-adding it. Removing a file in a new commit does not remove it from Git history; follow [SECURITY.md](SECURITY.md) if credentials were exposed.
 
-When shared AI contracts change, run `/path/to/python3.14 app/scripts/export-contracts.py` and commit all affected generated files:
+The TypeScript desktop uses `shared/ai-contracts.json` as its authoritative JSON
+Schema artifact. Run `node app/scripts/export-contracts.ts` when it changes and
+commit all affected generated files:
 
-- `app/src-tauri/contracts.json`
 - `app/src/contracts.generated.ts`
-- `app/src-tauri/src/question_metadata.rs`
 
-The exporter supports `--check` for parity verification. Do not edit generated contracts by hand.
+The exporter supports `--check` for parity verification. Do not edit generated
+contracts by hand. Frozen wire/model and grading baselines in `app/fixtures/`
+are intentionally not regenerated; see their
+[provenance](app/fixtures/migration-reference.md). Native IPC parity executes
+actual temporary Node SQLite state against the original frozen response fixture.
 
 ## Validate the change
 
-Choose checks for every affected area, from the repository root. Install the locked dependencies above first; append `AI_PYTHON=/path/to/python3.14` to Python-dependent Make commands. Install Chromium as described in [README.md](README.md#documentation-and-development) for browser checks.
+Choose checks for every affected area, from the repository root. Install the
+locked dependencies first. Install Chromium as described in
+[README.md](README.md#documentation-and-development) for browser checks.
 
 | Change | Checks |
 | --- | --- |
-| AI service | `make verify`: lockfile, Ruff, Pyright, evaluation fixtures, tests with 90% coverage, PostgreSQL/RabbitMQ recovery probes, package build and archive source/lock integrity |
+| Embedded AI, SQLite, storage and recovery | `npm --prefix app run test:desktop`: compiled-worker type checks, regression fixtures, process-kill recovery and required coverage |
 | Practice app UI, including touch layouts | `npm --prefix app run check:ui` and `npm --prefix app run test:browser`: types, lint, coverage, and desktop/touch browser checks |
-| App native commands, storage, or recovery | `make app-check` on macOS. Verify affected native flows |
-| Service Office conversion | Focused Office/normalization tests and `make verify`; verify fidelity with the actual deployed engine separately using the [Office guide](server/docs/desktop-office.md) |
+| App native commands | `make app-check` on macOS and affected native flows with `npm --prefix app run test:electron` |
+| Document normalization | Focused PDF/image/Office worker and graph tests; oversized Office requires user-exported PDF. No local recognition fallback or LibreOffice discovery. |
 | macOS resources or packaging | Focused package/release regressions and `make app-check`; on macOS run `make app-package-check`. |
-| Locked dependencies | `make audit` for Python; `make audit-rust` for Cargo; `npm --prefix app audit --audit-level=high` and/or `npm --prefix web audit --audit-level=high` for affected npm lockfiles. Follow the [dependency security guide](docs/maintainers/dependency-security.md) for pinned tools and other ecosystems |
-| Service image | `make image-check` builds the API Docker image without publishing |
+| Locked dependencies | `make audit`: npm lockfile audit; verify production license inventory during packaging/staging |
 | Documentation and contribution templates | Verify claims against source, local links and command syntax; parse changed YAML and check form fields and required inputs |
 
-`make app-check` verifies generated contracts, fixtures, frontend types/lint/unit tests, host Rust tests, formatting, and Clippy. It does not run Playwright or collect frontend coverage; use the separate UI/browser commands when relevant. Other app targets are unsupported; Linux service/CI work follows its own documented checks.
+`make verify` and `make app-check` run the same Node checks, including frontend and
+backend coverage, CI/release guards and the production renderer build. They do
+not run Playwright, dependency audits or build an installer; run those separately
+when affected. Backend coverage requires 90% statements/lines/functions and 85%
+branches. Reports are retained even on test failure.
 
-Native command changes also pass the [native IPC fixture checks](app/docs/native-ipc-contracts.md): Rust produces settings, pagination, grading and restore payloads, and the frontend consumes the same committed samples. Regenerate them explicitly after an intentional contract change and review both consumers.
-
-`make verify` does not include dependency audits, App checks, or an image build. Run those separately when affected. Service reports remain in `server/reports/checks/`, including on test failure. Use fresh report paths for package checks and retain first failures.
-
-Before `make audit-rust`, install the `cargo-audit` version pinned in the [App workflow](.github/workflows/app.yml); the command audits the complete lockfile and verifies all supported target graphs. Follow the dependency security guide for retained advisory limits and manual toolchain updates.
+Native command changes also verify the committed
+[IPC fixtures](app/docs/native-ipc-contracts.md), typed bridge, actual SQLite
+worker and renderer consumers. Keep frozen compatibility baselines distinct
+from generated types. Reports remain under ignored `app/.build/`, `coverage/`
+and browser result directories. Use fresh package paths and retain first failures.
 
 Record exact commands or manual flows, platform/environment, results, and evidence in the PR. Explain failed, unrun, and non-applicable checks. Keep local checks, remote CI, browser mocks, native acceptance, and live-model evaluation separate. Model substitutes do not establish extraction or grading accuracy; follow the [evaluation guide](server/docs/evaluation.md) for separately authorized live checks. Validate affected native interactions, credentials, and audio on the target OS, and report untested platforms.
 
-CI selects work using [shared path rules](server/scripts/ci_scope.py):
+CI selects work using [shared path rules](.github/scripts/ci-scope.ts):
 
 | Changed paths | Heavy CI jobs |
 | --- | --- |
-| App frontend or native code | App quality and macOS package; skip Service checks |
-| App import workspace, service implementation, or service-only scripts | Service checks and service image; skip App quality and all native builds |
-| Shared frontend code, AI contracts, shared fixtures, or build/check dependencies used by both components | Both workflows |
+| Executable code, contracts, fixtures, dependencies or unknown paths | Both workflows: UI/browser/release checks, embedded runtime coverage and macOS package checks |
 | Release notes configuration or release template | App workflow |
 | Any workflow YAML, shared CI actions, scope selector, rulesets, or dependency-update configuration | Both workflows; cross-check selectors and privileged workflow safeguards |
 | Documentation, issue/PR templates, or label catalog | Skip heavy Service/App jobs; manually verify local links and command syntax, parse changed YAML/JSON, and check form fields and labels against the catalog |
 
-Mixed changes run the union of affected checks. App inputs also include the service dependency lock/manifest, build backend, and evaluation helper used by its contract/regression checks. Manual dispatch and release calls run all checks. The final `Service CI` and `Desktop CI` gates always run and verify deliberate skips and failures, so required checks still report a result. The [Service](.github/workflows/server.yml) and [App](.github/workflows/app.yml) workflows define commands, platform matrices, and retained diagnostics.
+Manual dispatch and release calls run all checks. The final `Service CI` and
+`Desktop CI` names remain stable for branch protection; both always verify
+deliberate skips and failures. The [Embedded AI](.github/workflows/server.yml)
+and [App](.github/workflows/app.yml) workflows define commands and retained reports.
 
 ## Submit a pull request
 
@@ -166,18 +230,26 @@ Follow the [release policy](docs/maintainers/releases.md) and [release template]
 Record evidence for the final release candidate before publication:
 
 - [ ] Confirm version, date, download URL, artifact hashes, OS/architecture, and signing/notarization status.
-- [ ] Run the applicable service, app, browser, and final-package checks for that candidate.
+- [ ] Run embedded AI, app, browser, dependency, and final-package checks for that candidate.
 - [ ] Verify installation, sample import, practice, submission, and backup restore on a clean target system.
-- [ ] Capture App import/review and App ZIP import/practice/score workflows, identifying their separate candidates.
+- [ ] Capture embedded import/review and ZIP import/practice/score workflows against that same candidate.
 - [ ] Record separately authorized live parsing/grading examples, failures, and consented user feedback.
 
 Report macOS native checks separately from browser mocks. Historical reports and model substitutes do not establish clean-machine acceptance or live-model accuracy. Keep unchecked items explicit; grading requires a reference answer or rubric.
 
 ## Release quality and notice gates
 
-Run `make app-license-check` against the prepared practice-only resources and repeat package/notice checks on the actual final installer. Use fresh report paths, preserve first failures, and reject mixed package modes, modified artifacts, wrong versions, and embedded Python/LibreOffice engines. See [supplemental notices](app/licenses/README.md).
+Run `npm --prefix app run test:tooling` for release-tool regressions, and stage
+the actual final installer with `node app/scripts/release.ts stage`. Use fresh
+report/output paths, preserve first failures, and reject mixed package modes,
+modified artifacts, wrong versions and retired runtimes. The Electron packager
+and stager derive notices from the reviewed npm lockfile and compare embedded
+license resources with source. See the [release policy](docs/maintainers/releases.md).
 
-Verify Office fidelity against the exact independently deployed engine with retained source/derived hashes. App package success establishes no conversion-quality claim. Service archive checks must match source modules and lockfile bytes; see [source archive verification](docs/history/engineering/service-packaging-20261009.md#source-archive-verification). Preserve local reports and task data when building.
+Verify Tencent recognition and Office/PDF guidance against the frozen embedded
+implementation with retained hashes and explicit paid-call receipts. Package
+success establishes no recognition-quality claim. Historical service archive
+checks remain reference evidence; preserve local reports and task data when building.
 
 ## Report security issues privately
 
@@ -187,4 +259,7 @@ New contributors can start with the [bounded fixture tasks and handover checklis
 
 ### Embedded import checks
 
-The import workspace lives in `shared/cloud/` and runs inside the App. Its component, coverage and browser checks are part of the App checks above. The Python backend ships no frontend assets. Accounts, administration, plans, payments and service-token fields are retired; do not restore them.
+The import workspace lives in `shared/cloud/` and runs inside the App through the
+typed embedded-worker bridge. Its component, coverage and browser checks are
+part of the App checks above. Accounts, administration, plans, payments and
+service-token fields are retired; do not restore them.

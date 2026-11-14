@@ -1,3 +1,4 @@
+import { mockDesktop } from "./mock-desktop.mjs";
 import { chooseOption } from "../../shared/select-test.mjs";
 import { test as base, expect } from 'playwright/test';
 import fs from 'node:fs';
@@ -8,14 +9,13 @@ const test=base.extend({observedCalls:[async ({page},use)=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  const observedCalls=[];
  await page.exposeFunction('__recordMockCall',call=>observedCalls.push(call));
- await page.addInitScript(({fixture})=>{
+ await mockDesktop(page); await page.addInitScript(({fixture})=>{
   // Exercise the browser UI with mocked commands, not native window/event APIs.
-  window.isTauri = false;
   let lang=localStorage.getItem('test-language');
   const banks=[{id:'one',title:'原始题库 — Original bank',description:'Imported content stays unchanged',count:fixture.questions.length,createdAt:1},{id:'two',title:'Mathematics',description:'',count:0,createdAt:1}];
   const questions=fixture.questions.map((q,i)=>({id:String(i),bankId:'one',bankTitle:banks[0].title,question:q,groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null}));
   let settings={config:{service_url:'https://initial-service.example.test'}};
-  window.__TAURI_INTERNALS__={invoke:async(command,args)=>{
+  window.__practiqNativeMock={invoke:async(command,args)=>{
    const request = args?.request;
    await window.__recordMockCall({command,request});
    if (command==='cloud_request' && request.type==='status') return {value:{origin:null,generation:0},generation:0};
@@ -49,7 +49,7 @@ const test=base.extend({observedCalls:[async ({page},use)=>{
  },{fixture:JSON.parse(fs.readFileSync('fixtures/sample.json','utf8'))});
  await page.goto('/');
  await expect(page.getByRole('heading',{name:'My banks',exact:true})).toBeVisible();
- expect(await page.evaluate(async () => (await import('/node_modules/@tauri-apps/api/core.js')).isTauri())).toBe(false);
+ expect(await page.evaluate(() => Boolean(window.practiq))).toBe(true);
  await use(observedCalls);
  expect(errors).toEqual([]);
  expect(observedCalls.filter(c=>c.command!=='request').every(c=>c.command==='cloud_request' && c.request.type==='status')).toBe(true);
@@ -66,8 +66,8 @@ async function expectNoOverflow(page,label) {
 
 test('question-list failures persist, hide stale actions and retry the current filters',async ({page,observedCalls})=>{
  await page.evaluate(()=>{
-  const original=window.__TAURI_INTERNALS__.invoke;
-  window.__TAURI_INTERNALS__.invoke=async(command,args)=>{
+  const original=window.__practiqNativeMock.invoke;
+  window.__practiqNativeMock.invoke=async(command,args)=>{
    if(command!=='request'||args.request.type!=='questions_page') return original(command,args);
    const result=await original(command,args);
    if(window.__failQuestionRead) throw Error('Question read unavailable');
@@ -336,12 +336,12 @@ test('practice preserves answers across sidebar and viewport changes',async ({pa
 
 for (const delay of ['reload', 'mutation']) test(`favorite ${delay} completion preserves the current question filters and pagination`, async ({page, observedCalls}) => {
  await page.evaluate(({question, delay}) => {
-  const originalInvoke = window.__TAURI_INTERNALS__.invoke;
+  const originalInvoke = window.__practiqNativeMock.invoke;
   const row = id => ({id, bankId:'one', bankTitle:'Test bank', question:{...question,id,stem:id},groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:true,latestResult:null});
   const alpha = row('alpha'), beta = row('beta');
   let mutated = false, holdReload = true;
   window.__questionRefresh = {release:null};
-  window.__TAURI_INTERNALS__.invoke = async (command, args) => {
+  window.__practiqNativeMock.invoke = async (command, args) => {
    const request = args?.request;
    if (command !== 'request' || !['favorite','questions_page'].includes(request?.type)) return originalInvoke(command,args);
    await window.__recordMockCall({command,request});

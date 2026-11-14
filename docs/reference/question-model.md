@@ -1,8 +1,20 @@
 # Question types, relational tables, and JSON contracts
 
-The contract source is [`contracts.py`](../../server/src/practiq_ai/contracts.py), and the table definitions are in [`schema.sql`](../../app/src-tauri/src/schema.sql). `app/scripts/export-contracts.py` exports `app/src-tauri/contracts.json` for Rust and `app/src/contracts.generated.ts` for the frontend; `--check` rejects stale generated files. Complete basic and composite examples are in [`sample.json`](../../app/fixtures/sample.json) and [`composite.json`](../../app/fixtures/composite.json).
+The wire-schema source is [`shared/ai-contracts.json`](../../shared/ai-contracts.json),
+and practice tables are in [`schema.sql`](../../app/desktop/schema.sql).
+`app/scripts/export-contracts.ts` derives `app/src/contracts.generated.ts`;
+`--check` rejects stale generated types. Complete basic and composite examples
+are in [`sample.json`](../../app/fixtures/sample.json) and
+[`composite.json`](../../app/fixtures/composite.json).
 
-The same script generates task-summary and review types, question-kind-to-answer-mode mappings, and composite classifications. Rust metadata is in `app/src-tauri/src/question_metadata.rs`. Add new types to the Python contract and regenerate instead of maintaining three separate classification lists. All required indexes are part of the canonical database schema. Startup and backup restoration validate the same complete structure, accepting only LF/CRLF line-ending differences. Missing columns, tables or indexes and unrecognized definitions are rejected without migration.
+The same source owns task-summary/review types, question-kind-to-answer-mode
+mappings and composite classifications. Change that source and regenerate instead
+of maintaining parallel lists. Frozen legacy wire and grading fixtures retain
+their [provenance](../../app/fixtures/migration-reference.md) and are not rewritten
+by the exporter. All required indexes are part of the canonical database schema.
+Startup and backup restoration validate the same complete structure, accepting
+only LF/CRLF line-ending differences. Missing columns, tables or indexes and
+unrecognized definitions are rejected without migration.
 
 ## Versions and directories
 
@@ -10,9 +22,32 @@ Only `schemaVersion: 3` JSON is accepted, either as a bare result or the `result
 
 The desktop starts with an empty database in `v4/` under the system application-data directory. Earlier directories, including `v3/`, are not read, migrated, overwritten or deleted. Databases with older schemas and full backups outside container version 4/schema 11 are explicitly rejected; earlier backups matching those versions and current-format question-bank ZIPs remain importable. Initialization accepts only an empty database. Settings contain no executable-path or remote-storage preferences.
 
-All AI uses the independent Python backend whose origin is saved in `v4/import-service-v1.json` (default `http://127.0.0.1:8090`). Provider credentials stay in the backend environment. The App neither reads nor changes legacy Keychain entries. Historical `v4/service-settings-v1.sqlite` connection settings remain strictly validated and round-trip through optional version-1 fields in version-4 backups, but no longer select a runtime grading target. Old schema-11 backups remain supported; unknown nonempty sidecars are never replaced. A durable pending restore record resolves the sidecar with the published practice database before offline writes after restart. Failed publication or durable rollback blocks database operations until restart recovery. Credentials and AI task state remain excluded from backups.
+The production Electron profile normally resides at
+`~/Library/Application Support/PractiQ/v4/`. Tauri's earlier
+`com.practiq.desktop` profile and the migration prototype's
+`electron-migration/v4/` remain separate and unchanged. Transfer compatible
+practice data through an explicit version-4/schema-11 backup restore; do not
+copy a live database or import old provider credentials automatically.
 
-Python execution state uses version 7, with code, runtime and semantic settings included in its signature. A mismatched signature prevents resume; use the original deployment or reparse the source. Unsupported source formats and graph identifiers return `TASK_FORMAT_UNSUPPORTED`, and are excluded from task lists and scheduling without rewriting their records.
+All AI runs in embedded Node workers. Current provider settings and credentials
+use a separate versioned local record; credentials are protected by macOS
+encryption and excluded from learning backups. Historical
+`v4/import-service-v1.json` and Keychain entries are neither reinterpreted nor
+deleted. Historical `v4/service-settings-v1.sqlite` connection settings remain
+strictly validated and round-trip through optional version-1 fields in version-4
+backups, but never select a current grading target. Old schema-11 backups remain
+supported; unknown nonempty sidecars are never replaced. A durable pending
+restore record resolves the sidecar with the published practice database before
+offline writes after restart. Failed publication or durable rollback blocks
+database operations until restart recovery. AI task state is also excluded from
+learning backups.
+
+LangGraph.js checkpoints and Store, task/run records, usage and paid-call receipts
+use separate SQLite state. Execution fingerprints bind code, locked dependencies,
+runtime and semantic settings; mismatches fence paid resumption. Unknown calls
+never replay automatically. Historical Python checkpoints remain untouched and
+are not deserialized into JavaScript state. Import previously exported compatible
+results or explicitly start a new task from the source; retain the old evidence.
 
 Personal notes, mistake causes and the local backup reminder use `v4/learning-v1.sqlite`, a separate strictly validated version-1 SQLite sidecar. The practice schema remains 11. Full version-4 backups carry optional version-1 `learningData` in the manifest; shared question-bank ZIPs exclude it. The reminder timestamp is local metadata and is not restored from a portable backup. Old schema-11 backups without annotations remain supported and clear current notes on full replacement. Annotation publication and rollback share the existing durable pending-restore record with connection settings. See the [practice guide](../guides/practice-guide.md#daily-review-statistics-and-personal-notes) for limits and user-facing behavior.
 
@@ -48,7 +83,7 @@ erDiagram
   sessions ||--o{ attempts : answers
 ```
 
-`questions` stores only common fields, with no `snapshot`. Every known answer mode must have exactly one matching subtype record. Unclassified questions retain source text and review state and are not automatically scored. Foreign keys enforce parent/child, option-bank, and material relationships; Rust's shared write boundary validates consistency between groups and subtype tables.
+`questions` stores only common fields, with no `snapshot`. Every known answer mode must have exactly one matching subtype record. Unclassified questions retain source text and review state and are not automatically scored. Foreign keys enforce parent/child, option-bank, and material relationships; Node's shared write boundary validates consistency between groups and subtype tables.
 
 ## Table fields
 
@@ -83,16 +118,16 @@ erDiagram
 
 Use the [question JSON and rendering reference](question-types-data-rendering.md#2-common-json-structure-and-constraints) for field limits, basic/composite examples, missing answers and type-specific mappings. Complete import examples are [sample.json](../../app/fixtures/sample.json), [composite.json](../../app/fixtures/composite.json) and [english.json](../../app/fixtures/english.json).
 
-Rust assigns bank-local IDs and remaps parent/child, material, section, blank and option references together. Imported group, visual and processing references are remapped with the question IDs. Parser fragments use local indexes; the shared merge stage assigns final result IDs before export. Missing supplied content remains null with review flags.
+Node assigns bank-local IDs and remaps parent/child, material, section, blank and option references together. Imported group, visual and processing references are remapped with the question IDs. Parser fragments use local indexes; the shared merge stage assigns final result IDs before export. Missing supplied content remains null with review flags.
 
 ## Node responsibilities and boundaries
 
-1. Python format readers extract text/pages. Shared text chunking and visual parsing use the same `ParsedQuestion` contract, without separate graphs for question types.
+1. Every new supported source uses Tencent recognition before structuring. Bounded Node PDF/image/text helpers prepare inputs, and Office visibility helpers preserve hidden content. Oversized Office must first be exported as PDF. Shared chunking and visual parsing use the same `ParsedQuestion` contract, without separate graphs for question types or local recognition fallback.
 2. Merge handles overlap by source position and reconciles parent/child, material, blank, and source references. Cross-page composite material uses explicit original-source anchors. Uncertain associations retain source content and review flags; failed pages remain document-level material.
 3. JSON is exported after validation. Task counts include answerable children, not composite parents again. Existing execution controls still own budgets, retries, usage, and recovery; parsing does not solve questions.
-4. Rust `contract.rs` validates the exported schema and references. `questions.rs` is the single relational mapping used by import, complete-group editing, copy-merge, and queries. Images are written and verified before database references are committed.
-5. Rust `paper.rs` selects questions, applies quotas and scores, and computes preview digests. `exams.rs` checks the digest at session start, freezes the full session, and scores answers. The frontend handles display and input, without a second set of final selection/scoring rules.
-6. Short-answer AI grading requires an explicit action and obtains passages, required materials, and source evidence from structured `materials` in frozen snapshots. Before submission, Rust hides reference answers, explanations, grading evidence, and source-page references that could reveal answers.
+4. `app/desktop/document-contract.ts` validates schema/references. `questions.ts` is the single relational mapping used by import, complete-group editing, copy-merge and queries. Images are written and verified before database references are committed.
+5. `app/desktop/paper.ts` selects questions, applies quotas/scores and computes preview digests. `sessions.ts` checks the digest at session start, freezes the session and scores answers. The frontend handles display/input without a second set of final selection/scoring rules.
+6. Short-answer AI grading requires an explicit action and obtains passages, required materials and source evidence from structured `materials` in frozen snapshots. Before submission, the database worker hides reference answers, explanations, grading evidence and source-page references that could reveal answers.
 
 ## Paper generation and history
 
@@ -106,16 +141,16 @@ Default scores use hundredths of a point. Remainders after equal division are di
 
 ## Verification
 
-- `app/fixtures/contracts.json`: valid and invalid contract cases shared by Python and Rust.
-- `server/tests/test_composite_questions.py`: shared Python workflows, desktop composite samples, and explicit cross-page references.
-- `app/src-tauri/src/tests.rs`: real temporary SQLite tests for import, reconstruction, whole-group selection, option-bank constraints, stale digests, immutable history, and backup/restore.
+- `app/fixtures/contracts.json`: retained valid/invalid cases and expected normalized fields; TypeScript parse/practice validators exercise both original behaviors.
+- `app/desktop/question-contract.test.ts`, source/text/OCR/assembly corpora: composites, supplied-field proofs and original-source/cross-page references.
+- `app/desktop/` temporary SQLite and process-kill tests: import, reconstruction, whole-group selection, option-bank constraints, stale digests, immutable history and backup/restore.
 - `make verify`, `make app-check`, and `make app-build`: offline checks and macOS builds. Passing model fakes does not establish live-model recognition quality for new types; measure that separately.
 
 ## English question types
 
 `questionKind` is a nullable standard classification: listening, reading, word_bank, cloze, grammar_fill, sentence_selection, paragraph_matching, translation, or writing. `questionTypeId` preserves the source label; `answerMode` determines response structure. Incompatible kind/mode combinations are rejected. Filters and quotas use the standard kind, falling back to the existing answer mode when absent.
 
-- Listening uses a `listening` parent with choice, fill_blank, or short_answer children. Parents can be recognized from instructions, an audio reference, or a transcript alone; missing stems still require review. Missing audio permits import but adds a media review flag. If a reference exists but its resource was not retrieved, the Web result preview lists missing audio and the imported bank retains the missing-resource flag. `audioRef` contains objectKey, sha256, mediaType, and sizeBytes. `audioStartSeconds` defaults to 0; `audioEndSeconds` is nullable. `transcript` preserves source listening text. `examPlayCount` defaults to 2 and accepts 1–100. Segment times are rechecked after merging; ZIP import checks segments against actual audio duration. Transcript content blocks must contain content and cannot bind to question IDs. Audio comes from the local picker, bank ZIP, or an explicit URL import in the question editor; parsing does not fetch external audio or generate transcriptions.
+- Listening uses a `listening` parent with choice, fill_blank, or short_answer children. Parents can be recognized from instructions, an audio reference, or a transcript alone; missing stems still require review. Missing media permits import with a review flag. New content stores a canonical playback address in a text `ContentBlock` whose role is `listening_audio_url`; it does not save recordings. Historical `audioRef` values retain objectKey, sha256, mediaType and sizeBytes and remain supported through ZIPs/backups. `audioStartSeconds` defaults to 0; `audioEndSeconds` is nullable. `transcript` preserves source listening text. `examPlayCount` defaults to 2 and accepts 1–100. Segment times are rechecked after merging; historical ZIP audio is checked against actual duration. Transcript blocks cannot bind to question IDs. Parsing does not fetch external audio or generate transcriptions.
 - Grammar fill uses a `gap_fill` parent with `questionKind=grammar_fill`. Each blank maps to a `fill_blank` child with `blankCount=1`. Prompt words remain in child stems.
 - Sentence selection uses `word_bank` mode with `sentence_selection`; complete-sentence options are shared once, without fixed blank/option counts. Paragraph matching uses `matching` with `paragraph_matching`, preserving the source's one-to-one or many-to-one rule.
 - Translation and writing reuse `short_answer`. `sourceLanguage`/`targetLanguage` use language tags such as zh-CN and en; `writingGenre` preserves the source genre; absent `minWords`/`maxWords` remain null. Source text, supplied material, and continuation starters use `contentBlocks` with roles `source_text`, `material`, and `starter_text`. Reference translations and model essays belong only in `answerPayload.text`.
@@ -123,24 +158,55 @@ Default scores use hundredths of a point. Remainders after equal division are di
 
 Practice material appears in a source-material dialog. Blanks retain `questionId` to locate children and show current drafts. English word counts treat contractions and hyphenated words as one word and provide range hints without automatic penalties. Translation/writing practice uses self-assessment; exams allow explicit AI grading only after submission.
 
-Listening practice allows seeking, speed changes, and replay. Exams disallow seeking and speed changes but allow pause. Plays are counted when playback actually starts. Switching children within a group retains the player; leaving the group pauses it. Progress is periodically persisted to SQLite and saved again on pause/exit. Resuming after a normal exit does not consume another play; forced termination may lose approximately the last second of unsaved progress. Transcripts become available after submitting/skipping the whole group or ending practice; exams require submission. Explicitly labeled answers and subsequent content in stems/instructions are hidden from Rust session responses before submission.
+Listening practice allows seeking, speed changes, and replay. Exams disallow seeking and speed changes but allow pause. Plays are counted when playback actually starts. Switching children within a group retains the player; leaving the group pauses it. Progress is periodically persisted to SQLite and saved again on pause/exit. Resuming after a normal exit does not consume another play; forced termination may lose approximately the last second of unsaved progress. Transcripts become available after submitting/skipping the whole group or ending practice; exams require submission. Explicitly labeled answers and subsequent content in stems/instructions are hidden from worker session responses before submission.
 
-Audio is probed and decoded with Symphonia on all app platforms, with bounded input size and duration. Validation checks a five-second deadline between packet operations, but an in-progress Symphonia operation is synchronous and is not interruptible. Playback uses the system WebView on macOS; device codecs require separate verification. Newly selected audio is staged in the editing session; saving a group writes the file before its database reference. Canceling or switching away from listening releases only that import’s lease; concurrent imports of identical audio retain their own leases. The editor cannot save while an import is pending. Saving a new audio reference requires staged or durable bytes; an unchanged missing reference from an incomplete import remains editable. Saving or deleting questions collects unreferenced audio, checking both current banks and historical snapshots so deleting a source question cannot remove audio still used by history.
+Historical audio is validated by macOS CoreAudio helpers in a filesystem/network
+sandbox, with bounded input/output, duration and a five-second deadline enforced
+by process termination. Playback uses Electron's Chromium; device codec and live
+website availability require separate verification. Asset collection checks both
+current banks and immutable history, so deleting a source question cannot remove
+recordings still used by history. New URL playback does not publish an asset.
 
-Offline sample: [nine English question kinds](../../app/fixtures/english.zip). Its three tones verify the player and group workflow; they are not spoken material, evidence of live-model recognition accuracy, or a complete exam bank.
+Historical offline sample: [nine English question kinds](../../app/fixtures/english.zip).
+Its three tones are retained compatibility fixtures, not spoken material or
+recognition-quality evidence. The current [bundled example](../../app/fixtures/all-types-no-recordings.zip)
+omits recordings and keeps listening media pending until an address is supplied.
 
 ### Listening URLs and QR codes
 
-In the listening question editor, paste an HTTP/HTTPS URL and choose **Fetch audio from URL**, or choose **Read QR image**. Existing question images are also available under **Read QR codes in question images**. QR decoding runs locally and displays discovered URLs; it never opens a site automatically. Select a URL and explicitly fetch it. Pages containing multiple audio resources show a choice of URLs before downloading.
+In the listening editor, paste an HTTP/HTTPS playback address or choose **Read QR
+image**. Existing question images are also available under **Read QR codes in
+question images**. QR decoding and applying an address are local/passive. Only
+explicit link discovery or playback opens a site; pages with multiple audio
+resources offer a choice before playback.
 
-The importer accepts direct MP3, M4A/AAC and WAV resources, plus static HTML audio/source elements, Open Graph audio metadata and links ending in those audio extensions. Relative URLs, HTML entities and up to five redirects are supported. Pages that require login, JavaScript, playlists/streaming or access-controlled players are not extracted; download an authorized audio file separately and use the local picker.
+Discovery accepts direct MP3, M4A/AAC and WAV addresses, plus static HTML
+audio/source elements, Open Graph audio metadata and links ending in those
+extensions. Relative URLs, HTML entities and up to five redirects are supported.
+Pages requiring login, JavaScript, playlists/streaming or access-controlled
+players are not extracted; provide a supported public playback address instead.
 
 Only public HTTP/HTTPS addresses on ports 80/443 are accepted. Credentials in URLs and private/reserved destinations are rejected, including after redirects. DNS answers are validated and pinned for each request; system proxies are not used. Requests share a 45-second HTTP budget (OS DNS lookup timing is platform-dependent). Audio is capped at 25 MiB, HTML at 2 MiB, and lists at 50 URLs. QR images accept PNG/JPEG only and are capped at 25 MiB and 4096 pixels per side. Question-bank images and grading images also accept only PNG/JPEG; WebP/GIF assets are no longer accepted. Existing files are not deleted.
 
-Downloaded bytes pass the same audio decoder and staging limits as local files. Saving writes immutable local audio before committing its reference; canceling releases the staged bytes. The URL is not stored as a live playback dependency or credential. Playback, bank export and backup continue to use local audio, without a schema change or model call.
+Fetched playback bytes and Blob URLs remain in memory and are released after
+use. Only the validated address is saved in current questions, immutable session
+snapshots, ZIP exports and learning backups. It may expire and needs network
+access at playback time. Passive reads, saving, export, backup and restore never
+download a recording. Historical local audio retains its original byte/checksum
+validation and offline behavior without a schema change or model call.
 
-## Backend subjective grading
+## Embedded subjective grading
 
-Rust sends an explicit grading action to `/api/subjective-grades` on the same backend used by document import. Requests refuse redirects and use a bounded response and a 900-second timeout. The backend owns model prompts, provider credentials, model-call budgets and durable call accounting. The App verifies response structure, score ranges, reference/answer quotations and assessment totals before applying a score. Invalid results never replace an existing score or manual override.
+An explicit grading action crosses the validated typed bridge to the embedded
+worker. Direct grading makes one bounded model request without automatic retry;
+its durable unknown-result receipt is recorded before sending. The worker owns
+prompts, protected provider settings, budgets and call accounting. The App
+verifies response structure, score ranges, reference/answer quotations and totals
+before applying a score. Invalid results never replace an existing score or
+manual override.
 
-Local grading requests bind the immutable input digest and backend origin. Checking an unknown result uses the same saved request ID and backend; an origin change or legacy direct-model receipt requires explicit regrading. No direct provider transport or API-key management remains in the App. Historical receipts, sidecars, backups and credentials are retained without automatic migration or replay.
+Grading receipts bind the immutable input digest, endpoint, model and prompt
+version. Reading an unknown result never sends it again; a target change or
+historical service receipt requires explicit regrading. Historical receipts,
+sidecars, backups and credentials remain retained without automatic migration
+or replay.

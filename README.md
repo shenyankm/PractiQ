@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/src-tauri/icons/icon.png" width="160" alt="PractiQ logo">
+  <img src="app/desktop/icons/practiq.png" width="160" alt="PractiQ logo">
 </p>
 
 # PractiQ
@@ -14,10 +14,14 @@ Turn documents into question banks, then practise and take mock exams offline on
 - **Review and track learning**: revisit suggested questions, view 7- or 30-day statistics, and keep personal notes and mistake causes.
 - **Keep and share**: pick up a session where you left off, back up your records, and share a bank with its images and audio as a ZIP file.
 
-PractiQ works in English, Simplified Chinese and Traditional Chinese, with light and dark themes, seven basic question types and English listening, reading, cloze, translation and writing. Practice records stay on your device, with no account and no cloud sync. AI import sends documents to your self-hosted service, Tencent Cloud and your configured model provider; optional AI grading sends grading content to the selected endpoint.
+PractiQ works in English, Simplified Chinese and Traditional Chinese, with light and dark themes, seven basic question types and English listening, reading, cloze, translation and writing. Practice records stay on your device, with no account and no cloud sync. Explicit AI import sends documents to Tencent Cloud and your configured model provider; optional AI grading sends grading content to the selected endpoint.
 
 
-You can also use **Document import** in the App: connect your self-hosted personal service, select a document, and explicitly start import. No registration or administrator setup is needed. Document import and grading share the backend address in **Settings → AI service**.
+The current source builds one Electron application with embedded Node workers,
+LangGraph.js, SQLite and local files. Configure import and grading in
+**Settings → AI model and recognition**. No independent service is needed.
+Migration acceptance and remaining work are tracked in the
+[acceptance ledger](docs/maintainers/electron-migration.md).
 
 
 ## Screenshots
@@ -34,7 +38,7 @@ These screenshots were captured on **2026-10-29** from the desktop browser previ
 
 [Install PractiQ](#install), then:
 
-1. When **My banks** is empty, choose **Add example bank**, or import [sample.zip](app/fixtures/sample.zip) through **Settings → Import and restore → Import bank ZIP**. More examples: [composite questions](app/fixtures/composite.zip) and [all question types](app/fixtures/all-types.zip).
+1. When **My banks** is empty, choose **Add example bank**, or import [sample.zip](app/fixtures/sample.zip) through **Settings → Import and restore → Import bank ZIP**. More examples: [composite questions](app/fixtures/composite.zip) and [all question types](app/fixtures/all-types-no-recordings.zip).
 2. Open the bank and choose **Start practice**. Try practice with instant feedback, an untimed self-test or a timed mock exam.
 3. Submit your answers and review the scores and explanations.
 
@@ -44,13 +48,13 @@ Export a bank from its card menu to share its questions without your answers or 
 
 ## Import documents with AI
 
-Import documents inside the macOS App using the independent Python backend:
+Import documents inside the macOS App:
 
-1. [Start the service](#self-host-the-import-service) and open **Document import** in the App. It defaults to `http://127.0.0.1:8090`; change the address under global **Settings → AI service** if needed. No login is required.
+1. Configure the model endpoint/ID/API key and Tencent credentials under **Settings → AI model and recognition**, save, then open **Document import**. No login is required.
 2. Choose up to 10 files and select **Start import**. Choosing files does not upload or parse them.
 3. Review the questions, images and anything flagged for review, then choose **Import bank**. The App adds the saved result and verified images directly to the local bank, without a ZIP step.
 
-The service reads **PDF, TXT, Markdown, PNG/JPEG, DOC, DOCX, PPT, PPTX, XLS and XLSX** with Tencent Cloud's [asynchronous multimodal document parsing](https://cloud.tencent.com/document/api/866/139312). New CSV imports are not supported. Tencent's [billing guide](https://cloud.tencent.com/document/product/866/17619) lists a one-time **1,000-page free allowance**, valid for one year; check eligibility and remaining quota in your Tencent account. Parsing and model calls are billed separately.
+The App reads **PDF, TXT, Markdown, PNG/JPEG, DOC, DOCX, PPT, PPTX, XLS and XLSX** with Tencent Cloud's [asynchronous multimodal document parsing](https://cloud.tencent.com/document/api/866/139312). New CSV imports are not supported. Parsing and model calls are billed separately; check current terms and quota with your providers. Office files above the active transport/type limit must be exported as PDF before import. No Python or LibreOffice installation is used.
 
 By default, import extracts supplied answers and explanations. To fill missing answers or explanations, enable **AI 生成答案与解析** in global Settings, wait for it to save, then explicitly select **Start import**. Existing answers are preserved; generated content is marked for review and shares the task's model-call budget.
 
@@ -58,9 +62,9 @@ Reading and downloading results never calls a model. Resuming, retrying or parsi
 
 ## Grade short answers with AI
 
-Open **Settings → AI service** and set the independent Python backend address (default `http://127.0.0.1:8090`). Document import and AI grading share this backend; configure model IDs, provider addresses and keys only on the backend. Offline practice and local scoring need no service.
+Document import and grading share the model configuration under **Settings → AI model and recognition**. Offline practice and local scoring need no provider credentials or network access.
 
-Grading needs a reference answer or rubric, may cost money, and sends the current question, materials, images and your answer to the provider you chose. Each action makes at most one request, and an unknown result is never resent automatically. Provider keys stay in the backend environment and out of App backups. See the [practice guide](docs/guides/practice-guide.md) for limits and retry rules.
+Grading needs a reference answer or rubric, may cost money, and sends the current question, materials, images and your answer to the provider you chose. Each action makes at most one request, and an unknown result is never resent automatically. Current keys use macOS-protected encrypted storage and stay out of learning backups. See the [practice guide](docs/guides/practice-guide.md) for limits and retry rules.
 
 Ordinary practice supports explicit grading after submitting the current short answer; tests and exams still require paper submission. New results show individual scoring points and verified reference/answer quotations. Practice uses a 100-point scale if no source maximum was supplied. Independent human-labelled grading-quality acceptance remains pending.
 
@@ -74,20 +78,32 @@ To build from source, open the repository root and ask your coding agent to use 
 
 > Read `docs/guides/installation.md` and install PractiQ on this machine. Check the requirements first, run only the steps for my platform, and tell me what you ran, where the build is and anything that failed. Ask before installing system packages.
 
-The [installation guide](docs/guides/installation.md) covers requirements, commands and checks. PractiQ runs on macOS 14+ (Apple Silicon); Linux is supported only for the AI service and CI.
+The [installation guide](docs/guides/installation.md) covers requirements, commands and checks. PractiQ targets macOS 14+ on Apple Silicon; other desktop platforms are not accepted.
 
 PractiQ is still in development. A passing build does not establish signing, clean-machine acceptance or live-model accuracy. Published packages and their evidence are listed on [GitHub Releases](https://github.com/shenyankm/PractiQ/releases).
 
 Desktop data lives in `v4/` with SQLite schema 11. Full backups use container version 4 and schema 11; earlier backups with those versions remain supported. Older schemas are rejected without migration, older directories are left untouched, and current question-bank ZIP files still import. See the [data format boundaries](docs/reference/question-model.md#versions-and-directories).
 
-## Self-host the import service
+Electron normally uses `~/Library/Application Support/PractiQ/v4/`. Earlier Tauri
+and migration-test profiles stay untouched; transfer practice data through an
+explicit compatible backup restore. Provider credentials are configured separately.
 
-Document import needs the self-hosted AI service. It requires Python 3.14+, uv, PostgreSQL, RabbitMQ, Tencent parsing credentials and a model endpoint supporting the Responses API with text, images and structured output. Keep the service on loopback. The [installation guide](docs/guides/installation.md), [personal-use guide](server/docs/personal-use.md) and [Tencent setup guide](server/docs/tencent-document-parser.md) cover setup and upgrades; configure your own providers, with charges paid directly and no PractiQ billing.
+## Local data and AI workers
+
+Practice and AI state use separate local SQLite databases. Learning backups
+include practice data and referenced resources, excluding AI tasks and current
+credentials. New listening content stores QR-derived/playback addresses and
+plays audio in memory; historical recordings remain compatible. Existing data,
+Keychain namespaces and historical service volumes are preserved. Old service
+documentation and reports are migration references, not current setup steps.
 
 ## Documentation and development
 
 
 ```sh
+make install
+make dev
+make verify
 cd app
 npx playwright install chromium --only-shell
 npm run test:browser

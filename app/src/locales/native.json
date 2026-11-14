@@ -1,4 +1,184 @@
 {
+  "AI_CALL_CONFLICT": {
+    "zh-CN": "此请求的执行目标已变化，请核对调用记录后再显式重试。",
+    "zh-TW": "此請求的執行目標已變更，請核對呼叫紀錄後再明確重試。",
+    "en": "This request belongs to a different execution target. Review its call record before explicitly retrying."
+  },
+  "AI_CALL_FAILED": {
+    "zh-CN": "模型调用未完成，请核对调用记录和用量后再操作。",
+    "zh-TW": "模型呼叫未完成，請核對呼叫紀錄和用量後再操作。",
+    "en": "The model call did not complete. Review its call record and usage before continuing."
+  },
+  "AI_INPUT_TOO_LARGE": {
+    "zh-CN": "模型输入超过限制，请缩小所选内容后再提交。",
+    "zh-TW": "模型輸入超過限制，請縮小所選內容後再提交。",
+    "en": "The model input exceeds its limit. Select less content before submitting again."
+  },
+  "AI_OUTPUT_INCOMPLETE": {
+    "zh-CN": "模型响应不完整，未采用该结果。请先核对调用记录。",
+    "zh-TW": "模型回應不完整，未採用該結果。請先核對呼叫紀錄。",
+    "en": "The model response is incomplete and was not used. Review the call record first."
+  },
+  "AI_REQUEST_REJECTED": {
+    "zh-CN": "模型服务拒绝了请求，请核对配置和调用记录。",
+    "zh-TW": "模型服務拒絕了請求，請核對設定和呼叫紀錄。",
+    "en": "The model provider rejected the request. Review the configuration and call record."
+  },
+  "AI_RESPONSE_ENCODING": {
+    "zh-CN": "模型响应的编码不受支持，未采用该结果。",
+    "zh-TW": "模型回應的編碼不受支援，未採用該結果。",
+    "en": "The model response uses an unsupported encoding and was not used."
+  },
+  "AI_RESPONSE_INVALID": {
+    "zh-CN": "模型响应未通过校验，请核对任务记录。",
+    "zh-TW": "模型回應未通過驗證，請核對任務紀錄。",
+    "en": "The model response failed validation. Review the task record."
+  },
+  "AI_RESPONSE_TOO_LARGE": {
+    "zh-CN": "模型响应超过大小限制，未采用该结果。",
+    "zh-TW": "模型回應超過大小限制，未採用該結果。",
+    "en": "The model response exceeds its size limit and was not used."
+  },
+  "AI_VALIDATOR_FAILED": {
+    "zh-CN": "模型结果校验无法完成，已停止后续处理。",
+    "zh-TW": "模型結果驗證無法完成，已停止後續處理。",
+    "en": "Model-result validation could not complete. Further processing has stopped."
+  },
+  "CHUNK_INPUTS_INVALID": {
+    "zh-CN": "分段来源校验失败，请核对原文件和任务记录。",
+    "zh-TW": "分段來源驗證失敗，請核對原始檔案和任務紀錄。",
+    "en": "Chunk-source validation failed. Review the original file and task record."
+  },
+  "DOCUMENT_ENCODING_INVALID": {
+    "zh-CN": "文本文件不是有效的 UTF-8 编码，请另存为 UTF-8 后导入。",
+    "zh-TW": "文字檔案不是有效的 UTF-8 編碼，請另存為 UTF-8 後匯入。",
+    "en": "The text file is not valid UTF-8. Save it as UTF-8 before importing."
+  },
+  "DOCUMENT_STOP_REQUESTED": {
+    "zh-CN": "已请求停止文档处理，请等待当前操作结束后刷新状态。",
+    "zh-TW": "已請求停止文件處理，請等待目前操作結束後重新整理狀態。",
+    "en": "Document processing was asked to stop. Wait for the current operation to finish, then refresh."
+  },
+  "GRADING_EVIDENCE_INVALID": {
+    "zh-CN": "评分依据未通过校验，本题仍未评分。请核对参考答案或评分细则。",
+    "zh-TW": "評分依據未通過驗證，本題仍未評分。請核對參考答案或評分規準。",
+    "en": "Grading evidence failed validation. This question remains ungraded. Review its reference answer or rubric."
+  },
+  "PDF_ENGINE_CHANGED": {
+    "zh-CN": "PDF 处理引擎与原任务不一致，已停止处理。请核对应用版本。",
+    "zh-TW": "PDF 處理引擎與原任務不一致，已停止處理。請核對應用程式版本。",
+    "en": "The PDF engine differs from the original task. Processing stopped. Check the application version."
+  },
+  "PDF_ENGINE_INVALID": {
+    "zh-CN": "应用内的 PDF 处理引擎校验失败，请重新安装完整的应用包。",
+    "zh-TW": "應用程式內的 PDF 處理引擎驗證失敗，請重新安裝完整的應用程式套件。",
+    "en": "The bundled PDF engine failed validation. Reinstall the complete application package."
+  },
+  "PDF_FONT_UNAVAILABLE": {
+    "zh-CN": "PDF 所需的字体资源不可用，未继续识别。",
+    "zh-TW": "PDF 所需的字型資源無法使用，未繼續辨識。",
+    "en": "Required PDF font resources are unavailable. Recognition did not continue."
+  },
+  "PDF_MEMORY_LIMIT": {
+    "zh-CN": "PDF 处理超过内存限制，请拆分文件后重新导入。",
+    "zh-TW": "PDF 處理超過記憶體限制，請分割檔案後重新匯入。",
+    "en": "PDF processing exceeded its memory limit. Split the file before importing again."
+  },
+  "PDF_PAGE_LIMIT_EXCEEDED": {
+    "zh-CN": "PDF 页数超过限制，请拆分文件后重新导入。",
+    "zh-TW": "PDF 頁數超過限制，請分割檔案後重新匯入。",
+    "en": "The PDF exceeds its page limit. Split the file before importing again."
+  },
+  "PDF_PROCESSING_FAILED": {
+    "zh-CN": "PDF 处理失败，请核对文件是否完整并查看诊断详情。",
+    "zh-TW": "PDF 處理失敗，請核對檔案是否完整並查看診斷詳情。",
+    "en": "PDF processing failed. Check that the file is complete and review the diagnostic details."
+  },
+  "REVIEW_TOO_LARGE": {
+    "zh-CN": "复核内容超过大小限制，请缩小所选范围。",
+    "zh-TW": "複核內容超過大小限制，請縮小所選範圍。",
+    "en": "The review content exceeds its size limit. Select a smaller range."
+  },
+  "STORE_INDEX_UNSUPPORTED": {
+    "zh-CN": "任务存储不支持此索引操作。",
+    "zh-TW": "任務儲存不支援此索引操作。",
+    "en": "Task storage does not support this indexing operation."
+  },
+  "STORE_QUERY_UNSUPPORTED": {
+    "zh-CN": "任务存储不支持此查询操作。",
+    "zh-TW": "任務儲存不支援此查詢操作。",
+    "en": "Task storage does not support this query."
+  },
+  "TASK_CHECKPOINT_UNREADABLE": {
+    "zh-CN": "任务检查点无法读取，已保留原记录。请核对诊断信息。",
+    "zh-TW": "任務檢查點無法讀取，已保留原始紀錄。請核對診斷資訊。",
+    "en": "The task checkpoint cannot be read. Its original record was retained. Review the diagnostic information."
+  },
+  "TENCENT_API_UNAVAILABLE": {
+    "zh-CN": "腾讯识别服务暂时不可用，请先刷新已有任务状态。",
+    "zh-TW": "騰訊辨識服務暫時無法使用，請先重新整理既有任務狀態。",
+    "en": "Tencent recognition is currently unavailable. Refresh the existing task status first."
+  },
+  "TENCENT_INPUTS_INVALID": {
+    "zh-CN": "腾讯识别的来源清单校验失败，未继续提交。",
+    "zh-TW": "騰訊辨識的來源清單驗證失敗，未繼續提交。",
+    "en": "Tencent recognition input validation failed. Submission did not continue."
+  },
+  "TENCENT_JOB_CONFLICT": {
+    "zh-CN": "识别任务与保存的提交记录不一致，请先核对回执。",
+    "zh-TW": "辨識任務與儲存的提交紀錄不一致，請先核對回執。",
+    "en": "The recognition job differs from its saved submission record. Review the receipt first."
+  },
+  "TENCENT_JOB_FAILED": {
+    "zh-CN": "腾讯识别任务失败，请核对任务回执后再显式重试。",
+    "zh-TW": "騰訊辨識任務失敗，請核對任務回執後再明確重試。",
+    "en": "The Tencent recognition job failed. Review its receipt before explicitly retrying."
+  },
+  "TENCENT_JOB_UNKNOWN": {
+    "zh-CN": "腾讯识别任务状态未确认，请先核对已有回执，勿重复提交。",
+    "zh-TW": "騰訊辨識任務狀態未確認，請先核對既有回執，勿重複提交。",
+    "en": "The Tencent recognition job status is unconfirmed. Review existing receipts before submitting again."
+  },
+  "TENCENT_QUERY_REJECTED": {
+    "zh-CN": "腾讯拒绝了任务查询，请核对识别配置和已有回执。",
+    "zh-TW": "騰訊拒絕了任務查詢，請核對辨識設定和既有回執。",
+    "en": "Tencent rejected the job query. Review the recognition configuration and existing receipts."
+  },
+  "TENCENT_REQUEST_REJECTED": {
+    "zh-CN": "腾讯拒绝了识别请求，请核对配置、文件和提交回执。",
+    "zh-TW": "騰訊拒絕了辨識請求，請核對設定、檔案和提交回執。",
+    "en": "Tencent rejected the recognition request. Review the configuration, file and submission receipt."
+  },
+  "TENCENT_RESULT_INVALID": {
+    "zh-CN": "腾讯识别结果未通过校验，未采用该结果。",
+    "zh-TW": "騰訊辨識結果未通過驗證，未採用該結果。",
+    "en": "The Tencent recognition result failed validation and was not used."
+  },
+  "TENCENT_RESULT_TOO_LARGE": {
+    "zh-CN": "腾讯识别结果超过大小限制，未继续处理。",
+    "zh-TW": "騰訊辨識結果超過大小限制，未繼續處理。",
+    "en": "The Tencent recognition result exceeds its size limit. Processing did not continue."
+  },
+  "TENCENT_SOURCE_TOO_LARGE": {
+    "zh-CN": "文件超过当前腾讯识别限制，请缩小文件；Office 文件请先导出为 PDF。",
+    "zh-TW": "檔案超過目前騰訊辨識限制，請縮小檔案；Office 檔案請先匯出為 PDF。",
+    "en": "The file exceeds the current Tencent recognition limit. Reduce the file size; export Office files as PDF first."
+  },
+  "TENCENT_SUBMISSION_UNKNOWN": {
+    "zh-CN": "腾讯识别提交结果未确认，请先核对任务和回执，勿重复提交。",
+    "zh-TW": "騰訊辨識提交結果未確認，請先核對任務和回執，勿重複提交。",
+    "en": "The Tencent submission outcome is unconfirmed. Review the task and receipt before submitting again."
+  },
+  "UNIT_RESULT_INVALID": {
+    "zh-CN": "来源单元结果校验失败，未采用该结果。请核对任务记录。",
+    "zh-TW": "來源單元結果驗證失敗，未採用該結果。請核對任務紀錄。",
+    "en": "A source-unit result failed validation and was not used. Review the task record."
+  },
+  "OFFICE_EXPORT_PDF_REQUIRED": {
+    "zh-CN": "Word、Excel 或 PPT 超过当前大小限制，请先导出为 PDF 后导入。",
+    "zh-TW": "Word、Excel 或 PPT 超過目前大小限制，請先匯出為 PDF 後匯入。",
+    "en": "The Word, Excel or PowerPoint file exceeds the current size limit. Export it as a PDF, then import the PDF."
+  },
   "LOCAL_REVIEW_ROOT_INVALID": {
     "zh-CN": "请选择完整题目确认或撤销复核。",
     "en": "Select a complete question to confirm or undo its review.",
@@ -345,9 +525,9 @@
     "zh-TW": "visualElements.description 不能為空。"
   },
   "LOCAL_QUESTION_INDEX_INVALID": {
-    "zh-CN": "{key}[{i}].questionIndexes: 越界。",
-    "en": "{key}[{i}].questionIndexes: out of bounds.",
-    "zh-TW": "{key}[{i}].questionIndexes: 超出範圍。"
+    "zh-CN": "{key}[{i}]: 题目引用无效。",
+    "en": "{key}[{i}]: invalid question reference.",
+    "zh-TW": "{key}[{i}]: 題目引用無效。"
   },
   "LOCAL_VISUAL_BBOX_INVALID": {
     "zh-CN": "visualElements[{i}].bbox: 无效区域。",
@@ -395,9 +575,9 @@
     "zh-TW": "{name} 過長。"
   },
   "LOCAL_URL_INVALID": {
-    "zh-CN": "{name} 必须为完整的 http(s) 地址。",
-    "en": "{name} must be a complete HTTP(S) URL.",
-    "zh-TW": "{name} 必須為完整的 http(s) 位址。"
+    "zh-CN": "模型 API 地址需使用 HTTPS 或本机回环地址，不能包含凭据、查询参数或片段。",
+    "zh-TW": "模型 API 位址須使用 HTTPS 或本機回環位址，且不得包含憑證、查詢參數或片段。",
+    "en": "Use HTTPS or a loopback model API URL without credentials, query parameters or fragments."
   },
   "LOCAL_URL_HTTPS_REQUIRED": {
     "zh-CN": "{name} 需要 HTTPS，本机回环地址可使用 HTTP。",
@@ -410,9 +590,9 @@
     "zh-TW": "{name} 不能包含使用者名稱、密碼、查詢字串或片段。"
   },
   "LOCAL_MODEL_ID_INVALID": {
-    "zh-CN": "Model ID 不合法。",
-    "en": "Invalid model ID.",
-    "zh-TW": "Model ID 不合法。"
+    "zh-CN": "请检查模型服务商和模型 ID。",
+    "zh-TW": "請檢查模型服務商與模型 ID。",
+    "en": "Check the model provider and model ID."
   },
   "LOCAL_KEYCHAIN_READ": {
     "zh-CN": "无法读取系统凭据存储，请检查系统凭据存储是否已解锁。",
@@ -710,9 +890,9 @@
     "zh-TW": "資源儲存不可用。"
   },
   "QUEUE_FULL": {
-    "zh-CN": "任务队列已满，请稍后重试。",
-    "en": "The task queue is full. Retry later.",
-    "zh-TW": "任務佇列已滿，請稍後重試。"
+    "zh-CN": "任务或模型队列已满，请等待当前工作结束后再手动操作。",
+    "zh-TW": "任務或模型佇列已滿，請等待目前工作結束後再手動操作。",
+    "en": "The task or provider queue is full. Wait for current work to finish before trying again."
   },
   "REQUEST_CONFLICT": {
     "zh-CN": "请求内容已变化，请检查后重新提交。",
@@ -975,9 +1155,9 @@
     "zh-TW": "請使用公開的 HTTP/HTTPS 網址（80/443 埠），不能包含帳號密碼或指向本機、內網位址。"
   },
   "LOCAL_AUDIO_DOWNLOAD_FAILED": {
-    "zh-CN": "获取资源失败，请检查网址和网络；资源可能需要登录或已过期。也可下载音频后选择本地文件。",
-    "en": "Could not fetch this resource. Check the URL and connection; it may require sign-in or have expired. You can also download the audio and choose the local file.",
-    "zh-TW": "取得資源失敗，請檢查網址與網路；資源可能需要登入或已過期。也可先下載音訊，再選擇本機檔案。"
+    "zh-CN": "获取资源失败，请检查网址和网络；资源可能需要登录或已过期。请更换公开播放地址。",
+    "en": "Could not load this resource. Check the address and connection; it may require sign-in or have expired. Use another public playback address.",
+    "zh-TW": "取得資源失敗，請檢查網址與網路；資源可能需要登入或已過期。請更換公開播放位址。"
   },
   "LOCAL_AUDIO_DOWNLOAD_SIZE": {
     "zh-CN": "资源过大：音频最多 25 MiB，网页最多 2 MiB。",
@@ -985,9 +1165,9 @@
     "zh-TW": "資源過大：音訊最多 25 MiB，網頁最多 2 MiB。"
   },
   "LOCAL_AUDIO_NO_LINKS": {
-    "zh-CN": "未找到公开音频链接。需要登录或运行脚本的网页，请自行下载音频后选择本地文件。",
-    "en": "No public audio links found. For pages requiring sign-in or scripts, download the audio yourself and choose the local file.",
-    "zh-TW": "找不到公開音訊連結。需要登入或執行指令碼的網頁，請自行下載音訊後選擇本機檔案。"
+    "zh-CN": "未找到公开音频链接。请粘贴音频直链，或识别包含播放地址的二维码。",
+    "en": "No public audio links found. Paste a direct audio address or decode a QR code containing one.",
+    "zh-TW": "找不到公開音訊連結。請貼上音訊直接連結，或辨識包含播放位址的 QR Code。"
   },
   "LOCAL_AUDIO_QR_INVALID": {
     "zh-CN": "未识别到有效的公开网址二维码。请选择清晰的 PNG/JPEG 图片（宽高不超过 4096 像素），或直接粘贴网址。",
@@ -995,14 +1175,14 @@
     "zh-TW": "未辨識到有效的公開網址 QR Code。請選擇清晰的 PNG/JPEG 圖片（寬高不超過 4096 像素），或直接貼上網址。"
   },
   "LOCAL_AUDIO_INVALID": {
-    "zh-CN": "资源不是有效的 MP3、M4A/AAC 或 WAV 音频，或音频暂存空间已满。",
-    "en": "The resource is not valid MP3, M4A/AAC or WAV audio, or audio staging storage is full.",
-    "zh-TW": "資源不是有效的 MP3、M4A/AAC 或 WAV 音訊，或音訊暫存空間已滿。"
+    "zh-CN": "资源不是有效的 MP3、M4A/AAC 或 WAV 音频。",
+    "en": "The resource is not valid MP3, M4A/AAC or WAV audio.",
+    "zh-TW": "資源不是有效的 MP3、M4A/AAC 或 WAV 音訊。"
   },
   "LOCAL_AUDIO_MISSING": {
-    "zh-CN": "音频暂存已失效，请重新导入音频后保存。",
-    "en": "The staged audio is no longer available. Import the audio again before saving.",
-    "zh-TW": "音訊暫存已失效，請重新匯入音訊後儲存。"
+    "zh-CN": "历史音频不可用，请检查备份或补充公开播放地址。",
+    "en": "Existing audio is unavailable. Check the backup or add a public playback address.",
+    "zh-TW": "歷史音訊無法使用，請檢查備份或補充公開播放位址。"
   },
   "LOCAL_BACKUP_RESOURCE_INVALID": {
     "zh-CN": "当前数据含不支持或损坏的图片、音频，备份已取消；已有备份未被覆盖。",
@@ -1223,5 +1403,255 @@
     "zh-CN": "模型供应商余额不足，请充值或更换后端模型配置后再手动重试。",
     "en": "The model provider balance is insufficient. Top up or update the backend model configuration, then retry explicitly.",
     "zh-TW": "模型供應商餘額不足，請儲值或更換後端模型設定後再手動重試。"
+  },
+  "AI_RUNTIME_UNAVAILABLE": {
+    "zh-CN": "内置 AI 暂不可用，请重启应用。已有记录保留。",
+    "zh-TW": "內建 AI 暫時無法使用，請重新啟動應用程式。既有紀錄會保留。",
+    "en": "Embedded AI is unavailable. Restart the app; existing records are retained."
+  },
+  "LOCAL_SETTINGS_CHANGED": {
+    "zh-CN": "AI 设置已变化。请刷新设置并核对原任务，勿重复提交。",
+    "zh-TW": "AI 設定已變更。請重新讀取設定並核對原任務，勿重複提交。",
+    "en": "AI settings changed. Reload them and inspect the original task before retrying."
+  },
+  "LOCAL_KEY_TARGET_CHANGED": {
+    "zh-CN": "更改模型 API 地址时，请重新填写或明确清除模型凭据。",
+    "zh-TW": "變更模型 API 位址時，請重新填寫或明確清除模型憑證。",
+    "en": "Re-enter or explicitly clear the model credential when changing its API URL."
+  },
+  "LOCAL_SECRET_UNAVAILABLE": {
+    "zh-CN": "无法使用系统凭据加密，请检查系统权限后在设置中重新保存凭据。",
+    "zh-TW": "無法使用系統憑證加密，請檢查系統權限後在設定中重新儲存憑證。",
+    "en": "System credential encryption is unavailable. Check system access and save the credentials again."
+  },
+  "IMPORT_SETTINGS_CONFLICT": {
+    "zh-CN": "AI 设置已更新，请重新读取后再调整。",
+    "zh-TW": "AI 設定已更新，請重新讀取後再調整。",
+    "en": "AI settings changed. Reload them before editing."
+  },
+  "TENCENT_NOT_CONFIGURED": {
+    "zh-CN": "请在设置中填写腾讯文档识别凭据，再手动开始导入。",
+    "zh-TW": "請在設定中填寫騰訊文件辨識憑證，再手動開始匯入。",
+    "en": "Configure Tencent document recognition credentials in Settings, then start the import explicitly."
+  },
+  "ACTION_UNAVAILABLE": {
+    "zh-CN": "此操作尚未完成迁移。已有数据和原始结果保留。",
+    "zh-TW": "此操作尚未完成移轉。既有資料與原始結果會保留。",
+    "en": "This operation is not yet available in the migrated app. Existing data and original results are retained."
+  },
+  "AI_RESULT_UNKNOWN": {
+    "zh-CN": "上次模型调用结果尚未确认。原回执已保留，不会自动重放；请先核对任务再决定是否显式重试。",
+    "zh-TW": "上次模型呼叫結果尚未確認。原回執已保留，不會自動重送；請先核對任務再決定是否明確重試。",
+    "en": "The previous model outcome is unknown. Its receipt is retained and will not be replayed automatically. Inspect the task before explicitly retrying."
+  },
+  "BANK_EXPORT_NOT_READY": {
+    "zh-CN": "当前检查点没有可导入或导出的已完成结果，请刷新任务并核对处理状态。",
+    "zh-TW": "目前檢查點沒有可匯入或匯出的已完成結果，請重新讀取任務並核對處理狀態。",
+    "en": "This checkpoint has no completed result to import or export. Refresh the task and check its status."
+  },
+  "BANK_EXPORT_INVALID": {
+    "zh-CN": "题库内容或资源校验失败，请核对原文件与结果；已有题库保持不变。",
+    "zh-TW": "題庫內容或資源驗證失敗，請核對原始檔案與結果；既有題庫不會變更。",
+    "en": "Bank content or resource validation failed. Check the source and result; existing banks are unchanged."
+  },
+  "BANK_EXPORT_TOO_LARGE": {
+    "zh-CN": "题库或资源超过上限，请缩小题目范围或拆分原文件后再导入或导出。",
+    "zh-TW": "題庫或資源超過上限，請縮小題目範圍或拆分原始檔案後再匯入或匯出。",
+    "en": "The bank or its resources exceed limits. Select fewer questions or split the source before importing or exporting."
+  },
+  "LOCAL_IMPORT_RECEIPT_INVALID": {
+    "zh-CN": "已有导入记录与题库内容不一致，已停止导入。请保留数据并核对备份。",
+    "zh-TW": "既有匯入紀錄與題庫內容不一致，已停止匯入。請保留資料並核對備份。",
+    "en": "The saved import receipt points to different content. Import stopped; retain the data and inspect your backup."
+  },
+  "CORRECTION_CONFLICT": {
+    "zh-CN": "其他窗口已保存修订，请重新读取后核对，草稿仍保留。",
+    "en": "Another window saved a revision. Reload and compare; your draft is retained.",
+    "zh-TW": "其他視窗已儲存修訂，請重新讀取後核對，草稿仍保留。"
+  },
+  "CORRECTION_INVALID": {
+    "zh-CN": "修改与题组或答案引用冲突，请核对选项、作答方式和所属材料。",
+    "en": "The correction conflicts with its question group or answer references. Check the options, answer mode and material.",
+    "zh-TW": "修改與題組或答案參照衝突，請核對選項、作答方式及所屬材料。"
+  },
+  "CORRECTION_PROTECTED_FIELD": {
+    "zh-CN": "来源证据、资源和题组关联不可修改。",
+    "en": "Source evidence, resources and question relationships cannot be changed.",
+    "zh-TW": "來源證據、資源與題組關聯不可修改。"
+  },
+  "CORRECTION_NOT_READY": {
+    "zh-CN": "任务尚未完成或结果已变化，请刷新后再校对。",
+    "en": "The task is incomplete or its result changed. Refresh before correcting.",
+    "zh-TW": "任務尚未完成或結果已變更，請重新整理後再校對。"
+  },
+  "CORRECTION_NOT_FOUND": {
+    "zh-CN": "此检查点没有对应的修订，请重新读取修订历史。",
+    "en": "This checkpoint has no matching revision. Reload the revision history.",
+    "zh-TW": "此檢查點沒有對應的修訂，請重新讀取修訂歷史。"
+  },
+  "CORRECTION_HISTORY_LIMIT": {
+    "zh-CN": "此检查点的修订记录已达上限，请导入修订版后在本地题库继续编辑。",
+    "en": "Revision history reached its limit. Import a revised bank to continue editing locally.",
+    "zh-TW": "此檢查點的修訂紀錄已達上限，請匯入修訂版後在本機題庫繼續編輯。"
+  },
+  "ANSWER_SOURCE_UNAVAILABLE": {
+    "zh-CN": "答案来源不可用，请保留草稿并重新读取已完成的答案卷。",
+    "en": "The answer source is unavailable. Keep your draft and reload a completed answer document.",
+    "zh-TW": "答案來源無法使用，請保留草稿並重新讀取已完成的答案卷。"
+  },
+  "ANSWER_SOURCE_STALE": {
+    "zh-CN": "所选答案检查点已变化，请重新读取候选后确认。",
+    "en": "The selected answer checkpoint changed. Reload the proposal before confirming.",
+    "zh-TW": "所選答案檢查點已變更，請重新讀取候選後確認。"
+  },
+  "ANSWER_REPLACEMENT_REQUIRED": {
+    "zh-CN": "已有参考答案，请明确确认替换后再保存。",
+    "en": "A reference answer already exists. Explicitly confirm its replacement before saving.",
+    "zh-TW": "已有參考答案，請明確確認取代後再儲存。"
+  },
+  "ANSWER_MATCH_INVALID": {
+    "zh-CN": "所选答案与题目格式或已确认的来源不一致，请核对。",
+    "en": "The answer does not match the question format or confirmed source. Check the selection.",
+    "zh-TW": "所選答案與題目格式或已確認的來源不符，請核對。"
+  },
+  "SOURCE_SELECTION_INVALID": {
+    "zh-CN": "所选页码或来源单元不可用，请重新核对原任务。",
+    "en": "The selected pages or source units are unavailable. Check the original task.",
+    "zh-TW": "所選頁碼或來源單元無法使用，請重新核對原任務。"
+  },
+  "SOURCE_REPAIR_ROOT_MISSING": {
+    "zh-CN": "原文存储目录不可用，请恢复原目录后再修复。",
+    "en": "Original source storage is unavailable. Restore its directory before repair.",
+    "zh-TW": "原文儲存目錄不可用，請恢復原目錄後再修復。"
+  },
+  "SOURCE_REPAIR_BUSY": {
+    "zh-CN": "请先停止所有 AI 任务，再修复原文。",
+    "en": "Stop all AI work before repairing the source.",
+    "zh-TW": "請先停止所有 AI 任務，再修復原文。"
+  },
+  "SOURCE_REPAIR_CHANGED": {
+    "zh-CN": "原文或修复副本已变化，请核对后重新校验。",
+    "en": "The source or preservation copy changed. Inspect it and verify again.",
+    "zh-TW": "原文或修復副本已變化，請核對後重新校驗。"
+  },
+  "SOURCE_REPAIR_OWNER": {
+    "zh-CN": "请使用原文件所属的系统账户修复原文。",
+    "en": "Repair the source using its original system account.",
+    "zh-TW": "請使用原檔案所屬的系統帳戶修復原文。"
+  },
+  "SOURCE_REPAIR_INVALID": {
+    "zh-CN": "原文修复记录校验失败，文件已保留，请核对修复清单。",
+    "en": "Source repair evidence failed validation. Files are retained; inspect the repair manifest.",
+    "zh-TW": "原文修復記錄校驗失敗，檔案已保留，請核對修復清單。"
+  },
+  "SOURCE_REPLACEMENT_INVALID": {
+    "zh-CN": "请选择与最初导入大小和 SHA-256 完全一致的原文件。",
+    "en": "Choose the original file with the exact original size and SHA-256.",
+    "zh-TW": "請選擇與最初匯入大小和 SHA-256 完全一致的原檔案。"
+  },
+  "SOURCE_REPAIR_IO": {
+    "zh-CN": "原文修复写入失败，请检查磁盘后沿用原请求重试。",
+    "en": "Source repair could not be written. Check the disk and retry the original request.",
+    "zh-TW": "原文修復寫入失敗，請檢查磁碟後沿用原請求重試。"
+  },
+  "TASK_DELETING": {
+    "zh-CN": "任务删除尚未完成，请沿用原任务删除重试；现有原文和用量记录保留。",
+    "en": "Task deletion is incomplete. Retry deletion for the original task; shared sources and usage records remain.",
+    "zh-TW": "任務刪除尚未完成，請沿用原任務刪除重試；現有原文和用量記錄保留。"
+  },
+  "INVALID_CURSOR": {
+    "zh-CN": "任务分页位置无效，请重新读取任务列表。",
+    "en": "Invalid task page position. Reload the task list.",
+    "zh-TW": "任務分頁位置無效，請重新讀取任務列表。"
+  },
+  "LOCAL_DESTINATION_EXISTS": {
+    "zh-CN": "该文件已存在，请使用新的文件名保存。",
+    "zh-TW": "該檔案已存在，請使用新的檔案名稱儲存。",
+    "en": "This file already exists. Save using a new filename."
+  },
+  "LOCAL_EXPORT_DESTINATION_INVALID": {
+    "zh-CN": "请选择应用数据目录之外的位置保存。",
+    "zh-TW": "請選擇應用程式資料目錄之外的位置儲存。",
+    "en": "Choose a location outside the application data directory."
+  },
+  "MAINTENANCE_BUSY": {
+    "zh-CN": "请先停止 AI 任务，并等待导出和原文修复结束后再清理。",
+    "en": "Stop AI work and wait for exports and source repairs before cleanup.",
+    "zh-TW": "請先停止 AI 任務，並等待匯出和原文修復結束後再清理。"
+  },
+  "MAINTENANCE_PREVIEW_STALE": {
+    "zh-CN": "清理预览已过期或任务已变化，请重新检查。",
+    "en": "The cleanup preview expired or tasks changed. Inspect again.",
+    "zh-TW": "清理預覽已過期或任務已變更，請重新檢查。"
+  },
+  "MAINTENANCE_RECEIPT_INVALID": {
+    "zh-CN": "清理回执无法读取，现有记录已保留。请先核对数据。",
+    "en": "The cleanup receipt cannot be read. Existing records were retained; inspect the data first.",
+    "zh-TW": "清理回執無法讀取，現有記錄已保留。請先核對資料。"
+  },
+  "MAINTENANCE_HISTORY_LIMIT": {
+    "zh-CN": "请先处理未完成的清理批次，再开始新的清理。",
+    "en": "Resolve unfinished cleanup batches before starting another.",
+    "zh-TW": "請先處理未完成的清理批次，再開始新的清理。"
+  },
+  "MAINTENANCE_PENDING": {
+    "zh-CN": "请先明确继续未完成的清理批次。",
+    "en": "Explicitly continue the unfinished cleanup batch first.",
+    "zh-TW": "請先明確繼續未完成的清理批次。"
+  },
+  "TENCENT_COS_NOT_CONFIGURED": {
+    "zh-CN": "请配置私有 COS 存储桶和地域后再启用。",
+    "en": "Configure a private COS bucket and region before enabling staging.",
+    "zh-TW": "請設定私有 COS 儲存桶和地域後再啟用。"
+  },
+  "TENCENT_COS_CONFLICT": {
+    "zh-CN": "暂存记录与当前来源或 COS 配置不匹配，原记录已保留。请核对原任务。",
+    "en": "The staging record differs from the source or COS configuration. The original record is retained; inspect the original task.",
+    "zh-TW": "暫存記錄與目前來源或 COS 設定不符，原記錄已保留。請核對原任務。"
+  },
+  "TENCENT_COS_UPLOAD_FAILED": {
+    "zh-CN": "私有 COS 上传失败。可明确继续暂存，不会自动切换传输方式或重新提交识别。",
+    "en": "Private COS upload failed. Explicitly resume staging; transport and recognition are not automatically retried.",
+    "zh-TW": "私有 COS 上傳失敗。可明確繼續暫存，不會自動切換傳輸方式或重新提交識別。"
+  },
+  "TENCENT_COS_CLEANUP_FAILED": {
+    "zh-CN": "COS 暂存清理未确认。结果和调用记录已保留，可明确继续清理，不会重新提交识别。",
+    "en": "COS staging cleanup is unconfirmed. Results and call receipts are retained; explicitly resume cleanup without recognition resubmission.",
+    "zh-TW": "COS 暫存清理未確認。結果和呼叫記錄已保留，可明確繼續清理，不會重新提交識別。"
+  },
+  "COST_PRICING_INVALID": {
+    "zh-CN": "请填写有效币种、价格和至少一个正数限额；金额最多六位小数。",
+    "en": "Enter a valid currency, explicit prices and at least one positive limit, using up to six decimal places.",
+    "zh-TW": "請填寫有效幣別、價格和至少一個正數限額；金額最多六位小數。"
+  },
+  "COST_STORE_REQUIRED": {
+    "zh-CN": "费用预留需要持久化账目，未提交新的模型或识别请求。",
+    "en": "Cost admission requires durable accounting; no new model or recognition request was sent.",
+    "zh-TW": "費用預留需要持久化帳目，未提交新的模型或識別請求。"
+  },
+  "COST_STORE_UNAVAILABLE": {
+    "zh-CN": "费用预留账目无法读取或保存。现有记录保留，请核对后手动重试。",
+    "en": "Cost records cannot be read or saved. Existing records are retained; inspect them before retrying manually.",
+    "zh-TW": "費用預留帳目無法讀取或儲存。現有記錄保留，請核對後手動重試。"
+  },
+  "COST_RESERVATION_CONFLICT": {
+    "zh-CN": "费用预留身份、价格或目标已变化，原预留保留。请核对原调用。",
+    "en": "The reservation identity, price or target changed. The original reservation is retained; inspect the call.",
+    "zh-TW": "費用預留身分、價格或目標已變更，原預留保留。請核對原呼叫。"
+  },
+  "COST_CURRENCY_CONFLICT": {
+    "zh-CN": "历史费用预留使用其他币种，请保留原币种后再继续。",
+    "en": "Retained reservations use another currency. Restore the original currency before continuing.",
+    "zh-TW": "歷史費用預留使用其他幣別，請保留原幣別後再繼續。"
+  },
+  "COST_BUDGET_EXCEEDED": {
+    "zh-CN": "费用预留限额不足。请核对任务和 UTC 当日预留；调高限额后需明确继续。",
+    "en": "Estimated-cost limit exceeded. Inspect task and UTC daily reservations; raising limits still requires explicit resume.",
+    "zh-TW": "費用預留限額不足。請核對任務和 UTC 當日預留；調高限額後需明確繼續。"
+  },
+  "DESKTOP_UNAVAILABLE": {
+    "zh-CN": "请通过 PractiQ 桌面应用打开此页面。",
+    "en": "Open this page in the PractiQ desktop application.",
+    "zh-TW": "請透過 PractiQ 桌面應用程式開啟此頁面。"
   }
 }

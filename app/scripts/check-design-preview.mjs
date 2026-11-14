@@ -57,7 +57,7 @@ try {
   await app.addInitScript(() => {
     localStorage.setItem("practiq-theme", "light");
     window.__designNativeCalls = 0;
-    window.__TAURI_INTERNALS__ = { invoke: () => { window.__designNativeCalls++; throw new Error("Unexpected native request in preview"); } };
+    window.__practiqNativeMock = { invoke: () => { window.__designNativeCalls++; throw new Error("Unexpected native request in preview"); } };
   });
   await app.goto(appURL);
   await expect(app.getByText("基础知识 · 全题型", { exact: true })).toBeVisible();

@@ -1,6 +1,6 @@
 # Native IPC contract fixtures
 
-`app/fixtures/native-ipc.json` is produced by the Rust test
+`app/fixtures/native-ipc.json` is a frozen output of the historical Rust test
 `native_ipc_payloads_match_frontend_fixture` from a temporary native Store. It
 covers passive settings reads in all three connection states, bank/question/session
 pagination, complete unknown/AI/manual grading sessions, a historical error receipt,
@@ -9,22 +9,32 @@ grading response; no Keychain entries, personal data, network or models are used
 Only random identifiers, session cache keys and the temporary recovery path are
 normalized. Payload field names, nulls and values remain native output.
 
-Normal `cargo test` compares those responses with the committed fixture.
 `app/src/NativeIpcContracts.test.ts` checks its TypeScript compatibility and reads
-the same payloads through the frontend API. Both checks already run in
-`make app-check` and desktop CI; there is no separate schema or validation library.
+the same payloads through the frontend API. It runs through `make app-check` and
+desktop CI. `app/desktop/native-ipc-parity.test.ts` reconstructs the original
+bank/session workflow in a real temporary Node SQLite store and compares bank,
+question and session pagination, unknown/graded/manual session payloads and
+backup/restore responses exactly. Only generated identities and the recovery
+path are normalized. Historical receipt values are seeded as retained state,
+never accepted as new grading responses exempt from current evidence checks.
+Legacy direct/service sidecars round-trip unchanged and a historical target
+cannot silently authorize current grading. Current AI settings have their own
+explicitly approved embedded-provider UI and do not expose the old settings API.
+
+The frozen fixture is not regenerated to conceal a compatibility change.
 Historical error fields remain opaque and are preserved.
 
-After an intentional native contract change, regenerate explicitly from the
-repository root, review the JSON diff and update both affected consumers and
-their tests:
+After an intentional contract change, update the typed bridge and affected
+worker/renderer consumers, preserve nulls and historical error fields, and add
+an observable regression. Review any deliberate change to the frozen fixture
+against its original source in Git history. From `app/`:
 
 ```sh
-TAURI_CONFIG='{"bundle":{"resources":[]}}' PRACTIQ_UPDATE_NATIVE_IPC_FIXTURE=1 cargo test --locked --manifest-path app/src-tauri/Cargo.toml native_ipc_payloads_match_frontend_fixture
-cd app
-npx tsc -b
 npx vitest run src/NativeIpcContracts.test.ts
+npm run test:desktop
+npm run test:electron
 ```
 
-Run the Rust test again without the update variable to verify reproducibility;
-keep the `TAURI_CONFIG` override so source tests need no prepared package resources.
+AI wire schemas are owned by `shared/ai-contracts.json`; its exporter derives
+`app/src/contracts.generated.ts`. The separate frozen wire/grading baselines
+retain their [provenance](../fixtures/migration-reference.md).
