@@ -112,7 +112,7 @@ for (const item of templates) {
   });
 }
 
-test("stable protected gate names remain mandatory and only one job runs common frontend checks", () => {
+test("stable protected gate names remain mandatory and common checks have one owner", () => {
   const ruleset = JSON.parse(readFileSync(join(root, ".github/main-ruleset.json"), "utf8"));
   const required = ruleset.rules.find((rule: any) => rule.type === "required_status_checks").parameters.required_status_checks;
   assert.deepEqual(required.map((check: any) => check.context).sort(), templates.map(item => item.label).sort());
@@ -131,7 +131,13 @@ test("stable protected gate names remain mandatory and only one job runs common 
   assert.equal(frontend.length, 1); assert.equal((frontend[0][1] as any).name, "App quality");
   const backend = jobs.filter(([, job]: any) => job.steps?.some((step: any) => step.run === "npm run test:desktop"));
   assert.equal(backend.length, 1); assert.equal((backend[0][1] as any).name, "Embedded AI quality");
+  const audits = jobs.flatMap(([, job]: any) => (job.steps ?? []).filter((step: any) => step.run === "npm audit --audit-level=high").map(() => job.name));
+  assert.deepEqual(audits, ["App quality"]);
   const quality = workflow("app").jobs.quality;
+  const commands = quality.steps.map((step: any) => step.run ?? "").join("\n");
+  assert.doesNotMatch(commands, /npm run desktop:build/);
+  assert.equal(commands.split("npm run test:tooling").length - 1, 1);
+  assert.ok(JSON.parse(readFileSync(join(root, "app/package.json"), "utf8")).scripts["test:tooling"].startsWith("npm run desktop:build && "));
   assert.ok(quality.steps.some((step: any) => step.run === "node --test .github/scripts/*.test.ts"));
   const mirror = quality.steps.find((step: any) => step.run?.includes("/etc/apt/apt-mirrors.txt"));
   assert.ok(mirror); assert.ok(new Set(mirror.run.match(/https:\/\/[a-z.]+\/ubuntu\//g)).size >= 2);
@@ -151,7 +157,7 @@ test("embedded AI uses Node without PostgreSQL, RabbitMQ or the retired Python r
   const node = quality.steps.find((step: any) => step.uses?.startsWith("actions/setup-node@"));
   assert.equal(node.with["node-version"], "24");
   const commands = quality.steps.map((step: any) => step.run ?? "").join("\n");
-  for (const command of ["npm ci", "npm run contracts:check", "npm run check:packaging", "node --test .github/scripts/*.test.ts", "npm run test:desktop", "npm audit --audit-level=high"]) assert.ok(commands.includes(command), command);
+  for (const command of ["npm ci", "npm run contracts:check", "npm run check:packaging", "node --test .github/scripts/*.test.ts", "npm run test:desktop"]) assert.ok(commands.includes(command), command);
   assert.doesNotMatch(JSON.stringify(value.jobs), /setup-python|setup-uv|postgres|rabbitmq|docker run|make verify/);
   const reports = quality.steps.find((step: any) => step.uses?.startsWith("actions/upload-artifact@"));
   assert.equal(reports.if, "${{ always() }}"); assert.ok(reports.with.path.includes("coverage/desktop/"));
