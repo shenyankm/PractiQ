@@ -1,3 +1,4 @@
+import { mockDesktop } from "./mock-desktop.mjs";
 import { test, expect } from 'playwright/test';
 
 // Exercise the minified production assets. Native commands are mocked here;
@@ -30,13 +31,11 @@ for (const names of languages) {
     });
     await page.exposeFunction('__recordBuiltNavigationCall', call => calls.push(call));
     await page.exposeFunction('__recordUnexpectedBuiltNavigationCall', call => unexpectedCalls.push(call));
-    await page.addInitScript(({ locale }) => {
-      window.isTauri = false;
+    await mockDesktop(page); await page.addInitScript(({ locale }) => {
       let language = locale;
-      window.__TAURI_INTERNALS__ = { invoke: async (command, args) => {
+      window.__practiqNativeMock = { invoke: async (command, args) => {
         const request = args?.request;
         await window.__recordBuiltNavigationCall({ command, request });
-        if (command === 'cloud_request' && request?.type === 'status') return {value: {origin: null, generation: 0}, generation: 0};
         if (command !== 'request') throw Error(`Unexpected built navigation command: ${command}`);
         switch (request?.type) {
           case 'language': return language;
@@ -47,7 +46,7 @@ for (const names of languages) {
           case 'info': return { version: 'Built browser navigation mock', dataDirectory: '/mock' };
           case 'learning_overview': return {days:request.days,since:request.since,through:Date.now(),counts:{submitted:0,skipped:0,ungraded:0,auto:{graded:0,correct:0},selfAssessed:{graded:0,correct:0},ai:{graded:0,correct:0},manual:{graded:0,correct:0}},banks:[],kinds:[],review:[],backup:{lastBackupAt:null,newAttempts:0,changedNotes:0,due:false}};
           case 'backup_status': return {lastBackupAt:null,newAttempts:0,changedNotes:0,due:false};
-          case 'settings': return { config: { service_url: null } };
+          case 'ai_settings': case 'document_request': return window.practiqAiFixture(request);
           default:
             await window.__recordUnexpectedBuiltNavigationCall({ command, request });
             throw Error(`Unexpected built navigation request: ${request?.type}`);
@@ -78,7 +77,7 @@ for (const names of languages) {
     expect(errors).toEqual([]);
     expect(externalRequests).toEqual([]);
     expect(calls.length).toBeGreaterThan(0);
-    expect(calls.every(call => ['request', 'cloud_request'].includes(call.command))).toBe(true);
+    expect(calls.every(call => call.command === 'request')).toBe(true);
     expect(unexpectedCalls).toEqual([]);
   });
 }

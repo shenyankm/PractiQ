@@ -6,9 +6,9 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, expect, it, vi } from "vitest";
 import { ExamResults } from "./ExamResults";
 import { blankQuestion, type Session } from "./api";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./transport";
 
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("./transport", () => ({ invoke: vi.fn() }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 it.skipIf(!process.env.PRACTIQ_EXAM_BENCH_OUTPUT)("measures saved exam statistics while editing a reason", async () => {

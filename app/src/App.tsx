@@ -4,7 +4,7 @@ import { HistoryPage, useHistoryPage } from "./HistoryPage";
 import { QuestionListPage, useQuestionListPage } from "./QuestionListPage";
 import { ImportDiagnostics } from "./ImportDiagnostics";
 import { QuestionNotesForTree } from "./QuestionNotes";
-import logo from "../src-tauri/icons/icon.png";
+import logo from "./assets/practiq.png";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps } from "react";
 import { Tooltip } from "radix-ui";
 import { isDesktop, desktopWindow } from "./desktop-window";
@@ -289,10 +289,11 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     return () => window.removeEventListener("practiq-bank-imported", imported);
   }, [reloadBanks]);
   function navigate(next: Page, bankId: string | null = null, showRestore = false) {
-    if ((page === "cloud") && !document.dispatchEvent(new Event("practiq-cloud-before-leave", { cancelable: true }))) return;
+    if ((page === "cloud" || page === "settings") && !document.dispatchEvent(new Event("practiq-cloud-before-leave", { cancelable: true }))) return;
     run(() => transitionTo(next, bankId, showRestore));
   }
   function openSession(id: string) {
+    if ((page === "cloud" || page === "settings") && !document.dispatchEvent(new Event("practiq-cloud-before-leave", { cancelable: true }))) return;
     run(async () => {
       await flushRef.current();
       setSession(await api({ type: "session", id }));

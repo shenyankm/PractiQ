@@ -20,7 +20,7 @@ vi.mock("@/components/ui/button", async () => {
   return {Button:(props:React.ComponentProps<typeof original.Button>)=>{buttons(props["aria-label"]);return <original.Button {...props}/>;}};
 });
 vi.mock("./api", async () => ({...(await vi.importActual<typeof import("./api")>("./api")),api:vi.fn()}));
-vi.mock("@tauri-apps/api/core", () => ({invoke:vi.fn(),isTauri:()=>false}));
+vi.mock("./transport", () => ({invoke:vi.fn()}));
 vi.mock("./notifications", () => ({toast:{success:vi.fn(),error:vi.fn(),info:vi.fn()}}));
 afterEach(() => {cleanup();vi.useRealTimers();vi.restoreAllMocks();vi.clearAllMocks();});
 

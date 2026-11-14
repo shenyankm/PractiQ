@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
 
-vi.mock("@tauri-apps/api/core", () => ({ isTauri: () => false, invoke: vi.fn() }));
+vi.mock("./transport", () => ({ invoke: vi.fn() }));
 vi.mock("./api", async () => ({
   ...await vi.importActual<typeof import("./api")>("./api"),
   api: vi.fn(async ({ type }: { type: string }) => {

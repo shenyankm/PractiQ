@@ -6,6 +6,17 @@ During this migration, the old architecture below remains a behavioral reference
 New desktop work belongs in `app/desktop/`; it must not forward unported
 operations to the old runtime. Test with isolated data directories.
 
+`make app-dev` (or `npm run desktop` from `app/`) now starts Electron with the
+embedded Node AI runtime. It does not prepare Tauri resources or start a Python
+service. The production renderer requires Electron's typed preload bridge;
+browser test data is installed only by the explicit browser harness. The import
+workspace and model settings use the embedded runtime without a service URL.
+`make app-build` now creates a fresh Electron app and DMG; `make app-package-check`
+builds and independently verifies that same output. Set `APP_PACKAGE_DIRECTORY`
+on the Make command line to choose a fresh output directory. The historical
+release and service commands below remain pending final cutover; do not use
+their results as acceptance of the Electron package.
+
 From `app/`, use `npm run desktop:build` and `npm run test:desktop` for the new
 runtime and its type checks. `npm run check:packaging` checks the maintainer tools;
 `npm run package:electron` builds a local macOS application and DMG. Verify it with

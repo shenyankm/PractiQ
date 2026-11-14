@@ -1473,5 +1473,10 @@
     "zh-CN": "费用预留限额不足。请核对任务和 UTC 当日预留；调高限额后需明确继续。",
     "en": "Estimated-cost limit exceeded. Inspect task and UTC daily reservations; raising limits still requires explicit resume.",
     "zh-TW": "費用預留限額不足。請核對任務和 UTC 當日預留；調高限額後需明確繼續。"
+  },
+  "DESKTOP_UNAVAILABLE": {
+    "zh-CN": "请通过 PractiQ 桌面应用打开此页面。",
+    "en": "Open this page in the PractiQ desktop application.",
+    "zh-TW": "請透過 PractiQ 桌面應用程式開啟此頁面。"
   }
 }

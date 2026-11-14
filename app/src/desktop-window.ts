@@ -1,10 +1,7 @@
-import { isTauri } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-
-export function isDesktop(): boolean { return Boolean(window.practiq) || isTauri(); }
+export function isDesktop(): boolean { return Boolean(window.practiq); }
 export function desktopWindow() {
   const bridge = window.practiq;
-  if (!bridge) return getCurrentWindow();
+  if (!bridge) throw Object.assign(new Error("Open PractiQ in the desktop application"), { code: "DESKTOP_UNAVAILABLE" });
   return {
     onCloseRequested: async (listener: (event: { preventDefault(): void }) => void | Promise<void>) =>
       bridge.onCloseRequested(() => { void listener({ preventDefault() {} }); }),

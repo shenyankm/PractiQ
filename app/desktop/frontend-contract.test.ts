@@ -7,7 +7,6 @@ import { PracticeStore } from "./store.js";
 import { AppError } from "./errors.js";
 import { api, blankQuestion } from "../src/api.js";
 
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
 const stores: PracticeStore[] = [];
 afterEach(() => { vi.unstubAllGlobals(); for (const store of stores.splice(0)) { store.close(); rmSync(store.directory, { recursive: true, force: true }); } });
 

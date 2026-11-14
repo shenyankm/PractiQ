@@ -4,7 +4,7 @@ AI_PYTHON ?= $(PYTHON)
 override AI_PYTHON := $(or $(shell command -v "$(AI_PYTHON)"),$(AI_PYTHON))
 AI_PORT ?= 8090
 INSTALL_EXTRAS ?= --extra dev
-APP_PACKAGE_REPORT ?= server/reports/checks/desktop-bundle.json
+APP_PACKAGE_DIRECTORY := $(CURDIR)/app/.build/packages/make-$(shell date +%s)
 
 .PHONY: install server-install install-locked test test-server server-dev init-db upgrade-db verify audit audit-rust image-check alerts-check
 install: server-install
@@ -59,21 +59,21 @@ alerts-check:
 .PHONY: app-install app-dev app-check app-build app-package-check
 app-install:
 	cd app && npm ci
-app-dev: app-prepare-package
+app-dev:
 	cd app && npm run desktop
 app-check:
 	"$(AI_PYTHON)" app/scripts/export-contracts.py --check
 	"$(AI_PYTHON)" app/scripts/check-fixtures.py
 	cd app && TAURI_CONFIG='{"bundle":{"resources":[]}}' npm run check
-app-build: app-prepare-package
+app-build:
 ifeq ($(shell uname -s),Darwin)
-	cd app && npm run tauri -- build
+	cd app && npm run package:electron -- "$(APP_PACKAGE_DIRECTORY)"
 else
 	@echo "The practice app supports macOS only."; exit 1
 endif
 app-package-check: app-build
 ifeq ($(shell uname -s),Darwin)
-	"$(AI_PYTHON)" app/scripts/check-installer.py --installer app/src-tauri/target/release/bundle/dmg/*.dmg --output "$(APP_PACKAGE_REPORT)"
+	cd app && npm run test:package -- "$(APP_PACKAGE_DIRECTORY)"
 else
 	@echo "The practice app supports macOS only."; exit 1
 endif

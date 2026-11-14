@@ -2363,3 +2363,48 @@ bounded and credential assertions remain mandatory. Both the failed receipt and
 subsequent complete receipt are retained; no plaintext fallback, Keychain deletion
 or protection bypass was used. Remote CI, consistent signing across distributed
 updates, large Excel parity and final architecture cutover remain open.
+
+## Electron entry-point cutover and listening baseline
+
+The arm64 listening-address baseline DMG has SHA-256
+`18e1e2fa83fd528a9e4abdfe4649a2f876266da6b861ed9b237297ebffd84743`.
+It passed independent read-only installation, code-signature verification,
+system-only PATH launch, sandbox, offline practice, archive codecs, PDFium,
+backup/restore, restart and OS-encrypted credential round trips. The receipt is
+`app/.build/evidence/electron-package-18e1e2fa83fd-1794632078518-acceptance.json`.
+A separate `ditto` copy outside the checkout passed the complete installed
+workflow (`cutover-baseline-installed-ditto.log`). The initial Node copy rewrote
+framework symlinks and could not launch helpers; its failure log is retained as
+`cutover-baseline-installed.log`. This was a test-copy error, not an application
+timeout. Automatic provider and file-dialog results remain substitutes; this
+baseline predates the renderer/default-entry cutover below and is not notarized.
+
+`make app-dev` and `npm run desktop` now launch Electron without Python package
+preparation. `make app-build` and `make app-package-check` build and verify the
+same fresh Electron package directory. The renderer requires the typed Electron
+preload; missing IPC fails
+explicitly instead of falling back to Tauri or preview data. Import and settings
+always use the embedded Node runtime. The old service-connection component and
+frontend transport are removed, while their historical settings and credentials
+remain untouched. Model-setting drafts block sidebar navigation and returning
+to grading until saved or cancelled. Browser fixtures use the same request
+envelope and never run models. The unused Tauri frontend API dependency is removed;
+the historical CLI remains only until the reference packaging/release chain is retired.
+The octopus image is now owned by the frontend rather than the Rust source tree.
+
+The listening browser regression now exercises explicit address application,
+removal, answer-mode changes and QR replacement, retaining all three unsaved-draft
+dismissal guards and the no-network assertion. Its fix is pushed separately as
+`38f3f719`. Required CI gates, final cutover-package acceptance, release tooling
+and deletion of the old Rust/Python running chains are still pending.
+
+Local cutover validation passes frontend types, lint and coverage: 913 tests,
+7 existing skips, 90.28% statements and 95.10% lines. The 240-case browser run
+initially passed 226 cases; fixture routing, the standalone image fixture and
+retired service-URL expectations accounted for its failures. The subsequent
+17-case recheck passes every affected case plus sidebar/return-to-grading draft
+guards. The original log and recheck are retained as `cutover-browser.log` and
+`cutover-browser-recheck.log`; this is not described as one all-green full run.
+Complete development Electron smoke and the real frontend-to-SQLite session
+consumer regression also pass (`cutover-electron.log`,
+`cutover-native-consumer.log`). None of these checks calls a real model.

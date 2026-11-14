@@ -11,6 +11,7 @@ import { storageKey } from "../../shared/cloud/serviceStorage";
 import { sha256 } from "../../shared/cloud/api";
 import { nativeBridge, setNativeBridge } from "../../shared/cloud/transport";
 import { desktopCloudBridge } from "./desktop-cloud";
+import { setCloudLocale } from "../../shared/cloud/i18n";
 import { capabilities, preview, summary, task, taskId, runId, newTaskId } from "../../shared/cloud/test-fixtures";
 import type { DesktopAiSettingsView, DesktopDocumentRequest, DesktopDocumentReply, DocumentReference, DocumentCorrections } from "./contracts.generated";
 
@@ -57,7 +58,32 @@ function fixture(caps = capabilities) {
   return { calls, source, handler, get view() { return view; } };
 }
 beforeEach(() => { window.practiq = { request: vi.fn(), close: vi.fn(), onCloseRequested: () => () => {} }; history.replaceState(null, "", "/"); localStorage.clear(); });
-afterEach(() => { cleanup(); delete window.practiq; setNativeBridge(null); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); delete window.practiq; setNativeBridge(null); setCloudLocale("zh-CN"); vi.clearAllMocks(); });
+
+it("localizes the embedded workspace tabs without exposing service connection settings", async () => {
+  fixture(); setCloudLocale("en"); render(<CloudPage />);
+  expect(await screen.findByRole("link", { name: "Start import" })).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Import history" })).toBeTruthy();
+  expect(screen.queryByLabelText("AI 服务地址")).toBeNull();
+});
+
+it("disables importing an empty completed result without issuing an import action", async () => {
+  const f = fixture(), original = f.handler.getMockImplementation()!; history.replaceState(null, "", "/#records");
+  vi.mocked(invoke).mockImplementation(async (command, args) => {
+    const reply = await original(command, args);
+    const request = args!.request as { type: string; request?: DesktopDocumentRequest };
+    if (request.type === "document_request") {
+      const value = reply as DesktopDocumentReply;
+      if (value.type === "detail" || value.type === "head") return { ...value, value: { ...value.value, result: { ...task.result, questions: [] } } } as never;
+      if (value.type === "preview") return { ...value, value: { ...value.value, units: [] } } as never;
+    }
+    return reply;
+  });
+  render(<CloudPage />); await userEvent.click(await screen.findByRole("button", { name: summary.fileName }));
+  await screen.findByRole("heading", { name: f.source.fileName! });
+  await waitFor(() => expect(screen.getByRole("button", { name: "导入题库" })).toHaveProperty("disabled", true));
+  expect(f.calls.some(request => request.type === "document_request" && (request.request as { type: string }).type === "import_bank")).toBe(false);
+});
 
 it("keeps the current document selection when the native picker is cancelled", async () => {
   const f = fixture(), user = userEvent.setup(); render(<I18nProvider><CloudPage /></I18nProvider>);

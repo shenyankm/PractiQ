@@ -2,14 +2,14 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./transport";
 import { ExamResults } from "./ExamResults";
 import { I18nProvider, useI18n } from "./i18n";
 import type { Session } from "./api";
 import questions from "../fixtures/sample.json";
 import cases from "../fixtures/legacy-grading-errors.json";
 
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("./transport", () => ({ invoke: vi.fn() }));
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 function LanguageSwitch() {

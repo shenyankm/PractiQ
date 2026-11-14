@@ -1,5 +1,5 @@
 import sample from "../../fixtures/sample.json";
-import { previewCloud } from "./cloud-preview";
+import { installPreviewAi } from "./desktop-ai";
 import english from "../../fixtures/english.json";
 import composite from "../../fixtures/composite.json";
 import type { Answer, Bank, Question, QuestionRow, Request, Session, Preview, QuestionNote, LearningCounts, LearningOverview } from "../../src/api";
@@ -249,6 +249,7 @@ let initialized = false;
 function initialize(scenario: PreviewScenario) {
   if (initialized) return;
   initialized = true;
+  installPreviewAi();
   if (scenario === "empty") { banks.length=0; rows=[]; sessions.length=0; }
   if (scenario === "many") {
     for (let i=1;i<=40;i++) {
@@ -258,9 +259,6 @@ function initialize(scenario: PreviewScenario) {
   }
 }
 export async function demoInvoke(command:string,args:Record<string,unknown>,scenario:PreviewScenario):Promise<unknown> {
-  if (command === "cloud_request") {
-    return previewCloud(args.request as Record<string, unknown>, args.context as {origin:string;generation:number} | null, scenario);
-  }
   initialize(scenario);
   const type=(args.request as {type?:string}|undefined)?.type;
   if(scenario==="slow")await new Promise(resolve=>setTimeout(resolve,1500));
@@ -272,7 +270,11 @@ export async function demoInvoke(command:string,args:Record<string,unknown>,scen
     return (await fetch(audio ? audioUrl:imageUrl)).arrayBuffer();
   }
   let value:unknown;
-  if(command==="request")value=request(args.request as Request,scenario);
+  if(command==="request" && ["ai_settings","save_ai_settings","document_request"].includes(type || "")) {
+    if(!window.practiqAiFixture)installPreviewAi();
+    value=window.practiqAiFixture!(args.request as Record<string, unknown>);
+  }
+  else if(command==="request")value=request(args.request as Request,scenario);
   else if(command==="ai_request")value=aiRequest(args.request as AiRequest);
   else throw new Error(`开发预览未实现命令：${command}`);
   if(value===undefined)throw new Error(`开发预览未实现操作：${type}`);

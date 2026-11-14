@@ -14,8 +14,7 @@ const native = vi.hoisted(() => ({
   close: null as null | ((event: { preventDefault: () => void }) => Promise<void>),
   destroy: vi.fn(),
 }));
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => native.enabled }));
-vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({
+vi.mock("./desktop-window", () => ({ isDesktop: () => native.enabled, desktopWindow: () => ({
   onCloseRequested: async (close: typeof native.close) => { native.close = close; return () => {}; },
   destroy: native.destroy,
 }) }));

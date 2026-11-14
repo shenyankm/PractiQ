@@ -1,4 +1,3 @@
-import { invoke as nativeInvoke } from "@tauri-apps/api/core";
 import type { DesktopBridge } from "../desktop/bridge";
 
 declare global { interface Window { practiq?: DesktopBridge } }
@@ -12,5 +11,5 @@ export function invoke<T>(command: string, args?: Record<string, unknown>): Prom
       return reply.value as T;
     });
   }
-  return nativeInvoke<T>(command, args);
+  return Promise.reject({ code: "DESKTOP_UNAVAILABLE", message: "Open PractiQ in the desktop application" });
 }
