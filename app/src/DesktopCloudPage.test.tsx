@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { CloudPage } from "./CloudPage";
 import { I18nProvider } from "./i18n";
 import { invoke } from "./transport";
-import { Client } from "../../shared/cloud/api";
+import { Client, sourceLimit, validateFiles } from "../../shared/cloud/api";
 import { storageKey } from "../../shared/cloud/serviceStorage";
 import { sha256 } from "../../shared/cloud/api";
 import { nativeBridge, setNativeBridge } from "../../shared/cloud/transport";
@@ -16,7 +16,7 @@ import type { DesktopAiSettingsView, DesktopDocumentRequest, DesktopDocumentRepl
 
 vi.mock("./transport", () => ({ invoke: vi.fn() }));
 const settings = (): DesktopAiSettingsView => ({ revision: taskId, preferences: { model: { provider: "openai", baseUrl: "https://model.example/v1", modelId: "model", maxOutputTokens: 2000, timeoutSeconds: 10 }, import: { tencentConcurrency: 2, readRetryCount: 1, retryBaseSeconds: 1, deduplicateQuestions: false, generateAnswers: false }, maxCalls: 16, runTimeoutSeconds: 1800, tencentCos: { enabled: false, bucket: "", region: "" } }, configured: { modelApiKey: true, tencentSecretId: true, tencentSecretKey: true } });
-function fixture() {
+function fixture(caps = capabilities) {
   let view = settings(); const calls: Record<string, unknown>[] = []; const corrections: DocumentCorrections = { checkpointId: task.checkpointId!, edits: [] };
   const source: DocumentReference = { sourceType: "text", mediaType: "text/plain", fileName: "local-source.txt", sizeBytes: 4, sha256: "a".repeat(64), objectKey: `practiq-agent/sources/${"a".repeat(64)}/source.txt` };
   const handler = vi.mocked(invoke).mockImplementation(async (command, args) => {
@@ -30,7 +30,7 @@ function fixture() {
       case "document_request": {
         const action = request.request as DesktopDocumentRequest;
         switch (action.type) {
-          case "capabilities": return { type: action.type, value: capabilities } as never;
+          case "capabilities": return { type: action.type, value: caps } as never;
           case "maintenance_preview": return { type: action.type, value: { previewId: taskId, expiresAt: new Date(Date.now() + 600000).toISOString(), candidates: [], hasMore: false, skipped: 0, canClean: true, pending: [] } } as never;
           case "cost_report": return { type: action.type, value: { enabled: view.preferences.cost?.enabled ?? false, currency: view.preferences.cost?.currency ?? "", utcDay: new Date().toISOString().slice(0, 10), day: null, task: null, taskLimitMicros: view.preferences.cost?.taskLimitMicros ?? null, dailyLimitMicros: view.preferences.cost?.dailyLimitMicros ?? null, recent: [] } } as never;
           case "cleanup_state": return { type: action.type, value: { ...action.value, cleaned: 1 } } as never;
@@ -73,6 +73,26 @@ it("keeps the current document selection when the native picker is cancelled", a
   expect(f.calls.some(call => call.type === "document_request" && (call.request as DesktopDocumentRequest).type === "create")).toBe(false);
   await user.click(screen.getByRole("button", { name: /开始导入/ }));
   await waitFor(() => expect(f.calls.filter(call => call.type === "upload_document_source")).toEqual([{ type: "upload_document_source", ticket: "opaque-ticket" }]));
+});
+
+it("shows PDF guidance and rejects oversized Office files before upload or paid work", async () => {
+  const caps = { ...capabilities, sourceMaxBytes: 150 * 1024 * 1024, officeSourceMaxBytes: 25 * 1024 * 1024, officeAvailable: true };
+  const f = fixture(caps), user = userEvent.setup(); render(<I18nProvider><CloudPage /></I18nProvider>);
+  const button = await screen.findByRole("button", { name: "选择文档" });
+  expect(screen.getByText(/Word \/ PPT ≤ 25.0 MiB · Excel ≤ 10.0 MiB/)).toBeTruthy();
+  expect(screen.getByText("Word、Excel 或 PPT 超出当前大小限制时，请先导出为 PDF 后导入。")).toBeTruthy();
+  expect(sourceLimit(caps, "xlsx")).toBe(10 * 1024 * 1024);
+  expect(sourceLimit({ ...caps, officeSourceMaxBytes: 8 * 1024 * 1024 }, "xls")).toBe(8 * 1024 * 1024);
+  for (const name of ["source.docx", "source.pptx", "source.xlsx", "source.xls"]) {
+    const size = sourceLimit(caps, name.endsWith("xlsx") ? "xlsx" : name.endsWith("xls") ? "xls" : "docx") + 1;
+    expect(() => validateFiles([{ name, size }], caps)).toThrow("PDF");
+  }
+  vi.spyOn(nativeBridge()!, "pickSources").mockResolvedValueOnce([{ name: "oversized.xlsx", size: 10 * 1024 * 1024 + 1, nativeTicket: "oversized" }]);
+  await user.click(button);
+  expect(await screen.findByRole("alert")).toHaveProperty("textContent", "oversized.xlsx 超过当前大小限制，请先导出为 PDF 后导入。");
+  expect(f.calls.some(call => call.type === "upload_document_source")).toBe(false);
+  expect(f.calls.some(call => call.type === "document_request" && (call.request as DesktopDocumentRequest).type === "create")).toBe(false);
+  expect(() => validateFiles([{ name: "source.pdf", size: caps.sourceMaxBytes }], caps)).not.toThrow();
 });
 
 it("saves exact monetary preferences only explicitly and reports missing reservations without inventing a zero bill", async () => {

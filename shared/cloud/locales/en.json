@@ -1,4 +1,7 @@
 {
+  "Word / PPT ≤ {0} · Excel ≤ {1}": "Word / PPT ≤ {0} · Excel ≤ {1}",
+  "{0} 超过当前大小限制，请先导出为 PDF 后导入。": "{0} exceeds the current size limit. Export it as a PDF, then import the PDF.",
+  "Word、Excel 或 PPT 超出当前大小限制时，请先导出为 PDF 后导入。": "If a Word, Excel or PowerPoint file exceeds the current size limit, export it as a PDF, then import the PDF.",
   "跳到主要内容": "Skip to main content",
   "题号有唯一候选，请核对": "One matching question number; please verify",
   "存在同号记录，请手动选择": "Repeated question number; select manually",

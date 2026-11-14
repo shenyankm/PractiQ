@@ -45,7 +45,10 @@ export class ApiError extends Error {
   constructor(message: string, public readonly code = "CLIENT_ERROR", public readonly status = 0) { super(message); }
 }
 export const isOffice = (source: SourceType) => ["doc", "docx", "ppt", "pptx", "xls", "xlsx"].includes(source);
-export const sourceLimit = (capabilities: Capabilities, source?: SourceType) => source && isOffice(source) ? Math.min(capabilities.sourceMaxBytes, capabilities.officeSourceMaxBytes ?? capabilities.sourceMaxBytes) : capabilities.sourceMaxBytes;
+export function sourceLimit(capabilities: Capabilities, source?: SourceType) {
+  const limit = source && isOffice(source) ? Math.min(capabilities.sourceMaxBytes, capabilities.officeSourceMaxBytes ?? capabilities.sourceMaxBytes) : capabilities.sourceMaxBytes;
+  return nativeBridge()?.documents && (source === "xls" || source === "xlsx") ? Math.min(limit, 10 * MIB) : limit;
+}
 export function fileFormat(file: SourceFile) {
   const format = formats[file.name.trim().split(".").at(-1)?.toLowerCase() || ""];
   if (!format || file.name.length > 255) throw new ApiError(t("请选择支持的文档格式，文件名最多 255 个字符。"), "UNSUPPORTED_FILE");
@@ -56,6 +59,7 @@ export function validateFiles(files: SourceFile[], capabilities: Capabilities) {
   for (const file of files) {
     const format = fileFormat(file);
     if (!capabilities.sourceTypes.includes(format.sourceType)) throw new ApiError(t("服务暂不支持 {0} 的格式。", file.name), "UNSUPPORTED_FILE");
+    if (file.size > sourceLimit(capabilities, format.sourceType) && nativeBridge()?.documents && isOffice(format.sourceType)) throw new ApiError(t("{0} 超过当前大小限制，请先导出为 PDF 后导入。", file.name), "DOCUMENT_TOO_LARGE");
     if (!file.size || file.size > sourceLimit(capabilities, format.sourceType)) throw new ApiError(t("{0} 为空或超过单文件大小限制。", file.name), "DOCUMENT_TOO_LARGE");
   }
 }

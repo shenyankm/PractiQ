@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from "vitest";
-import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, truncateSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import * as yazl from "yazl";
@@ -33,6 +33,13 @@ it("selects opaque native tickets without copying source bytes or creating AI wo
   expect(picked).toMatchObject([{ name: "source.txt", size: bytes.length, nativeTicket: expect.any(String) }]); expect(JSON.stringify(picked)).not.toContain(path); expect(readdirSync(storage.root)).toEqual([]);
   const saved = await tickets.upload(picked[0].nativeTicket!, "revision-1"); expect(saved).toEqual(reference("source.txt", bytes)); expect(storage.source(saved)).toEqual(bytes); expect(await tickets.upload(picked[0].nativeTicket!, "revision-1")).toEqual(saved);
   expect(readdirSync(path).sort()).toEqual(["ai-storage", "source.txt"]);
+});
+
+it.each(["doc", "docx", "ppt", "pptx", "xls", "xlsx"])("directs oversized %s selections to PDF before source publication", type => {
+  const path = directory(), source = join(path, `source.${type}`), storage = new AiStorage(path), tickets = new SourceTickets(storage);
+  writeFileSync(source, ""); truncateSync(source, OFFICE_LIMIT + 1);
+  expect(() => tickets.pick([source], "one")).toThrow(expect.objectContaining({ code: "OFFICE_EXPORT_PDF_REQUIRED" }));
+  expect(readdirSync(storage.root)).toEqual([]);
 });
 
 it("rejects changed, expired and settings-fenced source tickets before publication", async () => {

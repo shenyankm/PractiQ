@@ -2,9 +2,9 @@ import { randomUUID } from "node:crypto";
 import { basename } from "node:path";
 import type { DocumentReference } from "../src/contracts.generated.js";
 import type { SourceFile } from "../../shared/cloud/transport.js";
-import { AiStorage, sourceFormat, sourceKey, sourceLimit } from "./ai-storage.js";
+import { AiStorage, OFFICE_LIMIT, sourceFormat, sourceKey, sourceLimit } from "./ai-storage.js";
 import { hash } from "./assets.js";
-import { invariant } from "./errors.js";
+import { AppError, invariant } from "./errors.js";
 import { fileDigest, readBounded } from "./filesystem.js";
 
 interface SourceTicket { path: string; revision: string; selectedAt: number; reference: DocumentReference }
@@ -14,7 +14,9 @@ export class SourceTickets {
   pick(paths: string[], revision: string): SourceFile[] {
     invariant(Array.isArray(paths) && paths.length <= 10 && paths.every(path => typeof path === "string") && revision.length > 0 && revision.length <= 128, "FILE_COUNT_LIMIT", "Choose at most ten native files");
     const selectedAt = this.now(), additions = paths.map(path => {
-      const name = basename(path).trim(), format = sourceFormat(name), digest = fileDigest(path, sourceLimit(format.sourceType));
+      const name = basename(path).trim(), format = sourceFormat(name), limit = sourceLimit(format.sourceType); let digest: ReturnType<typeof fileDigest>;
+      try { digest = fileDigest(path, limit); }
+      catch (error) { if (limit === OFFICE_LIMIT && error instanceof AppError && error.code === "LOCAL_FILE_TOO_LARGE") throw new AppError("OFFICE_EXPORT_PDF_REQUIRED", "Office input exceeds the size limit; export it as a PDF and import the PDF"); throw error; }
       invariant(digest.size > 0, "DOCUMENT_TOO_LARGE", "The selected source is empty");
       const reference = { ...format, fileName: name, sizeBytes: digest.size, sha256: digest.sha256, objectKey: sourceKey(format.sourceType, digest.sha256) };
       return { ticket: randomUUID(), path, revision, selectedAt, reference };

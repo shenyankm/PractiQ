@@ -1,4 +1,9 @@
 {
+  "OFFICE_EXPORT_PDF_REQUIRED": {
+    "zh-CN": "Word、Excel 或 PPT 超过当前大小限制，请先导出为 PDF 后导入。",
+    "zh-TW": "Word、Excel 或 PPT 超過目前大小限制，請先匯出為 PDF 後匯入。",
+    "en": "The Word, Excel or PowerPoint file exceeds the current size limit. Export it as a PDF, then import the PDF."
+  },
   "LOCAL_REVIEW_ROOT_INVALID": {
     "zh-CN": "请选择完整题目确认或撤销复核。",
     "en": "Select a complete question to confirm or undo its review.",

@@ -25,9 +25,10 @@ export class OfficeDocuments {
   constructor(readonly storage: AiStorage, readonly results: TencentResults, readonly limits: TextInputLimits) {}
   private async expected(context: DocumentStageContext) {
     context.execution.guard(); const source = context.task.input.document; invariant(officeSource(source.sourceType), "DOCUMENT_SOURCE_TYPE_MISMATCH", "Office stages require an Office document");
-    const prepared = ["xlsx", "pptx", "ppt"].includes(source.sourceType) ? await officePreparation(() => this.storage.source(source), source.sourceType, this.limits.maxParts, context.signal) : { bytes: this.storage.source(source), sheets: [], slides: [], unchanged: true };
     const limit = context.config.preferences.tencentCos.enabled ? tencentInputLimit(source.sourceType, true) : this.limits.inputBytes;
-    context.execution.guard(); invariant(prepared.bytes.length <= limit, "TENCENT_SOURCE_TOO_LARGE", "Office input exceeds the selected transport limit; private COS must be explicitly enabled for larger inputs");
+    invariant(source.sizeBytes <= limit, "OFFICE_EXPORT_PDF_REQUIRED", "Office input exceeds the current size limit; export it as a PDF and import the PDF");
+    const prepared = ["xlsx", "pptx", "ppt"].includes(source.sourceType) ? await officePreparation(() => this.storage.source(source), source.sourceType, this.limits.maxParts, context.signal) : { bytes: this.storage.source(source), sheets: [], slides: [], unchanged: true };
+    context.execution.guard(); invariant(prepared.bytes.length <= limit, "OFFICE_EXPORT_PDF_REQUIRED", "Prepared Office input exceeds the current size limit; export it as a PDF and import the PDF");
     const powerpoint = ["ppt", "pptx"].includes(source.sourceType), kind = powerpoint ? "visible-slides" : "visible-workbook", preparation: OfficePart["preparation"] | null = prepared.unchanged ? null : powerpoint ? "visible_powerpoint_slides" : "visible_excel_sheets";
     return { source, ...prepared, kind, preparation };
   }

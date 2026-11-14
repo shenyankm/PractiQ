@@ -139,7 +139,7 @@ it("reuses a visibility snapshot after a checkpoint publication gap", async () =
 });
 it("never pays when a workbook snapshot cannot be persisted or exceeds the current transport limit", async () => {
   const f = await setup("xlsx"), put = f.storage.putArtifact.bind(f.storage); vi.spyOn(f.storage, "putArtifact").mockImplementation(async (...args) => { if (args[2] === "visible-workbook") throw new Error("disk unavailable"); return put(...args); }); expect((await f.run()).failedStage).toBe("prepare"); expect(f.tencentHttp).not.toHaveBeenCalled(); expect(f.modelHttp).not.toHaveBeenCalled();
-  const large = await setup("docx", { inputBytes: 700 }), task = await large.run(); expect(task.errorCode).toBe("TENCENT_SOURCE_TOO_LARGE"); expect(large.tencentHttp).not.toHaveBeenCalled(); expect(large.modelHttp).not.toHaveBeenCalled();
+  const large = await setup("docx", { inputBytes: 700 }), task = await large.run(); expect(task.errorCode).toBe("OFFICE_EXPORT_PDF_REQUIRED"); expect(large.tencentHttp).not.toHaveBeenCalled(); expect(large.modelHttp).not.toHaveBeenCalled();
 });
 it("rejects a rehashed snapshot that alters original worksheet content before paid work", async () => {
   const f = await setup("xlsx"); f.stages.prepare.mockImplementationOnce(async context => { await f.documents.prepare(context); throw new AppError("DOCUMENT_STOP_REQUESTED", "Checkpoint gap"); }); const first = await f.run(), namespace = ["document_tasks", first.id, "tencent_inputs"], previous = (await f.store.get(namespace, "source"))!.value.manifest as ArtifactReference, plan = JSON.parse(f.storage.artifact(previous).toString());
