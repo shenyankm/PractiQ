@@ -69,6 +69,7 @@ try {
   assert.deepEqual(security, { sandbox: true, contextIsolation: true, nodeIntegration: false });
   assert.equal(await page.evaluate(() => typeof (window as unknown as { require?: unknown }).require), "undefined");
   const codecCases = JSON.parse(await readFile("fixtures/tencent/zip-codecs.json", "utf8")) as Record<string, string>;
+  const cropCases = JSON.parse(await readFile("fixtures/tencent/vision-crops.json", "utf8"));
   const textResults: string[] = [];
   for (const text of ["first\n", "second\n"]) { const zip = new ZipFile(); zip.addBuffer(Buffer.from(text), "source_md_full.md"); zip.end(); const chunks: Buffer[] = []; for await (const chunk of zip.outputStream) chunks.push(Buffer.from(chunk)); textResults.push(Buffer.concat(chunks).toString("base64")); }
   const rasterZip = new ZipFile(); rasterZip.addBuffer(Buffer.from(JSON.stringify({ width: 100, height: 100, elements: [{ text_info: { content: "first" } }] })), "x_ocr_page0.json"); rasterZip.end(); const rasterChunks: Buffer[] = []; for await (const chunk of rasterZip.outputStream) rasterChunks.push(Buffer.from(chunk)); const rasterResult = Buffer.concat(rasterChunks).toString("base64"), rasterSources = await Promise.all(["pdf/unembedded-cjk.pdf", "images/gray16.png", "office/中文 试卷.docx", "office/中文 表格.xlsx", "office/hidden-slides.pptx", "office/hidden-slides.ppt"].map(async path => (await readFile(`fixtures/${path}`)).toString("base64")));
@@ -86,7 +87,7 @@ try {
         const nativeEvidence=ocrSourceEvidence({page:1,format:'table',figures:[],elements:[{layout_xml:'<table><td>Q</td><td>A</td></table>',table_info:{table_name:'Science',fields:[{formatted_field_name:'Question'}]}}]}),nativeParsed=validateSourceFields({questions:[{id:'page:1:1',stem:'Q',answerMode:'short_answer',questionTypeId:'Short answer',answerPayload:{text:'A'},sourceScore:0.29}],groups:[{title:'Science',questionIndexes:[0]}]},{index:0,expectedNodeCount:1,presence:null,ocr:nativeEvidence});
         const nativeOcr={text:nativeEvidence.text,group:nativeParsed.groups[0].title,sourceScore:nativeParsed.questions[0].sourceScore};
         const assert=require('node:assert/strict');
-        const [{validateParsedQuestion},{retainSourceAnswers},{sourceContext},{validatePageFigure,tableMarkdown},{completePageResult},{validateOcrPageAssociations},{assembleOcrUnits},{parseModelJson},{schemaFor}]=await Promise.all(['question-contract','answer-evidence','source-context','page-figures','page-projection','ocr-associations','ocr-assembly','ai-json','contract-source'].map(name=>import(new URL(name+'.js',workerData.moduleUrl).href)));
+        const [{validateParsedQuestion},{retainSourceAnswers},{sourceContext},{validatePageFigure,tableMarkdown},{completePageResult},{validateOcrPageAssociations},{assembleOcrUnits},{checkedCropFigures},{parseModelJson},{schemaFor}]=await Promise.all(['question-contract','answer-evidence','source-context','page-figures','page-projection','ocr-associations','ocr-assembly','vision-crops','ai-json','contract-source'].map(name=>import(new URL(name+'.js',workerData.moduleUrl).href)));
         const question=validateParsedQuestion({id:'fragment:1:1',stem:'Prompt?',questionTypeId:'Short answer',answerMode:'short_answer',answerPayload:{text:'Supplied'},needsReview:false,confidence:1});
         const unproven=structuredClone(question);retainSourceAnswers([unproven],'1. Short answer: Prompt?',[],null);assert.equal(unproven.answerPayload,null);assert.equal(unproven.needsReview,true);
         const proven=structuredClone(question);retainSourceAnswers([proven],'1. Short answer: Prompt?\\nReference answer: Supplied',[],null);assert.deepEqual(proven.answerPayload,{text:'Supplied'});
@@ -100,7 +101,9 @@ try {
         assert.throws(()=>parseModelJson('{"figures":[{"elementIndex":1.0}]}',schemaFor('OcrPageParseResult')));
         assert.throws(()=>parseModelJson('{"questions":[{"answerPayload":{"order":[1e0]},"answerMode":"ordering"}]}',schemaFor('UnitParseResult')));
         assert.deepEqual(parseModelJson('{"questions":[{"sourceScore":1.0,"contentBlocks":[{"jsonValue":{"n":1e0}}]}]}',schemaFor('UnitParseResult')),{questions:[{sourceScore:1,contentBlocks:[{jsonValue:{n:1}}]}]});
-        const sourceProofs={literalAnswers:true,textAssembly:true,tableAnswerRoles:true,unverifiedBounds:true,linkedAnswerPages:true,fixedFigureIds:true,ocrAssembly:true,strictModelNumbers:true};
+        assert.equal(workerData.cropCases.length,35);
+        for(const sample of workerData.cropCases){const crops=await checkedCropFigures(Buffer.from(sample.png,'base64'),sample.boxes,sample.kinds);assert.deepEqual(crops.map(item=>({hasBytes:item.bytes!==null,rejected:item.rejected})),sample.expected.map(item=>({hasBytes:item.hasBytes,rejected:item.rejected})));}
+        const sourceProofs={rasterCrops:true,literalAnswers:true,textAssembly:true,tableAnswerRoles:true,unverifiedBounds:true,linkedAnswerPages:true,fixedFigureIds:true,ocrAssembly:true,strictModelNumbers:true};
         const database=new AiDatabase(workerData.directory), storage=new AiStorage(workerData.directory), checkpoints=new SqliteCheckpoints(workerData.directory), store=new SqliteStore(workerData.directory), tasks=new DocumentTasks(workerData.directory,storage,database);
         let submissions=0,modelCalls=0;
         const model=new ModelClient(database,async(_url,init)=>{
@@ -152,14 +155,14 @@ try {
         timer = setTimeout(() => reject(new Error("Electron codec worker timed out")), 15_000); worker.once("message", resolve); worker.once("error", reject); worker.once("exit", code => { if (code) reject(new Error("Electron codec worker stopped")); });
       });
     } finally { clearTimeout(timer); await worker.terminate(); }
-  }, { moduleUrl: pathToFileURL(join(runtimeDirectory, "tencent-bundle.js")).href, cases: codecCases, directory: join(directory, "text-worker"), text: "first\nsecond\n", textResults, rasterResult, rasterSources, legacyPptExpected });
+  }, { moduleUrl: pathToFileURL(join(runtimeDirectory, "tencent-bundle.js")).href, cases: codecCases, cropCases, directory: join(directory, "text-worker"), text: "first\nsecond\n", textResults, rasterResult, rasterSources, legacyPptExpected });
   assert.deepEqual(codecReport.results.map(value => value.method), ["0", "8", "12", "14", "93"]); assert.equal(codecReport.results.every(value => value.bytes > 0 && value.mediaType === "image/png"), true);
   assert.deepEqual(codecReport.text, { submissions: 2, parts: 2, exact: true, chunks: 1, chunkBytesExact: true, modelCalls: 2, modelStatuses: ["failed", "succeeded"], unitSaved: true, stoppedAt: null, code: null });
   assert.deepEqual(codecReport.nativeOcr, { text: "Q\nA", group: "Science", sourceScore: 0.29 });
   assert.deepEqual(codecReport.mergePreview, { nodes: 1, id: "q0", sourceUnit: 0, immutableUnit: true });
   assert.deepEqual(codecReport.ocrGraph, { submissions: 1, modelCalls: 1, unitSaved: true, status: "SUCCEEDED", sourceStage: "vision_parse", stoppedAt: null, code: null });
   assert.deepEqual((codecReport as typeof codecReport & { rasterGraphs: unknown }).rasterGraphs, [{ sourceType: "pdf", submissions: 1, modelCalls: 1, status: "SUCCEEDED", engine: "pdfium", pageImages: 1 }, { sourceType: "image", submissions: 1, modelCalls: 1, status: "SUCCEEDED", engine: "sharp", pageImages: 1 }, { sourceType: "docx", submissions: 1, modelCalls: 1, status: "SUCCEEDED", engine: "office-metadata", pageImages: 0 }, { sourceType: "xlsx", submissions: 1, modelCalls: 1, status: "PARTIAL", engine: "office-metadata", pageImages: 0 }, { sourceType: "pptx", submissions: 1, modelCalls: 1, status: "PARTIAL", engine: "office-metadata", pageImages: 0, hiddenSlidesVisible: true, declaredSlides: 2 }, { sourceType: "ppt", submissions: 1, modelCalls: 1, status: "PARTIAL", engine: "office-metadata", pageImages: 0, hiddenSlidesVisible: true, declaredSlides: 2 }]);
-  assert.deepEqual(codecReport.sourceProofs, { literalAnswers: true, textAssembly: true, tableAnswerRoles: true, unverifiedBounds: true, linkedAnswerPages: true, fixedFigureIds: true, ocrAssembly: true, strictModelNumbers: true });
+  assert.deepEqual(codecReport.sourceProofs, { rasterCrops: true, literalAnswers: true, textAssembly: true, tableAnswerRoles: true, unverifiedBounds: true, linkedAnswerPages: true, fixedFigureIds: true, ocrAssembly: true, strictModelNumbers: true });
   assert.match(await readFile(join(runtimeDirectory, "resources/unicode-data.txt"), "utf8"), /^UNICODE LICENSE V3/);
   await mkdir(".build/evidence", { recursive: true }); await writeFile(".build/evidence/electron-tencent-codecs.json", JSON.stringify(codecReport, null, 2));
   const bridge = async (request: unknown) => page.evaluate(async input => {
