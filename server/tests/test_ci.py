@@ -576,8 +576,11 @@ def test_workflows_deduplicate_common_checks_without_dropping_native_gates():
         assert upload["with"]["path"] == path
         assert upload["with"]["retention-days"] == "7"
     for command in ("cargo test --locked", "cargo clippy --locked", "--all-targets -- -D warnings",
-                    "prepare-package.py", "npm run tauri -- build"):
+                    "prepare-package.py", "npm run tauri -- build", "npm run test:desktop",
+                    "npm run package:electron", "test:electron:installed", "npm run test:package"):
         assert command in package_commands
+    for command in ("npm run test:desktop", "npm run package:electron", "test:electron:installed", "npm run test:package"):
+        assert command not in quality_commands
     assert "npm run build" not in package_commands  # Tauri already invokes beforeBuildCommand.
     assert "check-installer.py" in package_commands
     assert "check-office.py" not in package_commands and "Start-Process" not in package_commands

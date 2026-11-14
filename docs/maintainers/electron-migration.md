@@ -2266,3 +2266,12 @@ use `app/.build/evidence/primary-row-`, `receipt-replay-before.log` and
 `quit-final-20261114` DMG; its earlier package/credential receipts do not certify
 this later code. Current-source package/remote CI acceptance, large Excel policy,
 actual native file dialogs, final cutover and old-runtime removal remain open.
+
+The first remote draft-PR run exposed that the full desktop suite was placed on
+Ubuntu even though PDF font and CoreAudio boundaries deliberately require macOS.
+The complete suite now runs as a required macOS package step; Linux retains
+contract, compilation, tool-type, frontend and browser checks. Runtime platform
+guards are unchanged. The existing CI regression checks require the desktop
+suite and both installed-package checks in that macOS job. The temporary Python
+reference test also narrows a known positive reservation before comparing it,
+preserving the separately tested nullable/unknown reservation contract.

@@ -92,12 +92,12 @@ jobs:
         working-directory: app
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-      - name: Verify TypeScript migration contracts and storage
+      - name: Verify TypeScript migration contracts and types
         working-directory: app
         run: |
           npm run contracts:check
           npm run desktop:build
-          npm run test:desktop
+          npm run check:packaging
       - name: Check frontend types, lint and coverage
         env:
           VITEST_MAX_WORKERS: '2'
@@ -156,6 +156,9 @@ jobs:
         with:
           python-version: '3.14'
       - run: npm ci
+        working-directory: app
+      - name: Verify full macOS TypeScript runtime
+        run: npm run test:desktop
         working-directory: app
       - name: Build standalone Electron package
         working-directory: app
