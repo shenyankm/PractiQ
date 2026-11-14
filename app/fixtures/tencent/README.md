@@ -1,5 +1,14 @@
 # Tencent result fixtures
 
+Keep committed fixtures limited to reproducible regression inputs. One-time
+migration callback snapshots are not permanent test dependencies. The large
+model-compaction, page-results, OCR-page-results and source-context corpora were
+replaced with focused tests for defaults, literal evidence, immutable PRIMARY
+identity/material, bounded context links and failure barriers. Their original
+data remains available in Git at `012843bf` and in ignored local migration
+archives; normal tests never read those archives. Original-corpus verification
+and the focused suite both passed before removing the snapshots.
+
 `tencent-xlsx.json` and `tencent-xlsx.xml` retain the existing synthetic native
 table regression from `server/tests/fixtures/`, including merged cells, blank
 cells, leading zeroes and content outside the print area.
