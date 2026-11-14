@@ -23,7 +23,7 @@ async function setup() {
   const http = vi.fn(async (url: string, init: RequestInit) => {
     expect(init.redirect).toBe("error"); const headers = new Headers(init.headers), method = init.method;
     if (method === "PUT") {
-      calls.upload++; expect(client.job(task, "source").status).toBe("STAGING"); expect(db.receipt(task, "tencent:source")).toBeNull(); expect(headers.get("x-cos-acl")).toBe("private"); expect(headers.get("x-cos-server-side-encryption")).toBe("AES256"); expect(url).toMatch(/^https:\/\/fixture-1250000000.cos.ap-guangzhou.myqcloud.com\/practiq-import\/[a-f0-9]{64}\/[a-f0-9]{64}$/); const body = Buffer.from(init.body as Uint8Array), md5 = createHash("md5").update(body).digest(); expect(headers.get("content-md5")).toBe(md5.toString("base64"));
+      calls.upload++; expect(client.job(task, "source").status).toBe("STAGING"); expect(db.receipt(task, "tencent:source")).toBeNull(); expect(headers.get("x-cos-acl")).toBe("private"); expect(headers.get("x-cos-server-side-encryption")).toBe("AES256"); expect(url).toMatch(/^https:\/\/fixture-1250000000\.cos\.ap-guangzhou\.myqcloud\.com\/practiq-import\/[a-f0-9]{64}\/[a-f0-9]{64}$/); const body = Buffer.from(init.body as Uint8Array), md5 = createHash("md5").update(body).digest(); expect(headers.get("content-md5")).toBe(md5.toString("base64"));
       if (provider.upload === "disconnect") throw Error("PRIVATE signed request");
       return new Response(null, { status: provider.upload === "redirect" ? 302 : provider.upload === "unavailable" ? 500 : 200, headers: { ETag: provider.upload === "checksum" ? "bad" : `"${md5.toString("hex")}"`, Location: "https://untrusted.invalid" } });
     }
