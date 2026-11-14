@@ -473,5 +473,107 @@
         "sha256": "bf86387b9c91ac85df2bd9195e8bad4f9219cb2ded71f9e90f56e3d59edea21c"
       }
     }
+  ],
+  "npm:@cfworker/json-schema@4.1.6": [
+    {
+      "file": "texts/376944252ab78ca6b41aee44ddea8894927ee67891e77e61eb9d59af63e35094.txt",
+      "sha256": "376944252ab78ca6b41aee44ddea8894927ee67891e77e61eb9d59af63e35094",
+      "source": "https://raw.githubusercontent.com/cfworker/cfworker/1a0aa37471850c28a4673e12e871e010ea6c26e0/LICENSE.md",
+      "verification": "Upstream license retrieved at the exact npm registry gitHead; installed version and reviewed lockfile integrity match",
+      "evidence": {
+        "file": "cfworker-json-schema-4.1.6.provenance.json",
+        "sha256": "8b20d976c472538982836cdc9b6d5833561a024d4dc6884b55d6a08e58a7acec"
+      }
+    }
+  ],
+  "npm:js-tiktoken@1.0.21": [
+    {
+      "file": "texts/418cb499b436128d653d79941333a5437b7be2ea9213dcc2f04d15d5d2c51d86.txt",
+      "sha256": "418cb499b436128d653d79941333a5437b7be2ea9213dcc2f04d15d5d2c51d86",
+      "source": "https://raw.githubusercontent.com/dqbd/tiktoken/4c8b748e07992c00386f3180af5c574b27b65139/LICENSE",
+      "verification": "Upstream license retrieved at the exact npm registry gitHead; installed version and reviewed lockfile integrity match",
+      "evidence": {
+        "file": "js-tiktoken-1.0.21.provenance.json",
+        "sha256": "52a67dfa90fa3a57c6a9d322124f28c3322aa606d3c43f5a86722a39cb7815ba"
+      }
+    }
+  ],
+  "npm:saxes@6.0.0": [
+    {
+      "file": "texts/0fac2374380621b22e6b50451057721a9c52935b02d16d106a9f04897f061d0e.txt",
+      "sha256": "0fac2374380621b22e6b50451057721a9c52935b02d16d106a9f04897f061d0e",
+      "source": "https://raw.githubusercontent.com/lddubeau/saxes/211fa0ebec9b628affc09219199639887174bfc3/LICENSE",
+      "verification": "Upstream license retrieved at the exact npm registry gitHead; installed version and reviewed lockfile integrity match",
+      "evidence": {
+        "file": "saxes-6.0.0.provenance.json",
+        "sha256": "cfa55f42d4c4d7212205a77bdf369a792f374496c45ee264a4a9d51ca9745080"
+      }
+    }
+  ],
+  "npm:lzma-purejs@0.9.3": [
+    {
+      "file": "texts/aeb5294374a3bd12935a4beac9371da0ceba65856325e52bef5f2027e6552363.txt",
+      "sha256": "aeb5294374a3bd12935a4beac9371da0ceba65856325e52bef5f2027e6552363",
+      "source": "https://registry.npmjs.org/lzma-purejs/-/lzma-purejs-0.9.3.tgz#package/README.md",
+      "verification": "Complete license section retained in the exact installed README from the integrity-bound published npm package",
+      "evidence": {
+        "file": "lzma-purejs-0.9.3.provenance.json",
+        "sha256": "af975604ae781992bf695fcca8520d3a8329019d2b63fd770b45a0102070e5c7"
+      }
+    }
+  ],
+  "npm:commander@2.0.0": [
+    {
+      "file": "texts/a62010074b96d15ff636d64f909ac5263a0f768b72501dfa9fc2662639420cf4.txt",
+      "sha256": "a62010074b96d15ff636d64f909ac5263a0f768b72501dfa9fc2662639420cf4",
+      "source": "https://registry.npmjs.org/commander/-/commander-2.0.0.tgz#package/Readme.md",
+      "verification": "Complete license section retained in the exact installed README from the integrity-bound published npm package",
+      "evidence": {
+        "file": "commander-2.0.0.provenance.json",
+        "sha256": "ba99fda30374dff876b688fc9cf6a982fa6f738a3e003e920c28b9f0cb1850a1"
+      }
+    }
+  ],
+  "npm:@img/sharp-libvips-darwin-arm64@1.3.4": [
+    {
+      "file": "texts/5dd6d3c034f925604681d49b7bedc71bd08dcf3d0cfc6d16b9f0569497d700dc.txt",
+      "sha256": "5dd6d3c034f925604681d49b7bedc71bd08dcf3d0cfc6d16b9f0569497d700dc",
+      "source": "https://registry.npmjs.org/@img/sharp-libvips-darwin-arm64/-/sharp-libvips-darwin-arm64-1.3.4.tgz#package/README.md",
+      "verification": "Published package README elects LGPLv3 via the any-later-version clause and lists its native libraries. Retain that exact distribution notice, exact component versions and complete GNU LGPLv3/GPLv3 terms from the pinned GCC upstream copy. Native subcomponent redistribution obligations still require human release review.",
+      "evidence": {
+        "file": "img-sharp-libvips-darwin-arm64-1.3.4.provenance.json",
+        "sha256": "be78afaeb91d49a189fac03228d25f7fe414f43167d1b8574ce6a6e30fe07c02"
+      }
+    },
+    {
+      "file": "texts/e2611d5d854815a8b33c8a3d2ec649511a9596ccf16844e8eae7cf81e79881c4.txt",
+      "sha256": "e2611d5d854815a8b33c8a3d2ec649511a9596ccf16844e8eae7cf81e79881c4",
+      "source": "https://registry.npmjs.org/@img/sharp-libvips-darwin-arm64/-/sharp-libvips-darwin-arm64-1.3.4.tgz#package/versions.json",
+      "verification": "Published package README elects LGPLv3 via the any-later-version clause and lists its native libraries. Retain that exact distribution notice, exact component versions and complete GNU LGPLv3/GPLv3 terms from the pinned GCC upstream copy. Native subcomponent redistribution obligations still require human release review.",
+      "evidence": {
+        "file": "img-sharp-libvips-darwin-arm64-1.3.4.provenance.json",
+        "sha256": "be78afaeb91d49a189fac03228d25f7fe414f43167d1b8574ce6a6e30fe07c02"
+      }
+    },
+    {
+      "file": "texts/a853c2ffec17057872340eee242ae4d96cbf2b520ae27d903e1b2fef1a5f9d1c.txt",
+      "sha256": "a853c2ffec17057872340eee242ae4d96cbf2b520ae27d903e1b2fef1a5f9d1c",
+      "source": "https://raw.githubusercontent.com/gcc-mirror/gcc/5115c7e447fc07457443df874bf57840e8316d5f/COPYING3.LIB",
+      "verification": "Published package README elects LGPLv3 via the any-later-version clause and lists its native libraries. Retain that exact distribution notice, exact component versions and complete GNU LGPLv3/GPLv3 terms from the pinned GCC upstream copy. Native subcomponent redistribution obligations still require human release review.",
+      "evidence": {
+        "file": "img-sharp-libvips-darwin-arm64-1.3.4.provenance.json",
+        "sha256": "be78afaeb91d49a189fac03228d25f7fe414f43167d1b8574ce6a6e30fe07c02"
+      }
+    },
+    {
+      "file": "texts/8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903.txt",
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+      "source": "https://raw.githubusercontent.com/gcc-mirror/gcc/5115c7e447fc07457443df874bf57840e8316d5f/COPYING3",
+      "verification": "Published package README elects LGPLv3 via the any-later-version clause and lists its native libraries. Retain that exact distribution notice, exact component versions and complete GNU LGPLv3/GPLv3 terms from the pinned GCC upstream copy. Native subcomponent redistribution obligations still require human release review.",
+      "evidence": {
+        "file": "img-sharp-libvips-darwin-arm64-1.3.4.provenance.json",
+        "sha256": "be78afaeb91d49a189fac03228d25f7fe414f43167d1b8574ce6a6e30fe07c02"
+      }
+    }
   ]
 }

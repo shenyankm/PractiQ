@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "package": "lzma-purejs",
+  "version": "0.9.3",
+  "artifactUrl": "https://registry.npmjs.org/lzma-purejs/-/lzma-purejs-0.9.3.tgz",
+  "artifactIntegrity": "sha512-6VPTP6dEwoEeXYxK9/9ZsUH8zD/lGdTCKenEv2C4mrZkp111CttGYVVrLTcCY6BM+dnADTMrARnG8PZQctJUeg==",
+  "registryGitHead": null,
+  "repository": {
+    "url": "https://github.com/cscott/lzma-purejs.git",
+    "type": "git"
+  },
+  "sourceFiles": [
+    {
+      "source": "https://registry.npmjs.org/lzma-purejs/-/lzma-purejs-0.9.3.tgz#package/README.md",
+      "sha256": "aeb5294374a3bd12935a4beac9371da0ceba65856325e52bef5f2027e6552363",
+      "publishedMember": "README.md"
+    }
+  ],
+  "verification": "Complete license section retained in the exact installed README from the integrity-bound published npm package"
+}

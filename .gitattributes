@@ -1,5 +1,5 @@
 # Preserve checksum-pinned upstream notices and acceptance input bytes.
-app/licenses/texts/** -text
+app/licenses/texts/** -text whitespace=-blank-at-eol
 app/licenses/*.provenance.json -text
 app/fixtures/ai-import/formats/** -text
 server/evals/fixtures/pdf/pdf-no-answer.pdf binary
