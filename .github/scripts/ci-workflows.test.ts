@@ -88,6 +88,11 @@ test("stable protected gate names remain mandatory and only one job runs common 
   assert.equal(backend.length, 1); assert.equal((backend[0][1] as any).name, "Embedded AI quality");
   const quality = workflow("app").jobs.quality;
   assert.ok(quality.steps.some((step: any) => step.run === "node --test .github/scripts/*.test.ts"));
+  const mirror = quality.steps.find((step: any) => step.run?.includes("/etc/apt/apt-mirrors.txt"));
+  assert.ok(mirror); assert.ok(new Set(mirror.run.match(/https:\/\/[a-z.]+\/ubuntu\//g)).size >= 2);
+  assert.ok(mirror.run.includes('Acquire::Retries "3";'));
+  for (const transport of ["http", "https"]) assert.ok(mirror.run.includes(`Acquire::${transport}::Timeout "15";`));
+  assert.doesNotMatch(mirror.run, /mirrors\.edge\.kernel\.org/);
   for (const name of ["maintainer", "review-signal", "issue-labels", "pr-labels"]) assert.equal(existsSync(join(root, `.github/workflows/${name}.yml`)), false);
   for (const name of ["maintainer", "issue-labeler", "pr-labeler"]) for (const suffix of [".mjs", ".test.mjs"]) assert.equal(existsSync(join(root, `.github/scripts/${name}${suffix}`)), false);
 });
