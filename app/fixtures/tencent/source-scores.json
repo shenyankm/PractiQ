@@ -1,0 +1,854 @@
+[
+  {
+    "score": null,
+    "accepted": true
+  },
+  {
+    "score": 0,
+    "accepted": false
+  },
+  {
+    "score": -0.01,
+    "accepted": false
+  },
+  {
+    "score": 0.001,
+    "accepted": false
+  },
+  {
+    "score": 1000000.0,
+    "accepted": true
+  },
+  {
+    "score": 1000000.01,
+    "accepted": false
+  },
+  {
+    "score": 0.01,
+    "accepted": true
+  },
+  {
+    "score": 0.009999999999,
+    "accepted": true
+  },
+  {
+    "score": 0.0099999999,
+    "accepted": true
+  },
+  {
+    "score": 0.0099999995,
+    "accepted": true
+  },
+  {
+    "score": 0.0099999991,
+    "accepted": true
+  },
+  {
+    "score": 0.009999999,
+    "accepted": true
+  },
+  {
+    "score": 0.009999998,
+    "accepted": false
+  },
+  {
+    "score": 0.00999999,
+    "accepted": false
+  },
+  {
+    "score": 0.0099999,
+    "accepted": false
+  },
+  {
+    "score": 0.009000000000000001,
+    "accepted": false
+  },
+  {
+    "score": 0.010000000001,
+    "accepted": true
+  },
+  {
+    "score": 0.0100000001,
+    "accepted": true
+  },
+  {
+    "score": 0.0100000005,
+    "accepted": true
+  },
+  {
+    "score": 0.0100000009,
+    "accepted": true
+  },
+  {
+    "score": 0.010000001,
+    "accepted": true
+  },
+  {
+    "score": 0.010000002000000001,
+    "accepted": false
+  },
+  {
+    "score": 0.01000001,
+    "accepted": false
+  },
+  {
+    "score": 0.0100001,
+    "accepted": false
+  },
+  {
+    "score": 0.011,
+    "accepted": false
+  },
+  {
+    "score": 0.07,
+    "accepted": true
+  },
+  {
+    "score": 0.069999999999,
+    "accepted": true
+  },
+  {
+    "score": 0.06999999990000001,
+    "accepted": true
+  },
+  {
+    "score": 0.0699999995,
+    "accepted": true
+  },
+  {
+    "score": 0.0699999991,
+    "accepted": true
+  },
+  {
+    "score": 0.06999999900000001,
+    "accepted": true
+  },
+  {
+    "score": 0.06999999800000001,
+    "accepted": false
+  },
+  {
+    "score": 0.06999999000000001,
+    "accepted": false
+  },
+  {
+    "score": 0.0699999,
+    "accepted": false
+  },
+  {
+    "score": 0.069,
+    "accepted": false
+  },
+  {
+    "score": 0.07000000000100001,
+    "accepted": true
+  },
+  {
+    "score": 0.0700000001,
+    "accepted": true
+  },
+  {
+    "score": 0.0700000005,
+    "accepted": true
+  },
+  {
+    "score": 0.07000000090000001,
+    "accepted": true
+  },
+  {
+    "score": 0.070000001,
+    "accepted": true
+  },
+  {
+    "score": 0.070000002,
+    "accepted": false
+  },
+  {
+    "score": 0.07000001,
+    "accepted": false
+  },
+  {
+    "score": 0.07000010000000001,
+    "accepted": false
+  },
+  {
+    "score": 0.07100000000000001,
+    "accepted": false
+  },
+  {
+    "score": 0.14,
+    "accepted": true
+  },
+  {
+    "score": 0.139999999999,
+    "accepted": true
+  },
+  {
+    "score": 0.1399999999,
+    "accepted": true
+  },
+  {
+    "score": 0.1399999995,
+    "accepted": true
+  },
+  {
+    "score": 0.13999999910000002,
+    "accepted": true
+  },
+  {
+    "score": 0.139999999,
+    "accepted": true
+  },
+  {
+    "score": 0.13999999800000001,
+    "accepted": false
+  },
+  {
+    "score": 0.13999999000000002,
+    "accepted": false
+  },
+  {
+    "score": 0.1399999,
+    "accepted": false
+  },
+  {
+    "score": 0.139,
+    "accepted": false
+  },
+  {
+    "score": 0.14000000000100002,
+    "accepted": true
+  },
+  {
+    "score": 0.14000000010000002,
+    "accepted": true
+  },
+  {
+    "score": 0.14000000050000003,
+    "accepted": true
+  },
+  {
+    "score": 0.1400000009,
+    "accepted": true
+  },
+  {
+    "score": 0.140000001,
+    "accepted": true
+  },
+  {
+    "score": 0.140000002,
+    "accepted": false
+  },
+  {
+    "score": 0.14000001,
+    "accepted": false
+  },
+  {
+    "score": 0.14000010000000002,
+    "accepted": false
+  },
+  {
+    "score": 0.14100000000000001,
+    "accepted": false
+  },
+  {
+    "score": 0.28,
+    "accepted": true
+  },
+  {
+    "score": 0.27999999999900005,
+    "accepted": true
+  },
+  {
+    "score": 0.2799999999,
+    "accepted": true
+  },
+  {
+    "score": 0.27999999950000004,
+    "accepted": true
+  },
+  {
+    "score": 0.2799999991,
+    "accepted": true
+  },
+  {
+    "score": 0.279999999,
+    "accepted": false
+  },
+  {
+    "score": 0.279999998,
+    "accepted": false
+  },
+  {
+    "score": 0.27999999000000003,
+    "accepted": false
+  },
+  {
+    "score": 0.2799999,
+    "accepted": false
+  },
+  {
+    "score": 0.279,
+    "accepted": false
+  },
+  {
+    "score": 0.280000000001,
+    "accepted": true
+  },
+  {
+    "score": 0.28000000010000003,
+    "accepted": true
+  },
+  {
+    "score": 0.2800000005,
+    "accepted": true
+  },
+  {
+    "score": 0.28000000090000005,
+    "accepted": true
+  },
+  {
+    "score": 0.28000000100000005,
+    "accepted": false
+  },
+  {
+    "score": 0.280000002,
+    "accepted": false
+  },
+  {
+    "score": 0.28000001,
+    "accepted": false
+  },
+  {
+    "score": 0.28000010000000003,
+    "accepted": false
+  },
+  {
+    "score": 0.281,
+    "accepted": false
+  },
+  {
+    "score": 0.29,
+    "accepted": true
+  },
+  {
+    "score": 0.289999999999,
+    "accepted": true
+  },
+  {
+    "score": 0.28999999989999997,
+    "accepted": true
+  },
+  {
+    "score": 0.2899999995,
+    "accepted": true
+  },
+  {
+    "score": 0.28999999909999996,
+    "accepted": true
+  },
+  {
+    "score": 0.28999999899999995,
+    "accepted": false
+  },
+  {
+    "score": 0.289999998,
+    "accepted": false
+  },
+  {
+    "score": 0.28999999,
+    "accepted": false
+  },
+  {
+    "score": 0.2899999,
+    "accepted": false
+  },
+  {
+    "score": 0.289,
+    "accepted": false
+  },
+  {
+    "score": 0.29000000000099996,
+    "accepted": true
+  },
+  {
+    "score": 0.2900000001,
+    "accepted": true
+  },
+  {
+    "score": 0.29000000049999997,
+    "accepted": true
+  },
+  {
+    "score": 0.2900000009,
+    "accepted": true
+  },
+  {
+    "score": 0.290000001,
+    "accepted": false
+  },
+  {
+    "score": 0.290000002,
+    "accepted": false
+  },
+  {
+    "score": 0.29000001,
+    "accepted": false
+  },
+  {
+    "score": 0.2900001,
+    "accepted": false
+  },
+  {
+    "score": 0.291,
+    "accepted": false
+  },
+  {
+    "score": 0.58,
+    "accepted": true
+  },
+  {
+    "score": 0.579999999999,
+    "accepted": true
+  },
+  {
+    "score": 0.5799999999,
+    "accepted": true
+  },
+  {
+    "score": 0.5799999994999999,
+    "accepted": true
+  },
+  {
+    "score": 0.5799999991,
+    "accepted": true
+  },
+  {
+    "score": 0.579999999,
+    "accepted": true
+  },
+  {
+    "score": 0.5799999979999999,
+    "accepted": false
+  },
+  {
+    "score": 0.5799999899999999,
+    "accepted": false
+  },
+  {
+    "score": 0.5799999,
+    "accepted": false
+  },
+  {
+    "score": 0.579,
+    "accepted": false
+  },
+  {
+    "score": 0.5800000000009999,
+    "accepted": true
+  },
+  {
+    "score": 0.5800000001,
+    "accepted": true
+  },
+  {
+    "score": 0.5800000005,
+    "accepted": true
+  },
+  {
+    "score": 0.5800000008999999,
+    "accepted": true
+  },
+  {
+    "score": 0.5800000009999999,
+    "accepted": true
+  },
+  {
+    "score": 0.580000002,
+    "accepted": false
+  },
+  {
+    "score": 0.58000001,
+    "accepted": false
+  },
+  {
+    "score": 0.5800000999999999,
+    "accepted": false
+  },
+  {
+    "score": 0.581,
+    "accepted": false
+  },
+  {
+    "score": 1.01,
+    "accepted": true
+  },
+  {
+    "score": 1.009999999999,
+    "accepted": true
+  },
+  {
+    "score": 1.0099999999,
+    "accepted": true
+  },
+  {
+    "score": 1.0099999995,
+    "accepted": true
+  },
+  {
+    "score": 1.0099999991,
+    "accepted": true
+  },
+  {
+    "score": 1.009999999,
+    "accepted": false
+  },
+  {
+    "score": 1.009999998,
+    "accepted": false
+  },
+  {
+    "score": 1.00999999,
+    "accepted": false
+  },
+  {
+    "score": 1.0099999,
+    "accepted": false
+  },
+  {
+    "score": 1.0090000000000001,
+    "accepted": false
+  },
+  {
+    "score": 1.010000000001,
+    "accepted": true
+  },
+  {
+    "score": 1.0100000001,
+    "accepted": true
+  },
+  {
+    "score": 1.0100000005,
+    "accepted": true
+  },
+  {
+    "score": 1.0100000009,
+    "accepted": true
+  },
+  {
+    "score": 1.010000001,
+    "accepted": false
+  },
+  {
+    "score": 1.010000002,
+    "accepted": false
+  },
+  {
+    "score": 1.01000001,
+    "accepted": false
+  },
+  {
+    "score": 1.0100001,
+    "accepted": false
+  },
+  {
+    "score": 1.011,
+    "accepted": false
+  },
+  {
+    "score": 1.15,
+    "accepted": true
+  },
+  {
+    "score": 1.1499999999989998,
+    "accepted": true
+  },
+  {
+    "score": 1.1499999999,
+    "accepted": true
+  },
+  {
+    "score": 1.1499999994999999,
+    "accepted": true
+  },
+  {
+    "score": 1.1499999990999998,
+    "accepted": true
+  },
+  {
+    "score": 1.1499999989999998,
+    "accepted": false
+  },
+  {
+    "score": 1.149999998,
+    "accepted": false
+  },
+  {
+    "score": 1.14999999,
+    "accepted": false
+  },
+  {
+    "score": 1.1499998999999999,
+    "accepted": false
+  },
+  {
+    "score": 1.149,
+    "accepted": false
+  },
+  {
+    "score": 1.150000000001,
+    "accepted": true
+  },
+  {
+    "score": 1.1500000001,
+    "accepted": true
+  },
+  {
+    "score": 1.1500000005,
+    "accepted": true
+  },
+  {
+    "score": 1.1500000009,
+    "accepted": true
+  },
+  {
+    "score": 1.150000001,
+    "accepted": true
+  },
+  {
+    "score": 1.1500000019999999,
+    "accepted": false
+  },
+  {
+    "score": 1.1500000099999999,
+    "accepted": false
+  },
+  {
+    "score": 1.1500001,
+    "accepted": false
+  },
+  {
+    "score": 1.1509999999999998,
+    "accepted": false
+  },
+  {
+    "score": 1.27,
+    "accepted": true
+  },
+  {
+    "score": 1.269999999999,
+    "accepted": true
+  },
+  {
+    "score": 1.2699999999,
+    "accepted": true
+  },
+  {
+    "score": 1.2699999995,
+    "accepted": true
+  },
+  {
+    "score": 1.2699999991,
+    "accepted": true
+  },
+  {
+    "score": 1.269999999,
+    "accepted": false
+  },
+  {
+    "score": 1.269999998,
+    "accepted": false
+  },
+  {
+    "score": 1.26999999,
+    "accepted": false
+  },
+  {
+    "score": 1.2699999,
+    "accepted": false
+  },
+  {
+    "score": 1.2690000000000001,
+    "accepted": false
+  },
+  {
+    "score": 1.270000000001,
+    "accepted": true
+  },
+  {
+    "score": 1.2700000001,
+    "accepted": true
+  },
+  {
+    "score": 1.2700000005,
+    "accepted": true
+  },
+  {
+    "score": 1.2700000009,
+    "accepted": true
+  },
+  {
+    "score": 1.270000001,
+    "accepted": false
+  },
+  {
+    "score": 1.270000002,
+    "accepted": false
+  },
+  {
+    "score": 1.27000001,
+    "accepted": false
+  },
+  {
+    "score": 1.2700001,
+    "accepted": false
+  },
+  {
+    "score": 1.271,
+    "accepted": false
+  },
+  {
+    "score": 1000.01,
+    "accepted": true
+  },
+  {
+    "score": 1000.009999999999,
+    "accepted": true
+  },
+  {
+    "score": 1000.0099999999,
+    "accepted": true
+  },
+  {
+    "score": 1000.0099999995,
+    "accepted": true
+  },
+  {
+    "score": 1000.0099999991,
+    "accepted": true
+  },
+  {
+    "score": 1000.009999999,
+    "accepted": true
+  },
+  {
+    "score": 1000.009999998,
+    "accepted": false
+  },
+  {
+    "score": 1000.00999999,
+    "accepted": false
+  },
+  {
+    "score": 1000.0099999,
+    "accepted": false
+  },
+  {
+    "score": 1000.009,
+    "accepted": false
+  },
+  {
+    "score": 1000.010000000001,
+    "accepted": true
+  },
+  {
+    "score": 1000.0100000001,
+    "accepted": true
+  },
+  {
+    "score": 1000.0100000005,
+    "accepted": true
+  },
+  {
+    "score": 1000.0100000008999,
+    "accepted": true
+  },
+  {
+    "score": 1000.010000001,
+    "accepted": true
+  },
+  {
+    "score": 1000.010000002,
+    "accepted": false
+  },
+  {
+    "score": 1000.01000001,
+    "accepted": false
+  },
+  {
+    "score": 1000.0100001,
+    "accepted": false
+  },
+  {
+    "score": 1000.011,
+    "accepted": false
+  },
+  {
+    "score": 999999.99,
+    "accepted": true
+  },
+  {
+    "score": 999999.9899999999,
+    "accepted": true
+  },
+  {
+    "score": 999999.9899999995,
+    "accepted": true
+  },
+  {
+    "score": 999999.9899999991,
+    "accepted": true
+  },
+  {
+    "score": 999999.989999999,
+    "accepted": false
+  },
+  {
+    "score": 999999.989999998,
+    "accepted": false
+  },
+  {
+    "score": 999999.98999999,
+    "accepted": false
+  },
+  {
+    "score": 999999.9899999,
+    "accepted": false
+  },
+  {
+    "score": 999999.989,
+    "accepted": false
+  },
+  {
+    "score": 999999.9900000001,
+    "accepted": true
+  },
+  {
+    "score": 999999.9900000005,
+    "accepted": true
+  },
+  {
+    "score": 999999.9900000009,
+    "accepted": true
+  },
+  {
+    "score": 999999.990000001,
+    "accepted": false
+  },
+  {
+    "score": 999999.990000002,
+    "accepted": false
+  },
+  {
+    "score": 999999.99000001,
+    "accepted": false
+  },
+  {
+    "score": 999999.9900001,
+    "accepted": false
+  },
+  {
+    "score": 999999.991,
+    "accepted": false
+  }
+]

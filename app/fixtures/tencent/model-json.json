@@ -1,0 +1,4851 @@
+[
+  {
+    "name": "punctuation-0",
+    "source": "{\"value\":",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-1",
+    "source": "{\"value\":\"cut",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-2",
+    "source": "{\"value\":tru",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-3",
+    "source": "{\"value\":1,",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-4",
+    "source": "{\"value\":1]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-5",
+    "source": "{\"value\":1}}{\"value\":2}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-6",
+    "source": "{\"value\":[1}}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-7",
+    "source": "{\"value\":1}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-8",
+    "source": "{\"questions\":[,],\"groups\":[]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-9",
+    "source": "{\"questions\":[],\"groups\":[  ,  ]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-10",
+    "source": "{\"stem\":\"Original\",\"stem\":\"Replacement\"}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-11",
+    "source": "{\"stem\":\"Original\",\"st\\u0065m\":\"Replacement\",}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-12",
+    "source": "```json\n{\"stem\":\"Q\",\"answerPayload\":{\"text\":\"Original\",\"text\":\"Replacement\"}}\n```",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-13",
+    "source": "{\"text\":\"逗号,}与引号\\\"不应修改\",\"values\":[false,0,null,]",
+    "expected": {
+      "text": "逗号,}与引号\"不应修改",
+      "values": [
+        false,
+        0,
+        null
+      ]
+    }
+  },
+  {
+    "name": "punctuation-14",
+    "source": "﻿{\"value\":1}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-15",
+    "source": "{\"value\":1}\u001c",
+    "expected": {
+      "value": 1
+    }
+  },
+  {
+    "name": "punctuation-16",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 0\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 0",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-17",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 0\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 0",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-18",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 0\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 0",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-19",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 0\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 0",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-20",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 0\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 0",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-21",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 0\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-22",
+    "source": "```json\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 0\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 0",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-23",
+    "source": "```\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 0\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 0",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-24",
+    "source": "{\"stem\": \"🦑!\", \"options\": [,], \"answer\": true, \"groups\": [{\"title\": \"Group 0\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-25",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 1\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 1",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-26",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 1\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 1",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-27",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 1\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 1",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-28",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 1\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 1",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-29",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 1\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 1",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-30",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 1\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-31",
+    "source": "```json\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 1\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 1",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-32",
+    "source": "```\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 1\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 1",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-33",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [,], \"answer\": true, \"groups\": [{\"title\": \"Group 1\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-34",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 2\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 2",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-35",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 2\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 2",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-36",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 2\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 2",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-37",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 2\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 2",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-38",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 2\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 2",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-39",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 2\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-40",
+    "source": "```json\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 2\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 2",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-41",
+    "source": "```\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 2\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 2",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-42",
+    "source": "{\"stem\": \"🦑!\", \"options\": [,], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 2\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-43",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 3\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 3",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-44",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 3\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 3",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-45",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 3\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 3",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-46",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 3\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 3",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-47",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 3\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 3",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-48",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 3\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-49",
+    "source": "```json\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 3\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 3",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-50",
+    "source": "```\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 3\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 3",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-51",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [,], \"answer\": true, \"groups\": [{\"title\": \"Group 3\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-52",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 4\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 4",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-53",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 4\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 4",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-54",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 4\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 4",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-55",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 4\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 4",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-56",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 4\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 4",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-57",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 4\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-58",
+    "source": "```json\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 4\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 4",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-59",
+    "source": "```\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 4\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 4",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-60",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [,], \"answer\": 0, \"groups\": [{\"title\": \"Group 4\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-61",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 5\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 5",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-62",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 5\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 5",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-63",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 5\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 5",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-64",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 5\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 5",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-65",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 5\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 5",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-66",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 5\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-67",
+    "source": "```json\n{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 5\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 5",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-68",
+    "source": "```\n{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 5\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 5",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-69",
+    "source": "{\"stem\": \"题干\", \"options\": [,], \"answer\": false, \"groups\": [{\"title\": \"Group 5\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-70",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 6\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 6",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-71",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 6\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 6",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-72",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 6\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 6",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-73",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 6\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 6",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-74",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 6\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 6",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-75",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 6\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-76",
+    "source": "```json\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 6\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 6",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-77",
+    "source": "```\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 6\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 6",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-78",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [,], \"answer\": null, \"groups\": [{\"title\": \"Group 6\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-79",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 7\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 7",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-80",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 7\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 7",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-81",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 7\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 7",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-82",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 7\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 7",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-83",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 7\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 7",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-84",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 7\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-85",
+    "source": "```json\n{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 7\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 7",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-86",
+    "source": "```\n{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 7\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 7",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-87",
+    "source": "{\"stem\": \"题干\", \"options\": [,], \"answer\": true, \"groups\": [{\"title\": \"Group 7\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-88",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 8\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 8",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-89",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 8\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 8",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-90",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 8\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 8",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-91",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 8\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 8",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-92",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 8\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 8",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-93",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 8\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-94",
+    "source": "```json\n{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 8\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 8",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-95",
+    "source": "```\n{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 8\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 8",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-96",
+    "source": "{\"stem\": \"题干\", \"options\": [,], \"answer\": true, \"groups\": [{\"title\": \"Group 8\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-97",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 9\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 9",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-98",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 9\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 9",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-99",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 9\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 9",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-100",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 9\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 9",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-101",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 9\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 9",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-102",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 9\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-103",
+    "source": "```json\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 9\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 9",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-104",
+    "source": "```\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 9\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 9",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-105",
+    "source": "{\"stem\": \"🦑!\", \"options\": [,], \"answer\": null, \"groups\": [{\"title\": \"Group 9\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-106",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 10\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 10",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-107",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 10\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 10",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-108",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 10\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 10",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-109",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 10\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 10",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-110",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 10\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 10",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-111",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 10\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-112",
+    "source": "```json\n{\"stem\": \"题干\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 10\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 10",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-113",
+    "source": "```\n{\"stem\": \"题干\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 10\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 10",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-114",
+    "source": "{\"stem\": \"题干\", \"options\": [,], \"answer\": 0, \"groups\": [{\"title\": \"Group 10\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-115",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 11\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 11",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-116",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 11\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 11",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-117",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 11\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 11",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-118",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 11\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 11",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-119",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 11\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 11",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-120",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 11\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-121",
+    "source": "```json\n{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 11\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 11",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-122",
+    "source": "```\n{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 11\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 11",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-123",
+    "source": "{\"stem\": \"题干\", \"options\": [,], \"answer\": false, \"groups\": [{\"title\": \"Group 11\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-124",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 12\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 12",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-125",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 12\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 12",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-126",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 12\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 12",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-127",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 12\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 12",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-128",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 12\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 12",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-129",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 12\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-130",
+    "source": "```json\n{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 12\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 12",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-131",
+    "source": "```\n{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 12\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 12",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-132",
+    "source": "{\"stem\": \"题干\", \"options\": [,], \"answer\": false, \"groups\": [{\"title\": \"Group 12\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-133",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 13\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 13",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-134",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 13\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 13",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-135",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 13\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 13",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-136",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 13\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 13",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-137",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 13\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 13",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-138",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 13\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-139",
+    "source": "```json\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 13\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 13",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-140",
+    "source": "```\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 13\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 13",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-141",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [,], \"answer\": 0, \"groups\": [{\"title\": \"Group 13\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-142",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 14\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 14",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-143",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 14\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 14",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-144",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 14\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 14",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-145",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 14\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 14",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-146",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 14\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 14",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-147",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 14\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-148",
+    "source": "```json\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 14\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 14",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-149",
+    "source": "```\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 14\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 14",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-150",
+    "source": "{\"stem\": \"🦑!\", \"options\": [,], \"answer\": 0, \"groups\": [{\"title\": \"Group 14\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-151",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 15\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 15",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-152",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 15\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 15",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-153",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 15\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 15",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-154",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 15\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 15",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-155",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 15\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 15",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-156",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 15\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-157",
+    "source": "```json\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 15\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 15",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-158",
+    "source": "```\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 15\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 15",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-159",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [,], \"answer\": true, \"groups\": [{\"title\": \"Group 15\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-160",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 16\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 16",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-161",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 16\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 16",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-162",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 16\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 16",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-163",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 16\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 16",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-164",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 16\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 16",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-165",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 16\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-166",
+    "source": "```json\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 16\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 16",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-167",
+    "source": "```\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 16\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 16",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-168",
+    "source": "{\"stem\": \"🦑!\", \"options\": [,], \"answer\": null, \"groups\": [{\"title\": \"Group 16\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-169",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 17\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 17",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-170",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 17\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 17",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-171",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 17\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 17",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-172",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 17\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 17",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-173",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 17\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 17",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-174",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 17\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-175",
+    "source": "```json\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 17\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 17",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-176",
+    "source": "```\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 17\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 17",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-177",
+    "source": "{\"stem\": \"🦑!\", \"options\": [,], \"answer\": null, \"groups\": [{\"title\": \"Group 17\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-178",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 18\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 18",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-179",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 18\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 18",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-180",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 18\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 18",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-181",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 18\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 18",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-182",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 18\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 18",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-183",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 18\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-184",
+    "source": "```json\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 18\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 18",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-185",
+    "source": "```\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 18\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 18",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-186",
+    "source": "{\"stem\": \"🦑!\", \"options\": [,], \"answer\": null, \"groups\": [{\"title\": \"Group 18\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-187",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 19\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 19",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-188",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 19\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 19",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-189",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 19\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 19",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-190",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 19\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 19",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-191",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 19\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 19",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-192",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 19\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-193",
+    "source": "```json\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 19\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 19",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-194",
+    "source": "```\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 19\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 19",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-195",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [,], \"answer\": 0, \"groups\": [{\"title\": \"Group 19\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-196",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 20\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 20",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-197",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 20\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 20",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-198",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 20\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 20",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-199",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 20\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 20",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-200",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 20\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 20",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-201",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 20\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-202",
+    "source": "```json\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 20\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 20",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-203",
+    "source": "```\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 20\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 20",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-204",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [,], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 20\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-205",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 21\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 21",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-206",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 21\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 21",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-207",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 21\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 21",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-208",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 21\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 21",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-209",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 21\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 21",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-210",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 21\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-211",
+    "source": "```json\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 21\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 21",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-212",
+    "source": "```\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 21\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 21",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-213",
+    "source": "{\"stem\": \"🦑!\", \"options\": [,], \"answer\": null, \"groups\": [{\"title\": \"Group 21\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-214",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 22\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 22",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-215",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 22\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 22",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-216",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 22\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 22",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-217",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 22\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 22",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-218",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 22\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 22",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-219",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 22\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-220",
+    "source": "```json\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 22\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 22",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-221",
+    "source": "```\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 22\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 22",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-222",
+    "source": "{\"stem\": \"🦑!\", \"options\": [,], \"answer\": 0, \"groups\": [{\"title\": \"Group 22\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-223",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 23\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 23",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-224",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 23\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 23",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-225",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 23\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 23",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-226",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 23\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 23",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-227",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 23\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 23",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-228",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 23\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-229",
+    "source": "```json\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 23\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 23",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-230",
+    "source": "```\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": null, \"groups\": [{\"title\": \"Group 23\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": null,
+      "groups": [
+        {
+          "title": "Group 23",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-231",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [,], \"answer\": null, \"groups\": [{\"title\": \"Group 23\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-232",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 24\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 24",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-233",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 24\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 24",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-234",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 24\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 24",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-235",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 24\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 24",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-236",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 24\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 24",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-237",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 24\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-238",
+    "source": "```json\n{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 24\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 24",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-239",
+    "source": "```\n{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 24\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 24",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-240",
+    "source": "{\"stem\": \"题干\", \"options\": [,], \"answer\": true, \"groups\": [{\"title\": \"Group 24\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-241",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 25\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 25",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-242",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 25\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 25",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-243",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 25\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 25",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-244",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 25\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 25",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-245",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 25\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 25",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-246",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 25\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-247",
+    "source": "```json\n{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 25\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 25",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-248",
+    "source": "```\n{\"stem\": \"题干\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 25\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 25",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-249",
+    "source": "{\"stem\": \"题干\", \"options\": [,], \"answer\": false, \"groups\": [{\"title\": \"Group 25\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-250",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 26\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 26",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-251",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 26\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 26",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-252",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 26\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 26",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-253",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 26\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 26",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-254",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 26\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 26",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-255",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 26\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-256",
+    "source": "```json\n{\"stem\": \"题干\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 26\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 26",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-257",
+    "source": "```\n{\"stem\": \"题干\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 26\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 26",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-258",
+    "source": "{\"stem\": \"题干\", \"options\": [,], \"answer\": 0, \"groups\": [{\"title\": \"Group 26\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-259",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 27\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 27",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-260",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 27\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 27",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-261",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 27\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 27",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-262",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 27\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 27",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-263",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 27\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 27",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-264",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 27\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-265",
+    "source": "```json\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 27\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 27",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-266",
+    "source": "```\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": false, \"groups\": [{\"title\": \"Group 27\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": false,
+      "groups": [
+        {
+          "title": "Group 27",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-267",
+    "source": "{\"stem\": \"🦑!\", \"options\": [,], \"answer\": false, \"groups\": [{\"title\": \"Group 27\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-268",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 28\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 28",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-269",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 28\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 28",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-270",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 28\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 28",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-271",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 28\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 28",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-272",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 28\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 28",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-273",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 28\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-274",
+    "source": "```json\n{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 28\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 28",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-275",
+    "source": "```\n{\"stem\": \"题干\", \"options\": [], \"answer\": true, \"groups\": [{\"title\": \"Group 28\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": true,
+      "groups": [
+        {
+          "title": "Group 28",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-276",
+    "source": "{\"stem\": \"题干\", \"options\": [,], \"answer\": true, \"groups\": [{\"title\": \"Group 28\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-277",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 29\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 29",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-278",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 29\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 29",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-279",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 29\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 29",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-280",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 29\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 29",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-281",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 29\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 29",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-282",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 29\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-283",
+    "source": "```json\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 29\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 29",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-284",
+    "source": "```\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": 0, \"groups\": [{\"title\": \"Group 29\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 0,
+      "groups": [
+        {
+          "title": "Group 29",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-285",
+    "source": "{\"stem\": \"🦑!\", \"options\": [,], \"answer\": 0, \"groups\": [{\"title\": \"Group 29\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-286",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 30\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 30",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-287",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 30\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 30",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-288",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 30\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 30",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-289",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 30\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 30",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-290",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 30\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 30",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-291",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 30\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-292",
+    "source": "```json\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 30\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 30",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-293",
+    "source": "```\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 30\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 30",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-294",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [,], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 30\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-295",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 31\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 31",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-296",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 31\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 31",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-297",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 31\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 31",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-298",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 31\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 31",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-299",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 31\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 31",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-300",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 31\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-301",
+    "source": "```json\n{\"stem\": \"题干\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 31\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 31",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-302",
+    "source": "```\n{\"stem\": \"题干\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 31\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 31",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-303",
+    "source": "{\"stem\": \"题干\", \"options\": [,], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 31\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-304",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 32\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 32",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-305",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 32\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 32",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-306",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 32\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 32",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-307",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 32\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 32",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-308",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 32\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 32",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-309",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 32\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-310",
+    "source": "```json\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 32\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 32",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-311",
+    "source": "```\n{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 32\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "Text, } [ \" \\ end",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 32",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-312",
+    "source": "{\"stem\": \"Text, } [ \\\" \\\\ end\", \"options\": [,], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 32\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-313",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 33\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 33",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-314",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 33\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 33",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-315",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 33\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 33",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-316",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 33\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 33",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-317",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 33\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 33",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-318",
+    "source": "{\"stem\": \"🦑!\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 33\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-319",
+    "source": "```json\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 33\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 33",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-320",
+    "source": "```\n{\"stem\": \"🦑!\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 33\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "🦑!",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 33",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-321",
+    "source": "{\"stem\": \"🦑!\", \"options\": [,], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 33\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-322",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 34\", \"questionIndexes\": [0, 1]}]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 34",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-323",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 34\", \"questionIndexes\": [0, 1]}]",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 34",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-324",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 34\", \"questionIndexes\": [0, 1]}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 34",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-325",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 34\", \"questionIndexes\": [0, 1]}],}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 34",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-326",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 34\", \"questionIndexes\": [0, 1]}]}}",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 34",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-327",
+    "source": "{\"stem\": \"题干\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 34\", \"questionIndexes\": [0, 1]}]}]",
+    "rejected": true
+  },
+  {
+    "name": "punctuation-328",
+    "source": "```json\n{\"stem\": \"题干\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 34\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 34",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-329",
+    "source": "```\n{\"stem\": \"题干\", \"options\": [], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 34\", \"questionIndexes\": [0, 1]}]}\n```",
+    "expected": {
+      "stem": "题干",
+      "options": [],
+      "answer": 1.15,
+      "groups": [
+        {
+          "title": "Group 34",
+          "questionIndexes": [
+            0,
+            1
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "punctuation-330",
+    "source": "{\"stem\": \"题干\", \"options\": [,], \"answer\": 1.15, \"groups\": [{\"title\": \"Group 34\", \"questionIndexes\": [0, 1]}]}",
+    "rejected": true
+  }
+]

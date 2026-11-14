@@ -7,8 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { t } from "./i18n";
 import "../../shared/cloud/style.css";
+import { DesktopCloudPage } from "./DesktopCloudPage";
 
-export function CloudPage({ settingsOnly = false, flushRef }: { settingsOnly?: boolean; flushRef?: MutableRefObject<() => Promise<void>> } = {}) {
+type Props = { settingsOnly?: boolean; flushRef?: MutableRefObject<() => Promise<void>> };
+export function CloudPage(props: Props = {}) { return window.practiq ? <DesktopCloudPage {...props} /> : <ServiceCloudPage {...props} />; }
+function ServiceCloudPage({ settingsOnly = false, flushRef }: Props) {
   const [revision, setRevision] = useState(0);
   const [connected, setConnected] = useState("");
   const [loading, setLoading] = useState(true);

@@ -142,7 +142,7 @@ mod tests {
         let path = dir.path().join("practiq.sqlite");
         let db = rusqlite::Connection::open(&path).unwrap();
         db.execute_batch(
-            &include_str!("schema.sql").replace("'zh-CN','zh-TW','en'", "'zh-CN','en'"),
+            &include_str!("../../desktop/schema.sql").replace("'zh-CN','zh-TW','en'", "'zh-CN','en'"),
         )
         .unwrap();
         db.execute_batch(
@@ -172,7 +172,7 @@ mod tests {
         let path = dir.path().join("practiq.sqlite");
         let db = rusqlite::Connection::open(&path).unwrap();
         db.execute_batch(
-            &include_str!("schema.sql").replace("'zh-CN','zh-TW','en'", "'zh-CN','en'"),
+            &include_str!("../../desktop/schema.sql").replace("'zh-CN','zh-TW','en'", "'zh-CN','en'"),
         )
         .unwrap();
         db.execute_batch("PRAGMA ignore_check_constraints=ON; UPDATE settings SET locale='fr',model_id='keep-model'; INSERT INTO banks VALUES('keep-bank','Keep','',1);")

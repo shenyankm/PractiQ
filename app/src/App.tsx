@@ -7,8 +7,7 @@ import { QuestionNotesForTree } from "./QuestionNotes";
 import logo from "../src-tauri/icons/icon.png";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps } from "react";
 import { Tooltip } from "radix-ui";
-import { isTauri } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { isDesktop, desktopWindow } from "./desktop-window";
 import {
   BookOpen,
   Menu,
@@ -235,10 +234,10 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
     previousPage.current = page;
   }, [page]);
   useEffect(() => {
-    if (!isTauri()) return;
+    if (!isDesktop()) return;
     let disposed = false;
     let unlisten: (() => void) | undefined;
-    void getCurrentWindow()
+    void desktopWindow()
       .onCloseRequested(async (event) => {
         event.preventDefault();
         if (lock.current) {
@@ -251,12 +250,12 @@ export default function App({ initialTheme }: { initialTheme?: ThemeState } = {}
               title: message("放弃未保存的更改并退出？"),
               label: message("放弃更改并退出"),
               description: message("未保存的编辑和人工评分草稿将丢失。取消后可继续编辑；已保存的数据不受影响。"),
-              action: async () => { await flushRef.current(); await getCurrentWindow().destroy(); },
+              action: async () => { await flushRef.current(); await desktopWindow().destroy(); },
             });
             return;
           }
           await flushRef.current();
-          await getCurrentWindow().destroy();
+          await desktopWindow().destroy();
         } catch (e) {
           toast.error(e);
         }

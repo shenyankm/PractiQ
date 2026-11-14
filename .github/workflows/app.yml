@@ -90,6 +90,14 @@ jobs:
           PRACTIQ_REQUIRE_NATIVE_BUILD_GUARD: '1'
       - run: npm ci
         working-directory: app
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - name: Verify TypeScript migration contracts and storage
+        working-directory: app
+        run: |
+          npm run contracts:check
+          npm run desktop:build
+          npm run test:desktop
       - name: Check frontend types, lint and coverage
         env:
           VITEST_MAX_WORKERS: '2'
@@ -149,6 +157,18 @@ jobs:
           python-version: '3.14'
       - run: npm ci
         working-directory: app
+      - name: Build standalone Electron package
+        working-directory: app
+        run: |
+          npm run check:packaging
+          npm run package:electron -- .build/electron-ci
+      - name: Verify copied Electron application workflows
+        run: |
+          ditto app/.build/electron-ci/PractiQ.app "$RUNNER_TEMP/PractiQ-electron/PractiQ.app"
+          npm --prefix app run test:electron:installed -- "$RUNNER_TEMP/PractiQ-electron/PractiQ.app/Contents/MacOS/PractiQ"
+      - name: Verify installed Electron DMG and protected credentials
+        working-directory: app
+        run: npm run test:package -- .build/electron-ci
       - name: Verify Rust flows and lint
         env:
           TAURI_CONFIG: '{"bundle":{"resources":[]}}'
@@ -187,7 +207,18 @@ jobs:
             server/reports/checks/release/
             app/src-tauri/bundled/build-manifest.json
             app/src-tauri/bundled/THIRD-PARTY.txt
+            app/.build/electron-ci/package-report.json
+            app/.build/evidence/electron-*-smoke.json
+            app/.build/evidence/electron-package-*-acceptance.json
           retention-days: 7
+      - name: Upload Electron migration installer
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: PractiQ-Electron-macOS
+          path: app/.build/electron-ci/*.dmg
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload installers
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

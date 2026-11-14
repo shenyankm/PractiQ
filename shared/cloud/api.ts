@@ -5,6 +5,8 @@ import { validPages, validReparseSelection } from "./importSelection";
 import { IMPORT_SOURCE_TYPES } from "./contracts.generated";
 
 import { nativeBridge, serviceFetch, type SourceFile } from "./transport";
+import type { DesktopDocumentBankSelection, DesktopDocumentRequest, DesktopDocumentReply, DesktopSourceStatus, DesktopSourceRepairRequest } from "./contracts.generated";
+type DesktopValues = { [Reply in DesktopDocumentReply as Reply["type"]]: Reply["value"] };
 export type { SourceFile } from "./transport";
 
 export type SourceType = Exclude<DocumentSourceType, "csv">;
@@ -15,9 +17,12 @@ export type Receipt = DocumentTaskReceipt;
 export type Action = DocumentTaskDetail["allowedActions"][number];
 export type UploadStage = "hashing" | "uploading" | "starting";
 export type ReparseIntent = DocumentTaskReparse & { threadId: string };
+export type SourceRepairIntent = DesktopSourceRepairRequest & { threadId: string };
 const MIB = 1024 * 1024;
 const IMPORT_INTENTS = "practiq-import-intents-v1";
 const REPARSE_INTENTS = "practiq-reparse-intents-v1";
+const SOURCE_REPAIR_INTENTS = "practiq-source-repair-intents-v1";
+const DELETE_INTENTS = "practiq-delete-intents-v1";
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export const MAX_FILES = 10;
 export const MAX_BANK_ZIP_BYTES = 300 * MIB;
@@ -119,8 +124,27 @@ export class Client {
   private readonly intents = new Map<string, string>();
   get active() { return !this.session.signal.aborted && this.storageScope === storageScope() && this.native === nativeBridge(); }
   disconnect() { this.session.abort(); this.intents.clear(); }
+  private async document<T extends DesktopDocumentRequest["type"]>(type: T, fields: Omit<Extract<DesktopDocumentRequest, { type: T }>, "type" | "revision">, signal?: AbortSignal): Promise<DesktopValues[T]> {
+    const native = this.native;
+    if (!native?.documents || !native.revision) throw new ApiError(t("此操作尚未完成迁移。"), "ACTION_UNAVAILABLE");
+    if (!this.active || signal?.aborted) throw new DOMException(t("请求已取消"), "AbortError");
+    const request = { ...fields, type, revision: native.revision } as DesktopDocumentRequest;
+    const reply = await withDeadline(["import_bank", "repair_source", "export_bank_zip"].includes(type) ? 600_000 : ["create", "control", "save_import_settings", "save_correction"].includes(type) ? 125_000 : 30_000, [this.session.signal, ...(signal ? [signal] : [])], async requestSignal => {
+      const reply = await new Promise<DesktopDocumentReply>((resolve, reject) => {
+        const abort = () => reject(new DOMException(t("请求已取消"), "AbortError"));
+        requestSignal.addEventListener("abort", abort, { once: true });
+        if (requestSignal.aborted) { abort(); return; }
+        void native.documents!(request).then(resolve, reject).finally(() => requestSignal.removeEventListener("abort", abort));
+      });
+      if (!this.active) throw new DOMException(t("请求已取消"), "AbortError");
+      if (!reply || reply.type !== type) throw new ApiError(t("任务响应无效，请重新读取。"), "INVALID_RESPONSE");
+      return reply;
+    });
+    return reply.value as DesktopValues[T];
+  }
   private async request<T>(path: string, init: RequestInit, read: (response: Response, signal: AbortSignal) => Promise<T>, signal?: AbortSignal) {
     if (!this.active || signal?.aborted) throw new DOMException(t("请求已取消"), "AbortError");
+    if (this.native?.documents) throw new ApiError(t("此操作尚未完成迁移。"), "ACTION_UNAVAILABLE");
     if (!path.startsWith("/api/") || path.startsWith("//")) throw new ApiError(t("服务返回了无效地址。"), "INVALID_URL");
     const headers = new Headers(init.headers);
     const signals = [this.session.signal];
@@ -207,15 +231,15 @@ export class Client {
     if (!value || typeof value.revision !== "string" || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(value.revision) || !settings || !Number.isInteger(settings.tencentConcurrency) || settings.tencentConcurrency! < 1 || settings.tencentConcurrency! > 5 || !Number.isInteger(settings.readRetryCount) || settings.readRetryCount! < 0 || settings.readRetryCount! > 5 || !Number.isFinite(settings.retryBaseSeconds) || settings.retryBaseSeconds! < 0.5 || settings.retryBaseSeconds! > 10) throw new ApiError(t("导入设置响应无效，请重新读取。"), "INVALID_RESPONSE");
     return value;
   }
-  async importSettings(signal?: AbortSignal) { return this.checkedSettings(await this.json<ImportSettingsSnapshot>("/api/import-settings", undefined, signal)); }
+  async importSettings(signal?: AbortSignal) { return this.checkedSettings(this.native?.documents ? await this.document("import_settings", {}, signal) : await this.json<ImportSettingsSnapshot>("/api/import-settings", undefined, signal)); }
   async saveImportSettings(value: ImportSettingsSnapshot) {
     this.checkedSettings(value);
-    const saved = this.checkedSettings(await this.json<ImportSettingsSnapshot>("/api/import-settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) }));
+    const saved = this.checkedSettings(this.native?.documents ? await this.document("save_import_settings", { value }) : await this.json<ImportSettingsSnapshot>("/api/import-settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) }));
     if (saved.revision === value.revision || Object.keys(value.settings).some(key => saved.settings[key as keyof typeof saved.settings] !== value.settings[key as keyof typeof value.settings])) throw new ApiError(t("保存结果尚未确认，请重新读取设置后核对。"), "INVALID_RESPONSE");
     return saved;
   }
-  private async receipt(path: string, body: { requestId: string }) {
-    const receipt = await this.post<Receipt>(path, body);
+  private async receipt(body: { requestId: string }, perform: () => Promise<Receipt>) {
+    const receipt = await perform();
     if (!receipt || receipt.requestId !== body.requestId || receipt.accepted !== true || ![receipt.threadId, receipt.runId].every(id => typeof id === "string" && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(id))) throw new ApiError(t("任务操作回执无效，结果尚未确认。请先查询任务。"), "INVALID_RESPONSE");
     return receipt;
   }
@@ -227,7 +251,7 @@ export class Client {
     return receipt;
   }
   async capabilities(signal?: AbortSignal) {
-    const value = await this.json<Capabilities>("/api/import-capabilities", undefined, signal);
+    const value = this.native?.documents ? await this.document("capabilities", {}, signal) : await this.json<Capabilities>("/api/import-capabilities", undefined, signal);
     if (!Number.isSafeInteger(value.sourceMaxBytes) || value.sourceMaxBytes <= 0 || !Array.isArray(value.sourceTypes) || !value.sourceTypes.every(type => IMPORT_SOURCE_TYPES.some(supported => supported === type)) || !Array.isArray(value.officeModes) || !value.officeModes.every(mode => ["pdf", "text"].includes(mode)) || typeof value.officeAvailable !== "boolean" || typeof value.modelConfigured !== "boolean") throw new ApiError(t("服务能力响应无效。"), "INVALID_RESPONSE");
     if (value.officeSourceMaxBytes != null && (!Number.isSafeInteger(value.officeSourceMaxBytes) || value.officeSourceMaxBytes <= 0 || value.officeSourceMaxBytes > value.sourceMaxBytes)) throw new ApiError(t("服务能力响应无效。"), "INVALID_RESPONSE");
     if (value.parserInputMaxBytes != null && (!Number.isSafeInteger(value.parserInputMaxBytes) || value.parserInputMaxBytes < 4 || value.parserInputMaxBytes > 150 * MIB)) throw new ApiError(t("服务能力响应无效。"), "INVALID_RESPONSE");
@@ -235,27 +259,69 @@ export class Client {
     return value;
   }
   list(offset: number, filter = "", signal?: AbortSignal, cursor?: string) {
+    if (this.native?.documents) {
+      const aliases: Record<string, string> = { paused: "PAUSED", review: "WAITING_REVIEW", failed: "FAILED", completed: "COMPLETED", cancelled: "CANCELLED", interrupted: "INTERRUPTED", expired: "EXPIRED" };
+      return this.document("list", { offset: cursor ? 0 : offset, limit: 20, state: (aliases[filter] ?? filter) as Extract<DesktopDocumentRequest, { type: "list" }>["state"], ...(cursor ? { cursor } : {}) }, signal);
+    }
     const query = new URLSearchParams({ limit: "20", offset: String(cursor ? 0 : offset) });
     if (cursor) query.set("cursor", cursor);
     if (filter) query.set("state_filter", filter);
     return this.json<TaskList>(`/api/document-tasks?${query}`, undefined, signal);
   }
-  detail(id: string, signal?: AbortSignal) { return this.json<DocumentTaskDetail>(`/api/document-tasks/${encodeURIComponent(id)}`, undefined, signal); }
+  detail(id: string, signal?: AbortSignal) { return this.native?.documents ? this.document("detail", { threadId: id }, signal) : this.json<DocumentTaskDetail>(`/api/document-tasks/${encodeURIComponent(id)}`, undefined, signal); }
+  costReport(threadId?: string, signal?: AbortSignal) { return this.document("cost_report", { ...(threadId ? { threadId } : {}) }, signal); }
+  async sourceStatus(id: string) {
+    const status = await this.document("source_status", { threadId: id });
+    if (!status || status.threadId !== id || !["verified", "missing", "corrupt"].includes(status.status) || !Number.isSafeInteger(status.taskVersion) || status.taskVersion < 0 || typeof status.canRepair !== "boolean") throw new ApiError(t("任务响应无效，请重新读取。"), "INVALID_RESPONSE");
+    return status;
+  }
+  pendingSourceRepairs(): SourceRepairIntent[] {
+    try {
+      const raw = localStorage.getItem(storageKey(SOURCE_REPAIR_INTENTS, this.storageScope)); if (raw === null) return [];
+      if (raw.length > 64 * 1024) throw new Error(); const records: SourceRepairIntent[] = JSON.parse(raw);
+      if (!Array.isArray(records) || records.length > 50 || !records.every(record => record && Object.keys(record).sort().join() === "expectedVersion,requestId,threadId" && typeof record.threadId === "string" && uuid.test(record.threadId) && typeof record.requestId === "string" && uuid.test(record.requestId) && Number.isSafeInteger(record.expectedVersion) && record.expectedVersion >= 0) || new Set(records.map(record => record.requestId.toLowerCase())).size !== records.length || new Set(records.map(record => record.threadId.toLowerCase())).size !== records.length) throw new Error();
+      return records;
+    } catch { throw new ApiError(t("无法读取原文修复恢复记录，请核对任务后再操作。"), "RECOVERY_STORAGE_UNAVAILABLE"); }
+  }
+  private saveSourceRepairs(records: SourceRepairIntent[]) {
+    if (!this.active) throw new DOMException(t("请求已取消"), "AbortError");
+    try {
+      const bytes = JSON.stringify(records); if (records.length > 50 || bytes.length > 64 * 1024) throw new Error();
+      if (records.length) localStorage.setItem(storageKey(SOURCE_REPAIR_INTENTS, this.storageScope), bytes); else localStorage.removeItem(storageKey(SOURCE_REPAIR_INTENTS, this.storageScope));
+    } catch { throw new ApiError(t("无法保存原文修复恢复记录，本次操作未确认。"), "RECOVERY_STORAGE_UNAVAILABLE"); }
+  }
+  forgetSourceRepair(requestId: string) { this.saveSourceRepairs(this.pendingSourceRepairs().filter(record => record.requestId !== requestId)); }
+  async retrySourceRepair(requestId: string) {
+    if (!this.active) throw new DOMException(t("请求已取消"), "AbortError");
+    const request = this.pendingSourceRepairs().find(record => record.requestId === requestId); if (!request) throw new ApiError(t("原文修复恢复记录不存在。"), "ACTION_UNAVAILABLE");
+    const result = await this.document("repair_source", { threadId: request.threadId, value: { requestId, expectedVersion: request.expectedVersion } });
+    if (!result || result.threadId !== request.threadId || result.requestId !== requestId || !["verified", "repaired", "cancelled"].includes(result.status) || (result.status === "repaired" ? typeof result.quarantineId !== "string" || !uuid.test(result.quarantineId) : result.quarantineId !== null)) throw new ApiError(t("原文修复回执无效，请沿用原请求核对。"), "INVALID_RESPONSE");
+    this.forgetSourceRepair(requestId); return result;
+  }
+  async repairSource(status: DesktopSourceStatus) {
+    if (!this.active) throw new DOMException(t("请求已取消"), "AbortError");
+    if (!uuid.test(status.threadId) || !Number.isSafeInteger(status.taskVersion) || status.taskVersion < 0) throw new ApiError(t("任务引用无效。"), "INVALID_REFERENCE");
+    const records = this.pendingSourceRepairs(), pending = records.find(record => record.threadId === status.threadId);
+    const request = pending ?? { threadId: status.threadId, requestId: crypto.randomUUID(), expectedVersion: status.taskVersion };
+    if (!pending) this.saveSourceRepairs([...records, request]); return this.retrySourceRepair(request.requestId);
+  }
   answerMatches(task: DocumentTaskDetail, answerTaskId: string) {
+    if (this.native?.documents) return this.document("answer_matches", { threadId: task.threadId, checkpointId: task.checkpointId!, answerTaskId });
     return this.json<DocumentAnswerMatches>(`/api/document-tasks/${encodeURIComponent(task.threadId)}/answer-matches?${new URLSearchParams({ checkpoint_id: task.checkpointId!, answer_task_id: answerTaskId })}`);
   }
   answerProposal(task: DocumentTaskDetail, questionIndex: number, source: DocumentAnswerSource) {
+    if (this.native?.documents) return this.document("answer_proposal", { threadId: task.threadId, checkpointId: task.checkpointId!, questionIndex, answerSource: source });
     const query = new URLSearchParams({ checkpoint_id: task.checkpointId!, question_index: String(questionIndex), answer_task_id: source.taskId, answer_checkpoint_id: source.checkpointId, answer_question_index: String(source.questionIndex), replace_existing: String(!!source.replaceExisting) });
     return this.json<DocumentAnswerProposal>(`/api/document-tasks/${encodeURIComponent(task.threadId)}/answer-proposal?${query}`);
   }
-  corrections(id: string) { return this.json<DocumentCorrections>(`/api/document-tasks/${encodeURIComponent(id)}/corrections`); }
+  corrections(id: string) { return this.native?.documents ? this.document("corrections", { threadId: id }) : this.json<DocumentCorrections>(`/api/document-tasks/${encodeURIComponent(id)}/corrections`); }
   async saveCorrection(id: string, value: DocumentCorrectionSave) {
-    const saved = await this.json<DocumentCorrections>(`/api/document-tasks/${encodeURIComponent(id)}/corrections`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
+    const saved = this.native?.documents ? await this.document("save_correction", { threadId: id, value }) : await this.json<DocumentCorrections>(`/api/document-tasks/${encodeURIComponent(id)}/corrections`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
     if (saved.checkpointId !== value.checkpointId || !Array.isArray(saved.edits) || !saved.edits.some(edit => edit.requestId === value.requestId && edit.questionIndex === value.questionIndex)) throw new ApiError(t("修订回执未确认，请重新读取已保存修订。"), "INVALID_RESPONSE");
     return saved;
   }
-  head(id: string, signal?: AbortSignal) { return this.json<DocumentTaskHead>(`/api/document-tasks/${encodeURIComponent(id)}/head`, undefined, signal); }
-  preview(id: string, signal?: AbortSignal, includeResult = true) { return this.json<DocumentTaskReview>(`/api/document-tasks/${encodeURIComponent(id)}/preview${includeResult ? "" : "?include_result=false"}`, undefined, signal); }
+  head(id: string, signal?: AbortSignal) { return this.native?.documents ? this.document("head", { threadId: id }, signal) : this.json<DocumentTaskHead>(`/api/document-tasks/${encodeURIComponent(id)}/head`, undefined, signal); }
+  preview(id: string, signal?: AbortSignal, includeResult = true) { return this.native?.documents ? this.document("preview", { threadId: id, includeResult }, signal) : this.json<DocumentTaskReview>(`/api/document-tasks/${encodeURIComponent(id)}/preview${includeResult ? "" : "?include_result=false"}`, undefined, signal); }
   pendingImports(): DocumentTaskCreate[] {
     try {
       const raw = localStorage.getItem(storageKey(IMPORT_INTENTS, this.storageScope));
@@ -293,7 +359,7 @@ export class Client {
   async retryImport(requestId: string) {
     const request = this.pendingImports().find(record => record.requestId === requestId);
     if (!request) throw new ApiError(t("原提交恢复记录不存在，请先核对导入记录。"), "ACTION_UNAVAILABLE");
-    const receipt = await this.receipt("/api/document-tasks", request);
+    const receipt = await this.receipt(request, () => this.native?.documents ? this.document("create", { value: request }) : this.post<Receipt>("/api/document-tasks", request));
     this.saveImports(this.pendingImports().filter(record => record.requestId !== requestId));
     return receipt;
   }
@@ -347,7 +413,7 @@ export class Client {
     if (!task.allowedActions.includes(action) || (running ? !task.runId : !task.checkpointId)) throw new ApiError(t("此检查点暂不允许该操作，请刷新任务。"), "ACTION_UNAVAILABLE");
     if (!running && (!task.modelConfigured || !task.resumeCompatible)) throw new ApiError(t("服务模型未配置或检查点不兼容，无法继续。"), "MODEL_NOT_CONFIGURED");
     const target = running ? task.runId : task.checkpointId;
-    return this.intent(`control:${task.threadId}:${action}:${target}`, requestId => { const request: DocumentTaskControl = { requestId, action, runId: running ? task.runId : null, checkpointId: running ? null : task.checkpointId, units: [] }; return this.receipt(`/api/document-tasks/${encodeURIComponent(task.threadId)}/control`, request); });
+    return this.intent(`control:${task.threadId}:${action}:${target}`, requestId => { const request: DocumentTaskControl = { requestId, action, runId: running ? task.runId : null, checkpointId: running ? null : task.checkpointId, units: [] }; return this.receipt(request, () => this.native?.documents ? this.document("control", { threadId: task.threadId, value: request }) : this.post<Receipt>(`/api/document-tasks/${encodeURIComponent(task.threadId)}/control`, request)); });
   }
   pendingReparses(): ReparseIntent[] {
     try {
@@ -377,7 +443,8 @@ export class Client {
   async retryReparse(requestId: string) {
     const request = this.pendingReparses().find(record => record.requestId === requestId);
     if (!request) throw new ApiError(t("重新解析恢复记录不存在，请先核对导入记录。"), "ACTION_UNAVAILABLE");
-    const receipt = await this.receipt(`/api/document-tasks/${encodeURIComponent(request.threadId)}/reparse`, { requestId: request.requestId, ...(request.selection ? { selection: request.selection } : {}) });
+    const body = { requestId: request.requestId, ...(request.selection ? { selection: request.selection } : {}) };
+    const receipt = await this.receipt(body, () => this.native?.documents ? this.document("reparse", { threadId: request.threadId, value: body }) : this.post<Receipt>(`/api/document-tasks/${encodeURIComponent(request.threadId)}/reparse`, body));
     this.saveReparses(this.pendingReparses().filter(record => record.requestId !== requestId));
     return receipt;
   }
@@ -393,13 +460,39 @@ export class Client {
     if (!original) this.saveReparses([...pending, { threadId: id, requestId, ...(selection ? { selection } : {}) }]);
     return this.retryReparse(requestId);
   }
+  pendingDeletions(): string[] {
+    try {
+      const raw = localStorage.getItem(storageKey(DELETE_INTENTS, this.storageScope)); if (raw === null) return [];
+      if (raw.length > 64 * 1024) throw new Error(); const values: string[] = JSON.parse(raw);
+      if (!Array.isArray(values) || values.length > 50 || !values.every(value => typeof value === "string" && uuid.test(value) && value === value.toLowerCase()) || new Set(values).size !== values.length) throw new Error(); return values;
+    } catch { throw new ApiError(t("无法读取任务删除恢复记录，请核对任务后再操作。"), "RECOVERY_STORAGE_UNAVAILABLE"); }
+  }
+  private saveDeletions(values: string[]) {
+    if (!this.active) throw new DOMException(t("请求已取消"), "AbortError");
+    try { if (values.length > 50) throw new Error(); if (values.length) localStorage.setItem(storageKey(DELETE_INTENTS, this.storageScope), JSON.stringify(values)); else localStorage.removeItem(storageKey(DELETE_INTENTS, this.storageScope)); }
+    catch { throw new ApiError(t("无法保存任务删除恢复记录，本次操作未确认。"), "RECOVERY_STORAGE_UNAVAILABLE"); }
+  }
+  forgetDeletion(id: string) { this.saveDeletions(this.pendingDeletions().filter(value => value !== id)); }
   async delete(id: string) {
-    const receipt = await this.json<{ deleted: boolean }>(`/api/document-tasks/${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (!receipt || receipt.deleted !== true) throw new ApiError(t("删除回执无效，结果尚未确认。请先查询任务。"), "INVALID_RESPONSE");
-    return receipt;
+    if (!this.active) throw new DOMException(t("请求已取消"), "AbortError");
+    if (!uuid.test(id)) throw new ApiError(t("任务引用无效。"), "INVALID_REFERENCE"); id = id.toLowerCase();
+    const pending = this.pendingDeletions(); if (!pending.includes(id)) this.saveDeletions([...pending, id]);
+    const receipt = this.native?.documents ? await this.document("delete", { threadId: id }) : await this.json<{ deleted: boolean; threadId?: string }>(`/api/document-tasks/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!receipt || receipt.deleted !== true || this.native?.documents && receipt.threadId !== id) throw new ApiError(t("删除回执无效，结果尚未确认。请先查询任务。"), "INVALID_RESPONSE");
+    this.forgetDeletion(id); return receipt;
   }
   private async artifact(reference: ArtifactReference, threadId: string, limit: number, signal?: AbortSignal) {
     if (!/^[a-f0-9]{64}$/.test(reference.sha256) || !Number.isSafeInteger(reference.sizeBytes) || reference.sizeBytes <= 0 || reference.sizeBytes > limit) throw new ApiError(t("来源引用无效。"), "INVALID_REFERENCE");
+    if (this.native?.documents) {
+      const reply = await this.document("artifact", { threadId, reference }, signal);
+      if (!reply || !reply.reference || (Object.keys(reference) as (keyof ArtifactReference)[]).some(key => reply.reference[key] !== reference[key]) || typeof reply.bytes !== "string" || reply.bytes.length > Math.ceil(reference.sizeBytes / 3) * 4) throw new ApiError(t("来源文件校验失败。"), "ARTIFACT_CHECKSUM_MISMATCH");
+      let bytes: Uint8Array<ArrayBuffer>;
+      try { const binary = atob(reply.bytes); bytes = Uint8Array.from(binary, value => value.charCodeAt(0)); }
+      catch { throw new ApiError(t("来源文件校验失败。"), "ARTIFACT_CHECKSUM_MISMATCH"); }
+      if (bytes.length !== reference.sizeBytes || await sha256(bytes.buffer) !== reference.sha256) throw new ApiError(t("来源文件校验失败。"), "ARTIFACT_CHECKSUM_MISMATCH");
+      if (!this.active || signal?.aborted) throw new DOMException(t("请求已取消"), "AbortError");
+      return new Blob([bytes], { type: reference.mediaType });
+    }
     return this.request(`/api/artifacts/read?thread_id=${encodeURIComponent(threadId)}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(reference) }, async (response, signal) => {
       const bytes = await readBytes(response, reference.sizeBytes, signal);
       if (bytes.length !== reference.sizeBytes || response.headers.get("content-type")?.split(";")[0] !== reference.mediaType || await sha256(bytes.buffer) !== reference.sha256) throw new ApiError(t("来源文件校验失败。"), "ARTIFACT_CHECKSUM_MISMATCH");
@@ -417,20 +510,24 @@ export class Client {
   source(reference: DocumentReference, threadId: string) {
     if (!Object.values(formats).some(format => format.sourceType === reference.sourceType && format.mediaType === reference.mediaType) && !(reference.sourceType === "csv" && reference.mediaType === "text/csv") && !(reference.sourceType === "markdown" && reference.mediaType === "text/plain")) return Promise.reject(new ApiError(t("原文件类型无效。"), "INVALID_REFERENCE"));
     const { objectKey, sha256, sizeBytes, mediaType } = reference;
-    return this.artifact({ objectKey, sha256, sizeBytes, mediaType }, threadId, 50 * MIB);
+    return this.artifact({ objectKey, sha256, sizeBytes, mediaType }, threadId, (this.native?.documents ? 150 : 50) * MIB);
+  }
+  private bankSelection(task: DocumentTaskDetail, revisionId?: string, questionIndexes?: number[]): DesktopDocumentBankSelection {
+    if ((!task.canExportCompleted && (task.state !== "COMPLETED" || !task.result)) || !task.checkpointId) throw new ApiError(t("任务结果尚不可导出。"), "BANK_EXPORT_NOT_READY");
+    if (questionIndexes && (!questionIndexes.length || questionIndexes.length > 2000 || questionIndexes.some(v => !Number.isSafeInteger(v) || v < 0 || !task.result || v >= task.result.questions.length))) throw new ApiError(t("请选择当前结果中的题目。"), "SOURCE_SELECTION_INVALID");
+    return { threadId: task.threadId, checkpointId: task.checkpointId, scope: task.state === "COMPLETED" ? "full" : "completed", ...(revisionId ? { revisionId } : {}), ...(questionIndexes ? { questionIndexes } : {}) };
+  }
+  async saveBankZip(task: DocumentTaskDetail, revisionId?: string, questionIndexes?: number[]) {
+    const selection = this.bankSelection(task, revisionId, questionIndexes), receipt = await this.document("export_bank_zip", { value: selection });
+    if (!receipt || receipt.threadId !== task.threadId || receipt.checkpointId !== task.checkpointId || typeof receipt.saved !== "boolean") throw new ApiError(t("题库 ZIP 保存回执无效，请检查所选文件后再操作。"), "INVALID_RESPONSE"); return receipt.saved;
   }
   async exportBank(task: DocumentTaskDetail, revisionId?: string, questionIndexes?: number[]) {
-    if ((!task.canExportCompleted && (task.state !== "COMPLETED" || !task.result)) || !task.checkpointId) throw new ApiError(t("任务结果尚不可导出。"), "BANK_EXPORT_NOT_READY");
-    const query = new URLSearchParams({ checkpoint_id: task.checkpointId, scope: task.state === "COMPLETED" ? "full" : "completed" });
-    if (revisionId) query.set("revision_id", revisionId);
-    if (questionIndexes) {
-      if (!questionIndexes.length || questionIndexes.length > 2000 || questionIndexes.some(v => !Number.isSafeInteger(v) || v < 0 || !task.result || v >= task.result.questions.length)) throw new ApiError(t("请选择当前结果中的题目。"), "SOURCE_SELECTION_INVALID");
-      for (const index of questionIndexes) query.append("question_index", String(index));
-    }
+    const selection = this.bankSelection(task, revisionId, questionIndexes), query = new URLSearchParams({ checkpoint_id: selection.checkpointId, scope: selection.scope });
+    if (revisionId) query.set("revision_id", revisionId); for (const index of questionIndexes ?? []) query.append("question_index", String(index));
     if (!this.active) throw new DOMException("Disconnected", "AbortError");
     if (this.native) {
-      if (!this.native.importBank) throw new ApiError(t("服务响应格式无效。"), "INVALID_RESPONSE");
-      const imported = await this.native.importBank(`/api/document-tasks/${encodeURIComponent(task.threadId)}/bank?${query}`);
+      if (!this.native.documents && !this.native.importBank) throw new ApiError(t("服务响应格式无效。"), "INVALID_RESPONSE");
+      const imported = this.native.documents ? await this.document("import_bank", { value: selection }) : await this.native.importBank!(`/api/document-tasks/${encodeURIComponent(task.threadId)}/bank?${query}`);
       if (!imported || !uuid.test(imported.bankId) || !Number.isSafeInteger(imported.count) || imported.count < 0 || imported.count > 1000) throw new ApiError(t("服务响应格式无效。"), "INVALID_RESPONSE");
       if (!this.active) throw new DOMException("Disconnected", "AbortError");
       window.dispatchEvent(new CustomEvent("practiq-bank-imported", {detail:imported}));

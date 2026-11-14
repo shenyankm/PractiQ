@@ -10,3 +10,4 @@ server/licenses/payments/** -text whitespace=-blank-at-eol
 # Preserve raw benchmark patches and captured tool output, including whitespace.
 docs/evidence/2026-11-07-twenty-rounds/*.patch -text whitespace=-blank-at-eol,-blank-at-eof
 docs/evidence/2026-11-07-twenty-rounds/*.txt -text whitespace=-blank-at-eol,-blank-at-eof
+app/fixtures/pdf/*.pdf binary

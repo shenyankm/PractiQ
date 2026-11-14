@@ -220,6 +220,11 @@ summary { cursor: pointer; list-style-position: inside; font-size: 14px; }
 .setting-row [data-slot="switch-thumb"] { display: block; width: 16px; height: 16px; border-radius: 50%; background: var(--background); transition: transform var(--motion-duration) var(--motion-ease); }
 .setting-row [data-slot="switch-thumb"][data-state="checked"] { transform: translateX(16px); }
 .setting-row input { width: 80px; flex-shrink: 0; font-variant-numeric: tabular-nums; text-align: right; }
+.desktop-ai-settings .setting-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 24px; }
+.desktop-ai-settings .setting-row input:not([type="number"]) { width: 100%; min-width: 0; text-align: left; }
+.desktop-ai-settings .setting-row input[type="number"] { justify-self: end; }
+.desktop-ai-settings .setting-row [data-slot="select-wrapper"] { width: 100%; }
+.desktop-ai-settings .credential-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
 .settings-toast { position: fixed; top: 24px; right: 24px; z-index: 100; display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 48px); padding: 4px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--background); }
 .settings-toast > span { display: inline-flex; align-items: center; gap: 6px; color: var(--primary); font-size: 13px; }
 .settings-toast > span svg { width: 16px; }

@@ -1,0 +1,2298 @@
+{
+  "reference": "server/src/practiq_ai/graphs/answer_generation.py",
+  "cases": [
+    {
+      "name": "missing both",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "short_answer",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "text": "2"
+        },
+        "analysis": "One plus one."
+      },
+      "expected": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "short_answer",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "text": "2"
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": "One plus one.",
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": []
+      }
+    },
+    {
+      "name": "answer only",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "short_answer",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "text": "2"
+        }
+      },
+      "expected": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "short_answer",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "text": "2"
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "analysis"
+        ]
+      }
+    },
+    {
+      "name": "analysis only",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "short_answer",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "analysis": "Needs checking"
+      },
+      "expected": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "short_answer",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": "Needs checking",
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload"
+        ]
+      }
+    },
+    {
+      "name": "null response",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "short_answer",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": null,
+        "analysis": null
+      },
+      "expected": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "short_answer",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      }
+    },
+    {
+      "name": "supplied answer",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "short_answer",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "text": "original"
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "text": "changed"
+        },
+        "analysis": "Explanation"
+      },
+      "expected": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "short_answer",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "text": "original"
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": "Explanation",
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": []
+      }
+    },
+    {
+      "name": "supplied explanation",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "short_answer",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": "original",
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "text": "2"
+        },
+        "analysis": "changed"
+      },
+      "expected": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "short_answer",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "text": "2"
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": "original",
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": []
+      }
+    },
+    {
+      "name": "normalizes source whitespace",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "short_answer",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "text": "\u001c 2 \u001f"
+        },
+        "analysis": "  explanation \u001f"
+      },
+      "expected": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "short_answer",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "text": "2"
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": "explanation",
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": []
+      }
+    },
+    {
+      "name": "empty generated text",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "short_answer",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "text": "   "
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "unknown field",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "short_answer",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "stem": "changed"
+      },
+      "expected": null
+    },
+    {
+      "name": "choice valid",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "choice",
+        "questionTypeId": "Short answer",
+        "choiceVariant": "single",
+        "matchingVariant": null,
+        "items": [],
+        "options": [
+          {
+            "label": "A",
+            "content": "one"
+          },
+          {
+            "label": "B",
+            "content": "two"
+          }
+        ],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "correct": [
+            "B"
+          ]
+        },
+        "analysis": "Explanation"
+      },
+      "expected": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "choice",
+        "questionTypeId": "Short answer",
+        "choiceVariant": "single",
+        "matchingVariant": null,
+        "items": [],
+        "options": [
+          {
+            "label": "A",
+            "content": "one"
+          },
+          {
+            "label": "B",
+            "content": "two"
+          }
+        ],
+        "answerPayload": {
+          "correct": [
+            "B"
+          ]
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": "Explanation",
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": []
+      }
+    },
+    {
+      "name": "choice case",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "choice",
+        "questionTypeId": "Short answer",
+        "choiceVariant": "single",
+        "matchingVariant": null,
+        "items": [],
+        "options": [
+          {
+            "label": "A",
+            "content": "one"
+          },
+          {
+            "label": "B",
+            "content": "two"
+          }
+        ],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "correct": [
+            "b"
+          ]
+        },
+        "analysis": "Explanation"
+      },
+      "expected": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "choice",
+        "questionTypeId": "Short answer",
+        "choiceVariant": "single",
+        "matchingVariant": null,
+        "items": [],
+        "options": [
+          {
+            "label": "A",
+            "content": "one"
+          },
+          {
+            "label": "B",
+            "content": "two"
+          }
+        ],
+        "answerPayload": {
+          "correct": [
+            "B"
+          ]
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": "Explanation",
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": []
+      }
+    },
+    {
+      "name": "choice unknown",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "choice",
+        "questionTypeId": "Short answer",
+        "choiceVariant": "single",
+        "matchingVariant": null,
+        "items": [],
+        "options": [
+          {
+            "label": "A",
+            "content": "one"
+          },
+          {
+            "label": "B",
+            "content": "two"
+          }
+        ],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "correct": [
+            "Z"
+          ]
+        },
+        "analysis": "Explanation"
+      },
+      "expected": null
+    },
+    {
+      "name": "choice too many",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "choice",
+        "questionTypeId": "Short answer",
+        "choiceVariant": "single",
+        "matchingVariant": null,
+        "items": [],
+        "options": [
+          {
+            "label": "A",
+            "content": "one"
+          },
+          {
+            "label": "B",
+            "content": "two"
+          }
+        ],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "correct": [
+            "A",
+            "B"
+          ]
+        },
+        "analysis": "Explanation"
+      },
+      "expected": null
+    },
+    {
+      "name": "choice empty",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "choice",
+        "questionTypeId": "Short answer",
+        "choiceVariant": "single",
+        "matchingVariant": null,
+        "items": [],
+        "options": [
+          {
+            "label": "A",
+            "content": "one"
+          },
+          {
+            "label": "B",
+            "content": "two"
+          }
+        ],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "correct": []
+        },
+        "analysis": "Explanation"
+      },
+      "expected": null
+    },
+    {
+      "name": "fill complete",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": 2,
+        "stem": "Question",
+        "answerMode": "fill_blank",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "answers": [
+            "one",
+            "two"
+          ]
+        }
+      },
+      "expected": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": 2,
+        "stem": "Question",
+        "answerMode": "fill_blank",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "answers": [
+            "one",
+            "two"
+          ]
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "analysis"
+        ]
+      }
+    },
+    {
+      "name": "fill wrong count",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": 2,
+        "stem": "Question",
+        "answerMode": "fill_blank",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "answers": [
+            "one"
+          ]
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "fill incomplete",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": 2,
+        "stem": "Question",
+        "answerMode": "fill_blank",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "answers": [
+            "one",
+            null
+          ]
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "boolean True",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "true_false",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "value": true
+        }
+      },
+      "expected": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "true_false",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "value": true
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "analysis"
+        ]
+      }
+    },
+    {
+      "name": "boolean False",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "true_false",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "value": false
+        }
+      },
+      "expected": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "true_false",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "value": false
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "analysis"
+        ]
+      }
+    },
+    {
+      "name": "preserve false",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "true_false",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "value": false
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "value": true
+        },
+        "analysis": "Reason"
+      },
+      "expected": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "true_false",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [],
+        "options": [],
+        "answerPayload": {
+          "value": false
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": "Reason",
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": []
+      }
+    },
+    {
+      "name": "ordering complete",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "ordering",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [
+          {
+            "label": null,
+            "id": 1,
+            "side": null,
+            "content": "one"
+          },
+          {
+            "label": null,
+            "id": 2,
+            "side": null,
+            "content": "two"
+          }
+        ],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "order": [
+            2,
+            1
+          ]
+        }
+      },
+      "expected": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "ordering",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [
+          {
+            "label": null,
+            "id": 1,
+            "side": null,
+            "content": "one"
+          },
+          {
+            "label": null,
+            "id": 2,
+            "side": null,
+            "content": "two"
+          }
+        ],
+        "options": [],
+        "answerPayload": {
+          "order": [
+            2,
+            1
+          ]
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "analysis"
+        ]
+      }
+    },
+    {
+      "name": "ordering missing",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "ordering",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [
+          {
+            "label": null,
+            "id": 1,
+            "side": null,
+            "content": "one"
+          },
+          {
+            "label": null,
+            "id": 2,
+            "side": null,
+            "content": "two"
+          }
+        ],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "order": [
+            1
+          ]
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "ordering unknown",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "ordering",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [
+          {
+            "label": null,
+            "id": 1,
+            "side": null,
+            "content": "one"
+          },
+          {
+            "label": null,
+            "id": 2,
+            "side": null,
+            "content": "two"
+          }
+        ],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "order": [
+            1,
+            3
+          ]
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "ordering repeated",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "ordering",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": null,
+        "items": [
+          {
+            "label": null,
+            "id": 1,
+            "side": null,
+            "content": "one"
+          },
+          {
+            "label": null,
+            "id": 2,
+            "side": null,
+            "content": "two"
+          }
+        ],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "order": [
+            1,
+            1
+          ]
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "matching complete",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "matching",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": "one_to_one",
+        "items": [
+          {
+            "label": null,
+            "id": 1,
+            "side": "left",
+            "content": "one"
+          },
+          {
+            "label": null,
+            "id": 2,
+            "side": "left",
+            "content": "two"
+          },
+          {
+            "label": null,
+            "id": 3,
+            "side": "right",
+            "content": "three"
+          },
+          {
+            "label": null,
+            "id": 4,
+            "side": "right",
+            "content": "four"
+          }
+        ],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "matches": [
+            {
+              "left": 1,
+              "right": 4
+            },
+            {
+              "left": 2,
+              "right": 3
+            }
+          ]
+        }
+      },
+      "expected": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "matching",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": "one_to_one",
+        "items": [
+          {
+            "label": null,
+            "id": 1,
+            "side": "left",
+            "content": "one"
+          },
+          {
+            "label": null,
+            "id": 2,
+            "side": "left",
+            "content": "two"
+          },
+          {
+            "label": null,
+            "id": 3,
+            "side": "right",
+            "content": "three"
+          },
+          {
+            "label": null,
+            "id": 4,
+            "side": "right",
+            "content": "four"
+          }
+        ],
+        "options": [],
+        "answerPayload": {
+          "matches": [
+            {
+              "left": 1,
+              "right": 4
+            },
+            {
+              "left": 2,
+              "right": 3
+            }
+          ]
+        },
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "analysis"
+        ]
+      }
+    },
+    {
+      "name": "matching missing",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "matching",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": "one_to_one",
+        "items": [
+          {
+            "label": null,
+            "id": 1,
+            "side": "left",
+            "content": "one"
+          },
+          {
+            "label": null,
+            "id": 2,
+            "side": "left",
+            "content": "two"
+          },
+          {
+            "label": null,
+            "id": 3,
+            "side": "right",
+            "content": "three"
+          },
+          {
+            "label": null,
+            "id": 4,
+            "side": "right",
+            "content": "four"
+          }
+        ],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "matches": [
+            {
+              "left": 1,
+              "right": 4
+            }
+          ]
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "matching unknown",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "matching",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": "one_to_one",
+        "items": [
+          {
+            "label": null,
+            "id": 1,
+            "side": "left",
+            "content": "one"
+          },
+          {
+            "label": null,
+            "id": 2,
+            "side": "left",
+            "content": "two"
+          },
+          {
+            "label": null,
+            "id": 3,
+            "side": "right",
+            "content": "three"
+          },
+          {
+            "label": null,
+            "id": 4,
+            "side": "right",
+            "content": "four"
+          }
+        ],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "matches": [
+            {
+              "left": 1,
+              "right": 9
+            },
+            {
+              "left": 2,
+              "right": 3
+            }
+          ]
+        }
+      },
+      "expected": null
+    },
+    {
+      "name": "matching duplicate",
+      "question": {
+        "id": "q1",
+        "parentId": null,
+        "questionKind": null,
+        "instructions": null,
+        "audioRef": null,
+        "audioStartSeconds": 0.0,
+        "audioEndSeconds": null,
+        "transcript": [],
+        "examPlayCount": 2,
+        "sourceLanguage": null,
+        "targetLanguage": null,
+        "writingGenre": null,
+        "minWords": null,
+        "maxWords": null,
+        "optionSourceId": null,
+        "passage": [],
+        "allowReuse": false,
+        "blankCount": null,
+        "stem": "Question",
+        "answerMode": "matching",
+        "questionTypeId": "Short answer",
+        "choiceVariant": null,
+        "matchingVariant": "one_to_one",
+        "items": [
+          {
+            "label": null,
+            "id": 1,
+            "side": "left",
+            "content": "one"
+          },
+          {
+            "label": null,
+            "id": 2,
+            "side": "left",
+            "content": "two"
+          },
+          {
+            "label": null,
+            "id": 3,
+            "side": "right",
+            "content": "three"
+          },
+          {
+            "label": null,
+            "id": 4,
+            "side": "right",
+            "content": "four"
+          }
+        ],
+        "options": [],
+        "answerPayload": null,
+        "sourceScore": null,
+        "scoringRubric": null,
+        "scoreSourceText": null,
+        "analysis": null,
+        "contentBlocks": [],
+        "sourceText": "1. Question",
+        "confidence": 0.0,
+        "needsReview": true,
+        "missingFields": [
+          "answerPayload",
+          "analysis"
+        ]
+      },
+      "generated": {
+        "answerPayload": {
+          "matches": [
+            {
+              "left": 1,
+              "right": 3
+            },
+            {
+              "left": 2,
+              "right": 3
+            }
+          ]
+        }
+      },
+      "expected": null
+    }
+  ]
+}

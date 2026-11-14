@@ -949,7 +949,7 @@ fn restores_backups_with_the_pre_zh_tw_locale_constraint() {
     let source_dir = tempfile::tempdir().unwrap();
     let path = source_dir.path().join("practiq.sqlite");
     let db = Connection::open(&path).unwrap();
-    db.execute_batch(&include_str!("schema.sql").replace("'zh-CN','zh-TW','en'", "'zh-CN','en'"))
+    db.execute_batch(&include_str!("../../desktop/schema.sql").replace("'zh-CN','zh-TW','en'", "'zh-CN','en'"))
         .unwrap();
     db.execute_batch("INSERT INTO banks VALUES('old','Old','',1); UPDATE settings SET locale='en',model_id='keep-model',base_url='http://127.0.0.1:8000';")
         .unwrap();
@@ -1000,7 +1000,7 @@ fn backups_restore_across_lf_and_crlf_schema_sources() {
     for line_ending in ["\n", "\r\n"] {
         let source_dir = tempfile::tempdir().unwrap();
         let source_path = source_dir.path().join("practiq.sqlite");
-        let schema = include_str!("schema.sql")
+        let schema = include_str!("../../desktop/schema.sql")
             .lines()
             .collect::<Vec<_>>()
             .join(line_ending);
@@ -1057,7 +1057,7 @@ fn startup_and_restore_reject_noncurrent_schemas_without_changing_data() {
                 let source_path = source_dir.path().join("practiq.sqlite");
                 let db = Connection::open(&source_path).unwrap();
                 db.execute_batch(
-                    &include_str!("schema.sql")
+                    &include_str!("../../desktop/schema.sql")
                         .replace("\r\n", "\n")
                         .replace('\n', line_ending),
                 )

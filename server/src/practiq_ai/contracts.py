@@ -1007,7 +1007,7 @@ class TaskProgress(StrictModel):
 
 class TaskModelBudget(StrictModel):
     limit: int = Field(ge=0)
-    reserved: int = Field(ge=0)
+    reserved: int | None = Field(ge=0)
 
 
 class DocumentParserJob(StrictModel):

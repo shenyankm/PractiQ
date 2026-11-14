@@ -1,5 +1,31 @@
 # Contribute to PractiQ
 
+The approved Electron/TypeScript migration is tracked in
+[the acceptance ledger](docs/maintainers/electron-migration.md) and issue #549.
+During this migration, the old architecture below remains a behavioral reference.
+New desktop work belongs in `app/desktop/`; it must not forward unported
+operations to the old runtime. Test with isolated data directories.
+
+From `app/`, use `npm run desktop:build` and `npm run test:desktop` for the new
+runtime and its type checks. `npm run check:packaging` checks the maintainer tools;
+`npm run package:electron` builds a local macOS application and DMG. Verify it with
+`npm run test:package -- /absolute/package-output`. An optional second argument
+selects a legacy profile for copy-only compatibility checks. The standalone
+`npm run verify:existing-data -- /absolute/legacy/profile` also operates only on
+private copies and requires a current `npm run desktop:build` first. Retain its
+ignored `.build/evidence/` reports and copies locally. These are migration tools:
+the default release commands remain unchanged until the acceptance ledger closes.
+Local packages use ad-hoc signing and are not notarized distribution builds.
+
+`npm run test:electron` exercises the complete compiled desktop with local provider
+substitutes. To run the same workflows against a package, copy `PractiQ.app`
+outside the checkout, then run
+`npm run test:electron:installed -- /absolute/copied/PractiQ.app/Contents/MacOS/PractiQ`.
+The installed check uses a private profile, system-only PATH and the package's
+compiled modules; file dialogs remain substituted. macOS CI builds and checks both
+the copied app workflows and the installed DMG, including protected credentials.
+Reports distinguish these local checks from live provider and remote CI results.
+
 Use this guide to prepare a focused contribution. The [installation guide](docs/guides/installation.md) covers setup; [README.md](README.md) covers the product and supported platforms; [AGENTS.md](AGENTS.md) defines architecture and coding rules; the [documentation index](docs/README.md) links to detailed guides.
 
 Follow our [Code of Conduct](CODE_OF_CONDUCT.md) in all project community spaces.
@@ -97,13 +123,19 @@ Preserve review flags, immutable practice and score snapshots, resource checksum
 
 Check new ignore rules with `git check-ignore -v --no-index <path>` and audit already tracked matches with `git ls-files -ci --exclude-standard`. Use `git rm --cached <path>` to stop tracking disposable output while keeping the local file. Keep referenced historical reports, fixtures, and curated evidence versioned; add a narrow `.gitignore` exception for an intentionally retained file instead of force-adding it. Removing a file in a new commit does not remove it from Git history; follow [SECURITY.md](SECURITY.md) if credentials were exposed.
 
-When shared AI contracts change, run `/path/to/python3.14 app/scripts/export-contracts.py` and commit all affected generated files:
+The TypeScript desktop uses `shared/ai-contracts.json` as its authoritative JSON
+Schema artifact. Run `node app/scripts/export-contracts.ts` when it changes and
+commit all affected generated files:
 
 - `app/src-tauri/contracts.json`
 - `app/src/contracts.generated.ts`
 - `app/src-tauri/src/question_metadata.rs`
 
-The exporter supports `--check` for parity verification. Do not edit generated contracts by hand.
+The exporter supports `--check` for parity verification. Do not edit generated
+contracts by hand. During migration, also run the historical
+`/path/to/python3.14 app/scripts/export-contracts.py --check` to verify parity with
+the existing service models; changes must update both sides until that service
+is removed.
 
 ## Validate the change
 

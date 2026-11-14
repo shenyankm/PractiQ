@@ -1,0 +1,27 @@
+import { copyFileSync, cpSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { relative } from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const root = fileURLToPath(new URL("..", import.meta.url));
+const compiled = fileURLToPath(new URL("../.build/electron/app/desktop/", import.meta.url));
+const result = spawnSync(process.execPath, ["node_modules/typescript/bin/tsc", "-p", "desktop/tsconfig.json"], { cwd: root, stdio: "inherit" });
+if (result.error) throw result.error;
+if (result.status !== 0) process.exit(result.status ?? 1);
+const preload = spawnSync(process.execPath, ["node_modules/typescript/bin/tsc", "--ignoreConfig", "--module", "NodeNext", "--moduleResolution", "NodeNext", "--target", "ES2022", "--skipLibCheck", "--outDir", compiled, "desktop/preload.cts", "desktop/bridge.ts"], { cwd: root, stdio: "inherit" });
+if (preload.error) throw preload.error;
+if (preload.status !== 0) process.exit(preload.status ?? 1);
+mkdirSync(compiled, { recursive: true });
+copyFileSync(new URL("./schema.sql", import.meta.url), `${compiled}/schema.sql`);
+mkdirSync(`${compiled}/resources`, { recursive: true });
+const pdfiumPath = fileURLToPath(import.meta.resolve("@hyzyla/pdfium/pdfium.wasm")), pdfiumPackage = JSON.parse(readFileSync(new URL(import.meta.resolve("@hyzyla/pdfium/package.json")), "utf8"));
+copyFileSync(pdfiumPath, `${compiled}/resources/pdfium.wasm`);
+writeFileSync(`${compiled}/resources/pdfium-engine.json`, JSON.stringify({ version: 1, packageVersion: pdfiumPackage.version, wasmSha256: createHash("sha256").update(readFileSync(pdfiumPath)).digest("hex") }));
+copyFileSync(new URL("../fixtures/all-types.zip", import.meta.url), `${compiled}/resources/all-types.zip`);
+copyFileSync(new URL("./licenses/unicode-data.txt", import.meta.url), `${compiled}/resources/unicode-data.txt`);
+cpSync(new URL("./licenses/", import.meta.url), `${compiled}/resources/licenses`, { recursive: true });
+const sources = readdirSync(new URL("./", import.meta.url), { recursive: true, withFileTypes: true }).filter(entry => entry.isFile() && /\.(ts|cts|sql|json)$/.test(entry.name) && !entry.name.endsWith(".test.ts")).map(entry => `${entry.parentPath}/${entry.name}`);
+sources.push(pdfiumPath, fileURLToPath(new URL("../../shared/ai-contracts.json", import.meta.url)), `${root}/package-lock.json`);
+const fingerprints = sources.sort().map(path => [relative(root, path), createHash("sha256").update(readFileSync(path)).digest("hex")]);
+writeFileSync(`${compiled}/execution-version.json`, JSON.stringify({ version: 1, sha256: createHash("sha256").update(JSON.stringify(fingerprints)).digest("hex") }));

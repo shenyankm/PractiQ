@@ -15,6 +15,7 @@ from practiq_ai.contracts import (
     DocumentReference,
     DocumentTaskCreate,
     DocumentTaskDetail,
+    TaskModelBudget,
 )
 from practiq_ai.database import utcnow
 from practiq_ai.execution import namespace
@@ -218,3 +219,10 @@ async def test_unknown_tencent_gauge_survives_reads_and_excludes_active_and_reso
     for thread_id in identifiers[:2]:
         await db.store.aput(namespace(thread_id, 'tencent_jobs'), 'source', {'status': 'Success', 'taskId': 'known'})
     assert b'practiq_tencent_unknown_jobs 0\n' in (await webapp.application_metrics()).body
+
+
+def test_task_budget_keeps_an_unknown_reservation_distinct_from_zero():
+    assert TaskModelBudget(limit=8, reserved=None).model_dump() == {'limit': 8, 'reserved': None}
+    assert TaskModelBudget(limit=8, reserved=0).reserved == 0
+    with pytest.raises(ValidationError):
+        TaskModelBudget(limit=8, reserved=-1)

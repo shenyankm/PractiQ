@@ -698,7 +698,7 @@ pub(crate) fn validate_database_connection(db: &Connection) -> Result<i64> {
     };
     let expected = Connection::open_in_memory().map_err(err)?;
     expected
-        .execute_batch(include_str!("schema.sql"))
+        .execute_batch(include_str!("../../desktop/schema.sql"))
         .map_err(err)?;
     let expected = schema(&expected)?;
     let current_settings = expected

@@ -394,7 +394,7 @@ impl Store {
             if objects != 0 {
                 return Err("Cannot initialize a nonempty database".into());
             }
-            db.execute_batch(include_str!("schema.sql")).map_err(err)?;
+            db.execute_batch(include_str!("../../desktop/schema.sql")).map_err(err)?;
         } else if version != 11 {
             return Err(
                 "Only database schema 11 is supported; existing data remains unchanged".into(),

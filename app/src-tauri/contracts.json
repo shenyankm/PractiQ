@@ -4909,9 +4909,16 @@
             "type": "integer"
           },
           "reserved": {
-            "minimum": 0,
-            "title": "Reserved",
-            "type": "integer"
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reserved"
           }
         },
         "required": [

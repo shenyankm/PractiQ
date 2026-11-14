@@ -1,5 +1,23 @@
 # Repository Guidelines
 
+## Approved architecture migration
+
+The user has approved replacing the architecture below with a single macOS
+Electron application using TypeScript/Node, LangGraph.js (`@langchain/langgraph`),
+embedded AI workers, SQLite, and local files. See [the migration acceptance ledger](docs/maintainers/electron-migration.md)
+and issue #549. The existing Rust/Python implementation is the behavioral reference
+until parity is verified, then its running chains must be removed. Preserve all
+data, backup, validation, explicit-action, receipt, and recovery guarantees below.
+This migration authorization supersedes language, independent-service, credential
+location, PostgreSQL, and RabbitMQ requirements that conflict with that target.
+Do not discard historical user data, credentials, or deployment volumes.
+Migrate the existing engineering safeguards and recovery strategies with their
+regression evidence; keep unfinished parity items explicit. Checkpoints, Store,
+document graphs and AI orchestration must all use the JavaScript implementation.
+For the new desktop, `shared/ai-contracts.json` owns wire schemas;
+`app/scripts/export-contracts.ts` derives types and legacy parity artifacts.
+Keep the historical Python exporter check passing until its service is removed.
+
 ## Architecture
 
 `server/src/practiq_ai/` is the sole Python 3.14+ LangGraph AI document import service. Keep its format extractors, shared parser graphs, structured contracts, local file storage and model usage accounting together. `webapp.py` exposes same-origin upload and artifact routes; The single-process open-source LangGraph runtime consumes RabbitMQ document-run deliveries through a PostgreSQL transactional outbox; PostgreSQL owns task/run records, checkpoints, Store and grading receipts; `/ok` and `/ready` are health checks. Do not restore official Agent Server APIs or Redis.
