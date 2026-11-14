@@ -165,7 +165,7 @@ export class PracticeStore {
       case "delete_question": return this.deleteQuestion(request.id as string);
       case "favorite": return this.favorite(request.id as string, request.value as boolean);
       case "review_question": return this.reviewQuestion(request.id as string, request.reviewed as boolean);
-      case "asset": { const asset = this.assets.bytes(request.hash as string); invariant(asset, "LOCAL_ASSET_MISSING", "Resource is missing"); return Uint8Array.from(asset.bytes).buffer; }
+      case "asset": { const asset = this.packages.asset(request.hash as string); invariant(asset, "LOCAL_ASSET_MISSING", "Resource is missing"); return Uint8Array.from(asset.bytes).buffer; }
       case "questions_page": return queryQuestions(this.db, request as unknown as Query, { limit: request.limit as number, offset: request.offset as number }, request.include_stats === true);
       case "question_stats": return queryQuestions(this.db, request as unknown as Query);
       case "preview_paper": return previewPaper(this.db, this.assets, request.request);

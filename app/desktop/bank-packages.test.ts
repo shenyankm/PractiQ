@@ -1,10 +1,10 @@
 import { afterEach, expect, it } from "vitest";
-import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PracticeStore } from "./store.js";
 import { BoundedZip, writeZip } from "./zip.js";
-import { resourceReferences } from "./bank-packages.js";
+import { BANK_ZIP_LIMIT, resourceReferences } from "./bank-packages.js";
 import { canonical, readQuestions } from "./questions.js";
 import { list, object } from "./question-contract.js";
 import { readDiagnostics } from "./diagnostics.js";
@@ -18,6 +18,29 @@ afterEach(() => { for (const remove of cleanup.splice(0)) remove(); });
 const fixture = new URL("../fixtures/all-types.zip", import.meta.url).pathname;
 const document = (questions: unknown[] = [{ id: "one", stem: "Question", answerMode: "true_false", answerPayload: { value: true } }]) => ({ schemaVersion: 3, questions, groups: [], visualElements: [], warnings: [], confidenceScore: 0 });
 function preview(value: unknown): { ticket: string; title: string; count: number } { return value as { ticket: string; title: string; count: number }; }
+
+it.skipIf(process.platform !== "darwin")("reads verified preview resources before import without persisting them", async () => {
+  const { directory, store } = setup();
+  const zip = await BoundedZip.open(fixture, { archiveBytes: BANK_ZIP_LIMIT, expandedBytes: BANK_ZIP_LIMIT, entries: 2002 });
+  const resources = new Map<string, Buffer>();
+  try {
+    const root = JSON.parse((await zip.read("questions.json", 32 * 1024 * 1024)).toString());
+    for (const [name, reference] of resourceReferences(root)) resources.set(String(reference.sha256), await zip.read(name, 25 * 1024 * 1024));
+  } finally { zip.close(); }
+  const first = preview(await store.packages.previewZip(fixture));
+  expect(resources.size).toBe(2);
+  for (const [digest, bytes] of resources) expect(Buffer.from(store.request({ type: "asset", hash: digest }) as ArrayBuffer)).toEqual(bytes);
+  expect(store.banks()).toEqual([]);
+  expect(store.db.prepare("SELECT COUNT(*) AS count FROM assets").get()!.count).toBe(0);
+  expect(existsSync(join(directory, "data/assets"))).toBe(false);
+  expect(() => store.request({ type: "asset", hash: "../private" })).toThrow("hash");
+  store.packages.preview(document(), "Other selection");
+  for (const digest of resources.keys()) expect(() => store.request({ type: "asset", hash: digest })).toThrow("missing");
+  expect(() => store.packages.import(first.ticket, null, first.title)).toThrow("expired");
+  const current = preview(await store.packages.previewZip(fixture));
+  store.packages.import(current.ticket, null, current.title);
+  for (const [digest, bytes] of resources) expect(Buffer.from(store.request({ type: "asset", hash: digest }) as ArrayBuffer)).toEqual(bytes);
+});
 
 it.skipIf(process.platform !== "darwin")("round-trips all existing question types and verified resources without study data", async () => {
   const { directory, store } = setup(), first = preview(await store.packages.previewZip(fixture));

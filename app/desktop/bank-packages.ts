@@ -50,6 +50,7 @@ function treeSignature(rows: QuestionRow[]): string {
 export class BankPackages {
   private pending?: Pending;
   constructor(readonly db: DatabaseSync, readonly assets: Assets) {}
+  asset(digest: string) { return this.pending?.assets.get(digest) ?? this.assets.bytes(digest); }
   async addExample(path = fileURLToPath(new URL("./resources/all-types.zip", import.meta.url))) {
     const p = object(await this.previewZip(path)); return this.import(String(p.ticket), null, String(p.title));
   }
