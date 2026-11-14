@@ -20,8 +20,9 @@ workspace and model settings use the embedded runtime without a service URL.
 `make app-build` now creates a fresh Electron app and DMG; `make app-package-check`
 builds and independently verifies that same output. Set `APP_PACKAGE_DIRECTORY`
 on the Make command line to choose a fresh output directory. The historical
-release and service commands below remain pending final cutover; do not use
-their results as acceptance of the Electron package.
+service and reference-check commands below remain pending final cutover; do not
+use their results as acceptance of the Electron package. Release candidate
+validation, DMG staging and draft assembly now use `app/scripts/release.ts`.
 
 From `app/`, use `npm run desktop:build` and `npm run test:desktop` for the new
 runtime and its type checks. `npm run check:packaging` checks the maintainer tools;
@@ -215,18 +216,26 @@ Follow the [release policy](docs/maintainers/releases.md) and [release template]
 Record evidence for the final release candidate before publication:
 
 - [ ] Confirm version, date, download URL, artifact hashes, OS/architecture, and signing/notarization status.
-- [ ] Run the applicable service, app, browser, and final-package checks for that candidate.
+- [ ] Run embedded AI, app, browser, dependency, and final-package checks for that candidate.
 - [ ] Verify installation, sample import, practice, submission, and backup restore on a clean target system.
-- [ ] Capture App import/review and App ZIP import/practice/score workflows, identifying their separate candidates.
+- [ ] Capture embedded import/review and ZIP import/practice/score workflows against that same candidate.
 - [ ] Record separately authorized live parsing/grading examples, failures, and consented user feedback.
 
 Report macOS native checks separately from browser mocks. Historical reports and model substitutes do not establish clean-machine acceptance or live-model accuracy. Keep unchecked items explicit; grading requires a reference answer or rubric.
 
 ## Release quality and notice gates
 
-Run `make app-license-check` against the prepared practice-only resources and repeat package/notice checks on the actual final installer. Use fresh report paths, preserve first failures, and reject mixed package modes, modified artifacts, wrong versions, and embedded Python/LibreOffice engines. See [supplemental notices](app/licenses/README.md).
+Run `npm --prefix app run test:tooling` for release-tool regressions, and stage
+the actual final installer with `node app/scripts/release.ts stage`. Use fresh
+report/output paths, preserve first failures, and reject mixed package modes,
+modified artifacts, wrong versions and retired runtimes. The Electron packager
+and stager derive notices from the reviewed npm lockfile and compare embedded
+license resources with source. See the [release policy](docs/maintainers/releases.md).
 
-Verify Office fidelity against the exact independently deployed engine with retained source/derived hashes. App package success establishes no conversion-quality claim. Service archive checks must match source modules and lockfile bytes; see [source archive verification](docs/history/engineering/service-packaging-20261009.md#source-archive-verification). Preserve local reports and task data when building.
+Verify Tencent recognition and Office/PDF guidance against the frozen embedded
+implementation with retained hashes and explicit paid-call receipts. Package
+success establishes no recognition-quality claim. Historical service archive
+checks remain reference evidence; preserve local reports and task data when building.
 
 ## Report security issues privately
 

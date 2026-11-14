@@ -86,6 +86,7 @@ jobs:
             app/.build/reports/desktop.xml
             coverage/desktop/
           if-no-files-found: warn
+          include-hidden-files: true
           retention-days: 14
   gate:
     name: Service CI

@@ -2500,3 +2500,55 @@ aborts without packaging after an installer failure. The local explicit install
 and 309 retained legacy release/package regressions also pass. These checks do
 not count as acceptance of the repaired remote macOS package job; that job and
 the final current-source installer acceptance remain pending.
+
+## TypeScript release tooling and native package cutover
+
+`app/scripts/release.ts` now owns candidate validation, ordinary DMG staging,
+explicit final-byte restaging and draft assembly. `bump-version.ts` updates the
+single application's npm versions without resolving dependencies. Candidate
+checks retain annotated tags, exact source identity, clean checkouts and main
+ancestry. Staging rebuilds and compares the renderer, compiled workers/resources,
+runtime lockfile, native/full versions and bounded Mach-O slices against the
+selected source. Read-only snapshots, contained relative links, full-payload
+fingerprints, original-candidate raw bytes, exclusive fresh outputs and final
+hash checks remain mandatory. External signing/acceptance reports remain bound
+declarations rather than executed verification or permission to publish.
+
+The draft workflow now bootstraps with Node, consumes `embedded-ai-checks`,
+validates nonempty successful JUnit and consistent JSON/Cobertura/LCOV coverage,
+and reopens the evidence ZIP to verify every entry before handoff. It retains
+all-candidate CI, source/tag checks, pinned actions, attestation verification,
+draft-only publication and rejection of existing releases. Public CI evidence
+redacts machine paths while preserving npm URLs and integrity hashes; the
+manifest records both source and public report hashes. Release notes and
+maintainer/acceptance procedures now describe one embedded-AI application.
+
+Node packaging also preserves the former missing-license-text gate. It collects
+257 installed production dependencies, including bundled frontend code, and 104
+distinct text/provenance files. Supplemental sources for six previously missing
+dependencies retain exact versions, registry integrity and upstream provenance.
+The combined terms and content-addressed inventory are embedded and regenerated
+for exact comparison during final staging. Native libvips redistribution/source
+obligations remain part of human release review, not an automated legal finding.
+The macOS CI package chain now builds and tests only Electron; retired Cargo,
+Tauri packaging and Python resource-preparation steps no longer run there.
+Python exporter/reference checks remain in App quality until their source is
+removed; the historical runtime files and default service commands still need
+final cleanup.
+
+Local verification on 2026-11-14: 100 Node CI/release regressions, packaging types,
+frontend/desktop production builds and 307 retained Python reference regressions
+pass. A real ad-hoc DMG with SHA-256
+`97f6f34f79364ae8ab44aa86eee5a05b2a0d3b1541e59760c841ca41514ee12f`
+passes source-bound staging, original-byte-preserving restaging and rejection of
+an altered compiled payload. That probe uses an isolated synthetic repository
+and explicitly synthetic acceptance receipt; it establishes tooling behavior,
+not functional or live-model acceptance. Logs and first failures remain ignored
+under `app/.build/evidence/`; no private fixtures are committed.
+
+Separately, remote run `43568999622` at `964a1d03` passed App quality, Electron
+packaging, copied-app smoke and independently installed DMG credential
+encryption/restart decryption. Its aggregate failed later in the now-retired
+Tauri license-preparation step, so that run is not reported as green. The next
+source revision must pass the updated remote gates; final-current-source manual
+and live-provider acceptance and old-runtime removal remain incomplete.

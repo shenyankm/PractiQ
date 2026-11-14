@@ -7,13 +7,14 @@ import { spawnSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 import { createHash } from "node:crypto";
 import { stripTypeScriptTypes } from "node:module";
+import { version } from "./release-data.ts";
 import type { DesktopBridge } from "../desktop/bridge.js";
 import type { WebPreferences } from "electron";
 declare global { interface Window { practiq?: DesktopBridge } }
 
 assert.ok(process.argv[2], "Pass the package output directory");
 const release = realpathSync(process.argv[2]), report = JSON.parse(readFileSync(join(release, "package-report.json"), "utf8")), temporary = realpathSync(mkdtempSync(join(tmpdir(), "practiq-installed-"))), mount = join(temporary, "mount"), installed = join(temporary, "installed"), profile = join(temporary, "profile"), evidence = resolve(".build/evidence");
-assert.match(report.dmg.file, /^PractiQ-[0-9]+\.[0-9]+\.[0-9]+-(?:arm64|x64)\.dmg$/);
+version(`v${report.appVersion}`); assert.ok(["arm64", "x64"].includes(report.arch)); assert.equal(report.dmg.file, `PractiQ-${report.appVersion}-${report.arch}.dmg`);
 assert.equal(createHash("sha256").update(readFileSync(join(release, report.dmg.file))).digest("hex"), report.dmg.sha256, "DMG checksum differs from its build receipt");
 mkdirSync(mount); mkdirSync(installed); mkdirSync(evidence, { recursive: true }); let mounted = false, instance: Awaited<ReturnType<typeof electron.launch>> | undefined;
 const run = (command: string, args: string[]) => { const result = spawnSync(command, args, { encoding: "utf8", timeout: 30000 }); if (result.error) throw result.error; assert.equal(result.status, 0, `${command} failed: ${result.stderr}`); };

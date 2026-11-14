@@ -13,6 +13,7 @@
     "desktop:install": "install-electron",
     "desktop:build": "node desktop/build.ts",
     "contracts:check": "node scripts/export-contracts.ts --check",
+    "test:tooling": "npm run desktop:build && node --test scripts/release*.test.ts",
     "desktop:electron": "npm run build && npm run desktop:build && electron .build/electron/app/desktop/main.js",
     "test:desktop": "npm run desktop:build && vitest run --config desktop/vitest.config.ts --coverage",
     "test:electron": "npm run build && npm run desktop:build && node scripts/electron-smoke.ts",

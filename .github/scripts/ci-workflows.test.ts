@@ -132,10 +132,55 @@ test("embedded AI uses Node without PostgreSQL, RabbitMQ or the retired Python r
   const reports = quality.steps.find((step: any) => step.uses?.startsWith("actions/upload-artifact@"));
   assert.equal(reports.if, "${{ always() }}"); assert.ok(reports.with.path.includes("coverage/desktop/"));
   assert.ok(reports.with.path.includes("app/.build/reports/desktop.xml")); assert.equal(reports.with["retention-days"], 14);
+  assert.equal(reports.with["include-hidden-files"], true);
   const testConfig = (desktopConfig as any).test;
   assert.deepEqual(testConfig.coverage.include, ["desktop/**/*.ts"]); assert.deepEqual(testConfig.coverage.exclude, ["desktop/**/*.test.ts"]);
   for (const key of ["statements", "lines", "functions"]) assert.ok(testConfig.coverage.thresholds[key] >= 90);
   assert.equal(testConfig.coverage.reportOnFailure, true);
   assert.ok(testConfig.coverage.thresholds.branches >= 85);
   assert.ok(JSON.parse(readFileSync(join(root, "app/package.json"), "utf8")).scripts["test:desktop"].includes("--coverage"));
+});
+
+test("release checks and assembly use Node, full candidate history and embedded AI artifacts", () => {
+  const value = workflow("release"), candidate = value.jobs.candidate, draft = value.jobs.draft;
+  assert.deepEqual(Object.keys(value.on), ["workflow_dispatch"]); assert.deepEqual(value.permissions, { contents: "read" });
+  assert.equal(value.concurrency["cancel-in-progress"], false); assert.deepEqual(draft.needs, ["candidate", "service", "apps"]);
+  assert.deepEqual(value.jobs.apps.with, { ref: "${{ needs.candidate.outputs.sha }}", tag: "${{ inputs.tag }}", release: true });
+  assert.equal(value.jobs.service.with.ref, "${{ needs.candidate.outputs.sha }}");
+  for (const job of [candidate, draft]) {
+    assert.equal(job.steps.find((step: any) => step.uses?.startsWith("actions/checkout@")).with["fetch-depth"], 0);
+    assert.equal(job.steps.find((step: any) => step.uses?.startsWith("actions/checkout@")).with["persist-credentials"], false);
+    assert.equal(job.steps.find((step: any) => step.uses?.startsWith("actions/setup-node@")).with["node-version"], "22");
+    for (const step of job.steps) { assert.equal(step["continue-on-error"], undefined); if (step.uses) assert.match(step.uses, /^[^@]+@[a-f0-9]{40}$/); }
+  }
+  const checker = candidate.steps.find((step: any) => step.id === "candidate"); assert.ok(checker.run.includes('node app/scripts/release.ts check --tag "$RELEASE_TAG"'));
+  assert.equal(checker.env.WORKFLOW_SHA, "${{ github.sha }}"); assert.equal(checker.env.WORKFLOW_REF, "${{ github.ref }}");
+  assert.ok(candidate.steps.some((step: any) => step.run?.includes("gh api --paginate --slurp") && step.run.includes("node app/scripts/release.ts check-existing")));
+  assert.equal(candidate.steps.some((step: any) => step.run?.includes("npm ci")), false);
+  assert.doesNotMatch(JSON.stringify(value), /setup-python|release\.py|service-checks/);
+  const downloads = draft.steps.filter((step: any) => step.uses?.startsWith("actions/download-artifact@"));
+  assert.deepEqual(downloads.map((step: any) => step.with), [{ name: "release-macOS", path: "app/.build/release-inputs/release-macOS/" }, { name: "embedded-ai-checks", path: "app/.build/release-inputs/embedded-ai-checks/" }]);
+  assert.ok(draft.steps.some((step: any) => step.run?.startsWith("node app/scripts/release.ts assemble ")));
+  const packageJob = workflow("app").jobs.package, stage = packageJob.steps.find((step: any) => step.name === "Verify final installer and stage release assets");
+  assert.equal(stage.if, "inputs.release"); assert.ok(stage.run.startsWith("node app/scripts/release.ts stage "));
+  for (const option of ["--package app/.build/electron-ci", "--output app/.build/release", "--reports app/.build/release-reports", "--acceptance app/.build/evidence/electron-package-acceptance.json"]) assert.ok(stage.run.includes(option));
+  assert.ok(packageJob.steps.indexOf(stage) > packageJob.steps.findIndex((step: any) => step.run?.includes("npm run test:package")));
+  assert.equal(packageJob.steps.find((step: any) => step.uses?.startsWith("actions/checkout@")).with["fetch-depth"], "${{ inputs.release && '0' || '1' }}");
+  assert.ok(workflow("app").jobs.quality.steps.some((step: any) => step.run === "npm run test:tooling"));
+  assert.doesNotMatch(JSON.stringify(packageJob), /setup-python|rust-cache|rustup|cargo|tauri|prepare-package\.py|check-installer\.py/);
+  assert.doesNotMatch(JSON.stringify(workflow("app").jobs.quality), /rust-cache|rustup|cargo/);
+});
+
+test("release assets are attested and verified before a non-replacing draft is created", () => {
+  const draft = workflow("release").jobs.draft, steps = draft.steps;
+  assert.deepEqual(draft.permissions, { contents: "write", "id-token": "write", attestations: "write" });
+  const attest = steps.find((step: any) => step.id === "provenance"), verify = steps.find((step: any) => step.run?.includes("gh attestation verify")), create = steps.find((step: any) => step.run?.includes("gh release create"));
+  assert.ok(steps.indexOf(attest) < steps.indexOf(verify) && steps.indexOf(verify) < steps.indexOf(create)); assert.equal(verify.if, undefined); assert.equal(create.if, undefined);
+  for (const name of ["PractiQ_*", "SHA256SUMS.txt", "release-manifest.json", "release-evidence.zip"]) for (const source of [attest.with["subject-path"], verify.run, create.run]) assert.ok(source.includes(`app/.build/release-assets/${name}`));
+  assert.equal(verify.env.CANDIDATE_SHA, "${{ needs.candidate.outputs.sha }}"); assert.equal(verify.env.ATTESTATION_BUNDLE, "${{ steps.provenance.outputs.bundle-path }}");
+  for (const option of ['--source-digest "$CANDIDATE_SHA"', '--source-ref "refs/tags/$RELEASE_TAG"', '--signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml"', "--deny-self-hosted-runners"]) assert.ok(verify.run.includes(option));
+  assert.ok(create.run.includes("--draft --verify-tag --latest=false")); assert.doesNotMatch(create.run, /--clobber|release publish/); assert.ok(create.run.includes('test "$remote_sha" = "$CANDIDATE_SHA"'));
+  const creation = JSON.parse(readFileSync(join(root, ".github/release-tag-creation-ruleset.json"), "utf8")), immutable = JSON.parse(readFileSync(join(root, ".github/release-tag-immutability-ruleset.json"), "utf8"));
+  for (const rules of [creation, immutable]) { assert.equal(rules.target, "tag"); assert.equal(rules.enforcement, "active"); assert.deepEqual(rules.conditions.ref_name, { include: ["refs/tags/v*"], exclude: [] }); }
+  assert.deepEqual(creation.rules, [{ type: "creation" }]); assert.deepEqual(creation.bypass_actors, [{ actor_id: 5, actor_type: "RepositoryRole", bypass_mode: "always" }]); assert.deepEqual(immutable.rules.map((rule: any) => rule.type).sort(), ["deletion", "update"]); assert.deepEqual(immutable.bypass_actors, []);
 });
