@@ -16,13 +16,14 @@ New listening input accepts QR codes and stores playback addresses without
 persisting recordings. Existing audio files and their frozen practice and
 backup references remain supported. QR/address editing, guarded in-memory
 playback, ZIP/backup round trips and native Electron playback are implemented
-and locally verified. Acceptance of the final package remains required.
+and verified. Final runtime package acceptance is recorded below.
 
 ## Acceptance ledger
 
-Checked items have executable evidence in the sections below. The final cutover
-gate remains open until the latest source passes remote native/package checks;
-earlier green builds do not certify later source changes.
+Checked items have executable evidence in the sections below. Runtime cutover
+was accepted at `b3f3afcd` by both required remote gates, the full copied-app
+workflow and independent installed-package checks. Receipts identify their exact
+source/build; they do not certify a later implementation or a publisher release.
 
 - [x] Sandboxed Electron renderer, narrow validated IPC, background database worker.
 - [x] Schema-11 practice database, locale compatibility, exact schema validation,
@@ -34,7 +35,7 @@ earlier green builds do not certify later source changes.
 - [x] Verified content-addressed images/audio, native file tickets, bounded
   archive import/export, duplicate detection, version-4 backups and restoration.
 - [x] TypeScript-owned strict contracts and parity with committed IPC/AI fixtures.
-- [ ] Embedded AI settings and OS-protected credentials, absent from backups/logs.
+- [x] Embedded AI settings and OS-protected credentials, absent from backups/logs.
 - [x] SQLite AI tasks, LangGraph.js checkpoints/Store, usage budgets, durable call receipts,
   pause/cancel/resume, explicit retries, partial export, and shutdown recovery.
 - [x] Tencent submission/query/signing, immutable sources, uncertain submission
@@ -44,7 +45,7 @@ earlier green builds do not certify later source changes.
   Oversized Office requires user-exported PDF; no converter discovery remains.
 - [x] Extraction, supplied-answer preservation, optional explicit answer generation,
   reference-grounded grading, and success/failure/unknown usage records.
-- [ ] Real Electron happy paths and recovery, packaged offline operation, dependency
+- [x] Real Electron happy paths and recovery, packaged offline operation, dependency
   audits, CI, release tooling, documentation, and removal of obsolete runtimes.
 
 ## Current cutover status — 2026-11-14
@@ -98,38 +99,62 @@ and `existing-data-QFn9FY/report.json` beneath that directory.
 
 That DMG's local OS credential initialization timed out. Its three credential
 flags remain false; core success does not turn the complete package check green.
-No timeout, encryption requirement or Keychain namespace was weakened. The last
-pushed source, `a3bef2da`, passed both
+No timeout, encryption requirement or Keychain namespace was weakened. The prior
+source, `a3bef2da`, passed both
 [Desktop CI](https://github.com/shenyankm/PractiQ/actions/runs/43577564145) and
 [Service CI](https://github.com/shenyankm/PractiQ/actions/runs/43577564200),
 including full copied-app workflows and installed-DMG OS encryption/restart on
 the fresh macOS runner. Those receipts predate tracked retirement and the
-canonical profile change. New-head CI/native acceptance and final review remain
-required. Native dialogs are substituted in automated package tests; publisher
-signing/notarization and live provider fidelity are not claimed.
+canonical profile change.
+
+The final runtime source, `b3f3afcd52279850c698a9968fe854ab05508815`, subsequently
+passed both [Desktop CI](https://github.com/shenyankm/PractiQ/actions/runs/43580736239)
+and [Service CI](https://github.com/shenyankm/PractiQ/actions/runs/43580736267).
+The backend passed all 5,895 tests on Node 24; App quality passed the same 916
+frontend tests, seven existing skips, all 240 browser cases and npm audits with
+zero reported vulnerabilities. The current copied application completed its
+entire document/practice/recovery workflow, including graceful worker shutdown.
+The independently installed CI DMG has SHA-256
+`8e94ca595f304ab66648e79a7b31f556166a66ada606d812e1178f92925198e4`.
+Its OS encryption, credential exclusion from backups and restart decryption
+flags are all true; its package inventory rejects legacy runtimes. This is
+current-source packaged acceptance on the fresh macOS runner, not a claim that
+the different local ad-hoc signature's timeout was resolved.
+
+The source-bound `desktop-checks-macOS` artifact was downloaded and verified
+against GitHub's digest
+`f48b8ce304dc5e2739b183b8cc19c2242966c1b4780c8ef54272b3df0d2beaf0`.
+Its installed smoke, package inventory and hash-bound acceptance receipts are
+retained under `app/.build/evidence/ci-b3f3afcd/`. The CI receipt does not claim an
+existing-user-data copy; that separate check is proven by the local installed
+runtime and original-profile hashes above. There are no unresolved PR review
+threads. This closes the runtime migration ledger; publication remains a
+separate explicit action. Native dialogs are substituted in automated package
+tests; publisher signing/notarization and live provider fidelity are not claimed.
 
 ## Engineering safeguard parity
 
-This map preserves the original safeguards, including recovery paths. A tested
-foundation is not acceptance of the complete document pipeline. Pending behavior
-must remain visible until its original regression scenarios run on TypeScript.
-The table and chronological evidence below retain the historical checkpoints;
-the current cutover section above records later results and remaining gates.
+This map preserves the original safeguards, including recovery paths. The Node
+regressions and current-source native acceptance above prove engineering parity
+within the approved desktop policy. The chronological sections below retain
+earlier intermediate results and failures; their then-pending lists are history,
+not additional unimplemented runtime requirements. External/live verification
+limits remain explicit in the table and current cutover section.
 
-| Guarantee | Original implementation | TypeScript implementation and evidence | Still required |
+| Guarantee | Original implementation | TypeScript implementation and evidence | Verification boundary |
 | --- | --- | --- | --- |
-| Atomic task admission, idempotent operation receipts, run/checkpoint fences | `server/src/practiq_ai/task_api.py`, `runtime.py` | `app/desktop/document-tasks.ts`, `document-runtime.ts`; actual text/OCR graphs, production AI worker, typed main-process commands, embedded workspace import/read/control routing and admission-locked correction/answer-association history and a separately checkpointed explicit answer node; fenced full/selected reparse admissions and independent child evidence; durable deletion fences with explicit recovery, filter-bound stable cursors and version-fenced full/partial ZIP publication | Packaged cutover acceptance |
-| LangGraph persistence and successful-unit reuse | `execution.py`, `unit_results.py`, Python LangGraph checkpoints/Store | LangGraph.js graph with `SqliteCheckpoints` and `SqliteStore`; immutable validated unit cache, source-verified text chunks, execution fingerprints, actual batched text/OCR model units, durable primary/context correction/reservations, per-unit retry counts and durable text/OCR merge rejection with selected retry and final OCR publication | Multi-format checkpoint and helper resource-pressure acceptance |
-| Unknown paid outcomes never replay automatically | `llm.py`, `grading.py`, `tencent.py` | `AiDatabase`, `ModelClient`, `TencentClient`; worker restart and real `SIGKILL` tests with a local provider | Exercise the complete import graph and real provider recovery |
-| Completed/partial evidence remains available during retry | `task_api.py`, `unit_results.py`, bank export | Task artifact ownership ledger, immutable bytes, previous stage outputs, successful-unit reuse, native saved-result/selected-question import, stopped-task successful-unit partial projection, persisted manual revisions/historical revision import, frozen supplied-answer evidence, passive projection of saved generated answers, transactional local import identities and portable full/revised/selected/stopped-unit ZIP exports | Packaged retry and human-review controls |
-| Usage on success, failure and uncertainty; bounded paid work | `cost_budget.py`, `llm.py`, import control | Durable call claims and usage; task limits plus atomic cumulative Store reservations and per-unit spend before text model I/O, shared with explicit answer supplementation; recognition has a separate bounded plan; atomic task/UTC-day monetary reservations and explicit read-only reservation reports | Complete source-image/helper capacity and packaged budget acceptance |
-| Bounded concurrency, configured read retries, cancellation and shutdown | `import_control.py`, `capacity.py`, runtime/extractor workers | Separate AI/practice workers and process-wide provider slots; persisted run deadlines, queued cancellation before receipts, real HTTP cancellation, pause/interrupt and process-kill tests; a shared preparation queue and bounded PDF/Office/image/crop workers, drained before releasing task ownership on abort | Current-package capacity and shutdown acceptance under resource pressure |
-| Task expiry, execution identity and read-only evidence retention | `execution.py`, task APIs | Original 180-day expiry; code/lockfile/runtime/settings fingerprints; incompatible builds skip checkpoint writes; explicit resume gets a new deadline without resetting spend; incomplete deletions remain discoverable as fenced expired records; read-only corrupt-evidence overlays and explicit journaled expired/orphan cleanup with real process-kill recovery; primary-admission startup isolation, exact-original metadata restoration and receipt/run fences | Complete multi-format/helper guard acceptance and final cutover |
-| Immutable source identity and safe resource access | `storage.py`, native source tickets, `source_repair.py` | `AiStorage`, `SourceTickets`, typed task-owned artifact reads and embedded preview/source routing; preflight rechecks source and all recorded stage artifacts before starting or resuming; text chunk receipts also recheck source ranges, hashes and inferred field presence; explicit native source repair retains quarantined originals, durable manifests and idempotent receipts across real process kills; ZIP export verifies resource ownership/content and immutable source again before publication | Packaged resource acceptance |
-| Tencent-only recognition and conservative text/figure proofs | `tencent_inputs.py`, `tencent_bundle.py`, `tencent_staging.py`, document graphs | TC3 signing, immutable submission intents, known-job polling/read retries, immutable raw result caching, invalid-result history and explicit known-job redownload; bounded decoding, native table/XML/image associations, conservative label crops, byte-exact text proofs, historical OCR/page association/enrichment validators and opt-in private COS V5 staging with immutable upload intents and validated-result cleanup | Complete multi-format splitting/scheduling, source-page crop generation and assembly acceptance |
-| Bounded Office/media work, hidden content, cleanup and engine identity | `office.py`, `office_service.py`, extractors | CFB/OOXML input preflight, direct Tencent Office graphs, hidden-sheet and binary/OOXML hidden-slide metadata snapshots, declared slide order/count diagnostics, native PDF/image splitting, shared queued helper admission/cleanup and engine receipts; oversized Office requires user-exported PDF before admission | Real provider fidelity and current-package resource acceptance |
-| Supplied answers and grounded scoring stay intact | document graphs, `grading.py`, Rust session handling | TypeScript subjective grading with the original evidence corpus, score scaling and manual/self overrides; supplied-field/count/stem proofs, text/OCR field fidelity, explicit missing-answer supplementation and paid-correction regression corpora | Complete multi-format assembly and multilingual live-provider fidelity acceptance |
-| Existing data and restoration survive failures | Rust store/backup/settings/recovery code | Schema-11/version-4 Node implementation, process-kill restoration tests, bidirectional Rust/TS backup probe, all-table existing-user-data comparison on private copies using the installed Electron Node runtime, independent DMG installation and backup/restore/restart; actual macOS open/save panels, replacement confirmation, recovery-copy comparison and restart | Current-source package acceptance and final cutover |
+| Atomic task admission, idempotent operation receipts, run/checkpoint fences | `server/src/practiq_ai/task_api.py`, `runtime.py` | `app/desktop/document-tasks.ts`, `document-runtime.ts`; actual text/OCR graphs, production AI worker, typed main-process commands, embedded workspace import/read/control routing and admission-locked correction/answer-association history and a separately checkpointed explicit answer node; fenced full/selected reparse admissions and independent child evidence; durable deletion fences with explicit recovery, filter-bound stable cursors and version-fenced full/partial ZIP publication | Node admission/receipt/control regressions and current installed workflows pass |
+| LangGraph persistence and successful-unit reuse | `execution.py`, `unit_results.py`, Python LangGraph checkpoints/Store | LangGraph.js graph with `SqliteCheckpoints` and `SqliteStore`; immutable validated unit cache, source-verified text chunks, execution fingerprints, actual batched text/OCR model units, durable primary/context correction/reservations, per-unit retry counts and durable text/OCR merge rejection with selected retry and final OCR publication | Checkpoint/unit-reuse and bounded helper queue/abort/deadline regressions pass; installed format helpers load and complete |
+| Unknown paid outcomes never replay automatically | `llm.py`, `grading.py`, `tencent.py` | `AiDatabase`, `ModelClient`, `TencentClient`; worker restart and real `SIGKILL` tests with a local provider | Complete native graphs and local substitute-provider/SIGKILL recovery pass; live provider fidelity is not claimed |
+| Completed/partial evidence remains available during retry | `task_api.py`, `unit_results.py`, bank export | Task artifact ownership ledger, immutable bytes, previous stage outputs, successful-unit reuse, native saved-result/selected-question import, stopped-task successful-unit partial projection, persisted manual revisions/historical revision import, frozen supplied-answer evidence, passive projection of saved generated answers, transactional local import identities and portable full/revised/selected/stopped-unit ZIP exports | Current installed retry/review/revision/import/export workflows pass; automated file dialogs are substituted |
+| Usage on success, failure and uncertainty; bounded paid work | `cost_budget.py`, `llm.py`, import control | Durable call claims and usage; task limits plus atomic cumulative Store reservations and per-unit spend before text model I/O, shared with explicit answer supplementation; recognition has a separate bounded plan; atomic task/UTC-day monetary reservations and explicit read-only reservation reports | Atomic monetary/model budget and helper-capacity regressions plus installed budget controls pass; no process-wide RSS cap is claimed |
+| Bounded concurrency, configured read retries, cancellation and shutdown | `import_control.py`, `capacity.py`, runtime/extractor workers | Separate AI/practice workers and process-wide provider slots; persisted run deadlines, queued cancellation before receipts, real HTTP cancellation, pause/interrupt and process-kill tests; a shared preparation queue and bounded PDF/Office/image/crop workers, drained before releasing task ownership on abort | Blocked-worker cleanup, queue bounds and real request shutdown regressions pass; installed AI-then-database shutdown passes |
+| Task expiry, execution identity and read-only evidence retention | `execution.py`, task APIs | Original 180-day expiry; code/lockfile/runtime/settings fingerprints; incompatible builds skip checkpoint writes; explicit resume gets a new deadline without resetting spend; incomplete deletions remain discoverable as fenced expired records; read-only corrupt-evidence overlays and explicit journaled expired/orphan cleanup with real process-kill recovery; primary-admission startup isolation, exact-original metadata restoration and receipt/run fences | Expiry/build/admission/maintenance fences and process-kill recovery pass; historical Python checkpoints remain retained evidence |
+| Immutable source identity and safe resource access | `storage.py`, native source tickets, `source_repair.py` | `AiStorage`, `SourceTickets`, typed task-owned artifact reads and embedded preview/source routing; preflight rechecks source and all recorded stage artifacts before starting or resuming; text chunk receipts also recheck source ranges, hashes and inferred field presence; explicit native source repair retains quarantined originals, durable manifests and idempotent receipts across real process kills; ZIP export verifies resource ownership/content and immutable source again before publication | Current installed artifact/ZIP/source-repair workflows and copy-only original-resource comparison pass |
+| Tencent-only recognition and conservative text/figure proofs | `tencent_inputs.py`, `tencent_bundle.py`, `tencent_staging.py`, document graphs | TC3 signing, immutable submission intents, known-job polling/read retries, immutable raw result caching, invalid-result history and explicit known-job redownload; bounded decoding, native table/XML/image associations, conservative label crops, byte-exact text proofs, historical OCR/page association/enrichment validators and opt-in private COS V5 staging with immutable upload intents and validated-result cleanup | Splitting/signing/COS/association/crop/assembly corpora and actual installed graphs pass; live Tencent fidelity is not claimed |
+| Bounded Office/media work, hidden content, cleanup and engine identity | `office.py`, `office_service.py`, extractors | CFB/OOXML input preflight, direct Tencent Office graphs, hidden-sheet and binary/OOXML hidden-slide metadata snapshots, declared slide order/count diagnostics, native PDF/image splitting, shared queued helper admission/cleanup and engine receipts; oversized Office requires user-exported PDF before admission | Approved PDF-first oversized-Office policy, hidden-content/engine/cleanup regressions and installed helpers pass; live provider fidelity is not claimed |
+| Supplied answers and grounded scoring stay intact | document graphs, `grading.py`, Rust session handling | TypeScript subjective grading with the original evidence corpus, score scaling and manual/self overrides; supplied-field/count/stem proofs, text/OCR field fidelity, explicit missing-answer supplementation and paid-correction regression corpora | Original assembly/evidence/answer/grading corpora and installed explicit grading/generation pass; multilingual live-provider accuracy remains unmeasured |
+| Existing data and restoration survive failures | Rust store/backup/settings/recovery code | Schema-11/version-4 Node implementation, process-kill restoration tests, bidirectional Rust/TS backup probe, all-table existing-user-data comparison on private copies using the installed Electron Node runtime, independent DMG installation and backup/restore/restart; actual macOS open/save panels, replacement confirmation, recovery-copy comparison and restart | Current-source independent DMG, full installed workflows and exact private-copy data/backup/recovery comparison pass |
 
 No row authorizes an additional local recognition fallback or automatic retry of
 an uncertain provider mutation. Historical data, credentials and deployment
@@ -153,7 +178,11 @@ During migration, a new implementation must fail explicitly on any unported
 operation. It must never silently forward work into the old runtime or return
 synthetic success. The old runnable app remains available until parity passes.
 
-## Current implementation evidence
+## Implementation evidence in chronological order
+
+These entries preserve the migration's intermediate deliveries, checks and
+failures. Read the current cutover section above for the accepted runtime source
+and remaining distribution/live-provider limits.
 
 The migration branch contains the sandboxed Electron shell, a serialized SQLite
 worker, TypeScript-owned contracts, and the practice database implementation.
