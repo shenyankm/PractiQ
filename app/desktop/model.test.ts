@@ -7,7 +7,14 @@ import { AiDatabase } from "./ai-database.js";
 import { AiSettings, type AiSnapshot } from "./ai-settings.js";
 import { ModelClient, modelSchema } from "./model.js";
 import { schemaFor } from "./contract-source.js";
-import expectedSchemas from "../fixtures/tencent/model-schemas.json" with { type: "json" };
+import { createHash } from "node:crypto";
+const schemaHashes = {
+  "UnitParseResult": "33ba531a6d4b5329c4bda94bb7fc9a98ad5f8f137245fbda36394f04f33db64b",
+  "GradeResult": "87a325862f2e8470d35736d8c9cb3384a454e3aa2ed0c432e7f42b47ddd55e1f",
+  "DocumentCorrections": "51f0ef60694301a05eb53ee45b7398c5e5134830bef8a3f29951f3270f634449",
+  "OcrPageParseResult": "cab7fc523e7d5da963b49eae664049539c9a112f8b979d34a3bb5e1cd1342294",
+  "PageParseResult": "a1ee810d148650441a3b32c1d1c08a2a01d4b7fad89f550ff6d2af51c4c2dfca"
+};
 
 const paths: string[] = [], databases: AiDatabase[] = [];
 afterEach(() => { databases.splice(0).forEach(db => db.close()); paths.splice(0).forEach(path => rmSync(path, { recursive: true, force: true })); });
@@ -19,10 +26,10 @@ async function setup() {
 }
 const completion = (result: unknown) => ({ status: "completed", output: [{ type: "function_call", name: "ImportSettings", arguments: typeof result === "string" ? result : JSON.stringify(result) }], usage: { input_tokens: 10, output_tokens: 5, input_tokens_details: { cached_tokens: 2 } } });
 
-it.each(Object.entries(expectedSchemas))("preserves the historical %s model schema and extraction instructions", (name, expected) => {
+it.each(Object.entries(schemaHashes))("preserves the historical %s model schema and extraction instructions", (name, expectedHash) => {
   const original = schemaFor(name);
-  const normalize = (value: unknown): unknown => Array.isArray(value) ? value.map(normalize) : value !== null && typeof value === "object" ? Object.fromEntries(Object.entries(value).map(([key, child]) => [key, key === "required" && Array.isArray(child) ? [...child].sort() : normalize(child)])) : value;
-  expect(normalize(modelSchema(name))).toEqual(normalize(expected));
+  const normalize = (value: unknown): unknown => Array.isArray(value) ? value.map(normalize) : value !== null && typeof value === "object" ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, child]) => [key, key === "required" && Array.isArray(child) ? [...child].sort() : normalize(child)])) : value;
+  expect(createHash("sha256").update(JSON.stringify(normalize(modelSchema(name)))).digest("hex")).toBe(expectedHash);
   expect(schemaFor(name)).toEqual(original);
 });
 

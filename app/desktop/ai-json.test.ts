@@ -1,11 +1,21 @@
 import { expect, it } from "vitest";
 import { parseAiJson, parseModelJson } from "./ai-json.js";
-import corpus from "../fixtures/tencent/model-json.json" with { type: "json" };
-
-it.each(corpus)("preserves historical punctuation-only JSON repair: $name", input => {
-  if (input.rejected) expect(() => parseModelJson(input.source)).toThrow();
-  else expect(parseModelJson(input.source)).toEqual(input.expected);
-});
+it.each([
+  { source: '{', expected: {} },
+  { source: '{"value":1,}', expected: { value: 1 } },
+  { source: '[1,2,]', expected: [1, 2] },
+  { source: '{"values":[1,2]', expected: { values: [1, 2] } },
+  { source: '{"value":"complete"', expected: { value: "complete" } },
+  { source: '{"value":true', expected: { value: true } },
+  { source: '{"value":null', expected: { value: null } },
+  { source: '{"value":{}}}', expected: { value: {} } },
+  { source: '[1]]', expected: [1] },
+  { source: '{"text":"brackets }, ] and commas, stay literal",}', expected: { text: "brackets }, ] and commas, stay literal" } },
+  { source: '```json\n{"value":1,}\n```', expected: { value: 1 } },
+  { source: '```\n[1,]\n```', expected: [1] },
+  { source: '\u0085{"value":1,}\u0085', expected: { value: 1 } },
+])("repairs only unambiguous punctuation without inventing values: $source", ({ source, expected }) => expect(parseModelJson(source)).toEqual(expected));
+it.each(['', '[,]', '{,}', '{"value":', '{"value":tru', '{"value":1e', '{"value":"cut off', '{"value":"escape\\', '{"value":1 "other":2}', '{"value":1,"value":2}', '[1}', '{"value":1]','prefix {"value":1}', '{"value":1} suffix', '\ufeff{"value":1}', '```JSON\n{"value":1}\n```']) ("refuses uncertain, duplicate or non-JSON model content: %s", source => expect(() => parseModelJson(source)).toThrow());
 it("keeps HTTP envelopes and saved payloads strict while model arguments permit only punctuation repair", () => {
   const source = '{"value":1,}'; expect(() => parseAiJson(source)).toThrow(); expect(parseModelJson(source)).toEqual({ value: 1 });
   for (const source of ['{"value":9007199254740993}', '{"value":9007199254740991.1}', '{"value":9007199254740993,}', '{"value":9007199254740991.1,}', '['.repeat(129) + '0' + ']'.repeat(129)]) expect(() => parseModelJson(source)).toThrow();

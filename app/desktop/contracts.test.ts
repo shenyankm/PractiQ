@@ -1,18 +1,20 @@
 import { expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import baselines from "../fixtures/contract-schema-hashes.json" with { type: "json" };
+import { hash } from "./assets.js";
+import { canonical } from "./questions.js";
 import { contractSource, schemaFor, validateContract } from "./contracts.js";
 import scores from "../fixtures/tencent/source-scores.json" with { type: "json" };
 
 it("preserves every legacy exported wire schema exactly", () => {
-  const legacy = JSON.parse(readFileSync(new URL("../fixtures/legacy-wire-schemas.json", import.meta.url), "utf8"));
-  for (const [key, name] of Object.entries(contractSource.exports)) expect(schemaFor(name)).toEqual(legacy[key]);
+  expect(Object.keys(contractSource.exports).sort()).toEqual(Object.keys(baselines.wire).sort());
+  for (const [key, name] of Object.entries(contractSource.exports)) expect(hash(canonical(schemaFor(name))), name).toBe(baselines.wire[key as keyof typeof baselines.wire]);
 });
 
 it("preserves every original model output schema after retiring the Python exporter", () => {
-  const legacy = JSON.parse(readFileSync(new URL("../fixtures/legacy-model-schemas.json", import.meta.url), "utf8"));
+  const legacy = baselines.models;
   const names = ["UnitParseResult", ...contractSource.desktopModels];
   for (const name of names) expect(Object.hasOwn(legacy, name), name).toBe(true);
-  for (const [name, schema] of Object.entries(legacy)) expect(contractSource.definitions[name], name).toEqual(schema);
+  for (const [name, schema] of Object.entries(legacy)) expect(hash(canonical(contractSource.definitions[name])), name).toBe(schema);
 });
 
 it("compiles every contract and rejects additional fields without coercing input", () => {

@@ -1,20 +1,34 @@
 import { expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { ModelOutputError } from "./model.js";
 import { validateSourceContext, validateSourceFields, type SourceFieldContext } from "./source-fields.js";
 
-const corpus = JSON.parse(readFileSync(new URL("../fixtures/tencent/source-fields.json", import.meta.url), "utf8")) as { cases: { name: string; input: unknown; context: SourceFieldContext; expected?: unknown; rejected?: boolean }[] };
-const fidelity = JSON.parse(readFileSync(new URL("../fixtures/tencent/source-fidelity.json", import.meta.url), "utf8")) as typeof corpus;
-const ocr = JSON.parse(readFileSync(new URL("../fixtures/tencent/ocr-fidelity.json", import.meta.url), "utf8")) as typeof corpus;
-it.each([...corpus.cases, ...fidelity.cases, ...ocr.cases])("matches historical source-field/closed-tree/text/OCR validation: $name", input => {
-  if (input.rejected) expect(() => validateSourceFields(input.input, input.context)).toThrow(ModelOutputError);
-  else expect(validateSourceFields(input.input, input.context)).toEqual(input.expected);
+const quote = '1. Single choice: Q\nA. red\nB. blue\nReference answer: ["A"]\nAnalysis: Explanation';
+const question = () => ({ id: "fragment:1:1", stem: "Q", answerMode: "choice", questionTypeId: "Single choice", choiceVariant: "single", options: [{ label: "A", content: "red" }, { label: "B", content: "blue" }], answerPayload: { correct: ["A"] }, analysis: "Explanation", sourceText: quote, confidence: .9, needsReview: false });
+const context: SourceFieldContext = { index: 0, expectedNodeCount: 1, presence: { "1": { need_stem: true, need_options: true, need_analysis: true, need_answer: true, stem_sha256: createHash("sha256").update("Q").digest("hex"), answer_source: quote } }, requireTypeLabels: true };
+it("retains supplied fields and literal source, leaving the model draft immutable", () => {
+  const input = { questions: [question()], groups: [] }, before = structuredClone(input);
+  expect(validateSourceFields(input, context).questions[0]).toMatchObject(question()); expect(input).toEqual(before);
 });
+it.each([{ stem: null }, { stem: "rewritten" }, { options: [] }, { analysis: null }, { answerPayload: null }, { id: null }, { id: "fragment:1:2" }, { questionTypeId: null }])("requires each known supplied field and identity: %#", patch => {
+  expect(() => validateSourceFields({ questions: [{ ...question(), ...patch }] }, context)).toThrow(ModelOutputError);
+});
+it.each([0, 2])("rejects a changed known question count: %s", count => expect(() => validateSourceFields({ questions: Array.from({ length: count }, question) }, context)).toThrow(ModelOutputError));
 it("reports every supplied missing field in one bounded correction without changing the draft", () => {
-  const input = corpus.cases.find(test => test.name === "all-fields-missing")!, before = JSON.stringify(input.input);
-  try { validateSourceFields(input.input, input.context); throw new Error("Expected source-field rejection"); }
-  catch (error) { expect(error).toBeInstanceOf(ModelOutputError); const feedback = (error as ModelOutputError).feedback; for (const field of ["stem", "options", "analysis", "answerPayload"]) expect(feedback).toContain(`requires extracted ${field}`); }
-  expect(JSON.stringify(input.input)).toBe(before);
+  const input = { questions: [{ ...question(), stem: null, options: [], analysis: null, answerPayload: null }] }, before = structuredClone(input);
+  try { validateSourceFields(input, context); throw new Error("Expected source-field rejection"); }
+  catch (error) { expect(error).toBeInstanceOf(ModelOutputError); for (const field of ["stem", "options", "analysis", "answerPayload"]) expect((error as ModelOutputError).feedback).toContain(`requires extracted ${field}`); }
+  expect(input).toEqual(before);
+});
+it("does not demand unavailable answers when source presence is unknown", () => {
+  const parsed = validateSourceFields({ questions: [{ ...question(), answerMode: "short_answer", stem: null, choiceVariant: null, options: [], answerPayload: null }] }, { index: 0, expectedNodeCount: null, presence: null });
+  expect(parsed.questions[0]).toMatchObject({ answerPayload: null, needsReview: true });
+});
+it.each(["page:1:1", "page:２:1", "fragment:1:1"])("does not copy a context question onto a different PRIMARY page: %s", id => expect(() => validateSourceFields({ questions: [{ ...question(), id }] }, { index: 2, expectedNodeCount: null, presence: null, ocr: { text: "" } })).toThrow(ModelOutputError));
+it("validates native group indexes and keeps explicit groups", () => {
+  const input = { questions: [question()], groups: [{ title: "Section", questionIndexes: [0] }] };
+  expect(validateSourceFields(input, context).groups[0].questionIndexes).toEqual([0]);
+  expect(() => validateSourceFields({ ...input, groups: [{ title: "Section", questionIndexes: [1] }] }, context)).toThrow(ModelOutputError);
 });
 it.each([NaN, -1, 1.5, 1001])("rejects an invalid source record count %s before model work", expectedNodeCount => {
   expect(() => validateSourceContext({ index: 0, expectedNodeCount, presence: null })).toThrow();

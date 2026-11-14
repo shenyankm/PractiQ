@@ -18,6 +18,27 @@ backup references remain supported. QR/address editing, guarded in-memory
 playback, ZIP/backup round trips and native Electron playback are implemented
 and verified. Final runtime package acceptance is recorded below.
 
+## Permanent regression data — 2026-11-14
+
+One-time migration callback snapshots and randomized comparison matrices have
+been removed from the PR. Original raw data remains at Git revision `012843bf`
+and in ignored local archives; normal tests and package smoke checks do not load
+those archives. Focused tests retain literal source/answer proof, immutable figure
+identity, compound continuation, explicit deduplication, partial results and
+recovery guarantees. Small format/encoding and crop-calibration inputs remain.
+The original wire/model schema copies are represented by independent SHA-256
+baselines rather than a second full schema source. Historical progress entries
+below describe the checks that existed at their dated migration stages.
+
+The current complete backend suite passes 1,829 tests across 90 files with
+91.05% statements, 92.71% lines, 91.74% functions and 86.11% branches. Original
+coverage gates remain 90% statements/lines/functions and 85% branches. Package
+worker checks now use small explicit inputs rather than replaying the migration
+corpora. All 4,616 original archived comparison tests across 23 files also pass against
+the unchanged current implementation. These are a local one-time verification,
+not a dependency of normal tests. Latest-head remote checks must pass before
+returning this PR to review.
+
 ## Acceptance ledger
 
 Checked items have executable evidence in the sections below. Runtime cutover
@@ -66,9 +87,9 @@ Streaming inventories before and after tracked retirement contain the same
 Before retiring the Python exporter, its contract/fixture checks passed one last
 time. In addition to the existing frozen wire and IPC schemas, the original
 Pydantic serialization schemas for all six model outputs and their nested
-definitions are frozen in `app/fixtures/legacy-model-schemas.json` (19 exact
-definitions). A Node regression compares every definition with the authoritative
-TypeScript-owned schema. The fixture provenance records the original revision
+definitions are checked through `app/fixtures/contract-schema-hashes.json` (19
+exact definition digests). A Node regression hashes every authoritative
+TypeScript-owned schema and compares it with the original baseline. The fixture provenance records the original revision
 and checksum; frozen references are never regenerated from the new exporter.
 
 `make verify` passes after tracked retirement: 5,895 embedded-runtime tests
@@ -479,7 +500,7 @@ CSV/tabular proof helpers do not enable new CSV uploads.
 Source framing and slicing count Unicode code points, with Python-compatible
 whitespace and line anchors. Literal-stem hashes, supplied stem/options/analysis
 and answer presence, shared-option ownership and partial/reordered span behavior
-match the fixed 169-case historical corpus in `app/fixtures/tencent/source-chunks.json`.
+matched the 169-case historical corpus, now archived at Git revision `012843bf`.
 An additional deterministic 3,500-case boundary comparison found no differences;
 its inputs/report remain in `app/.build/evidence/source-boundaries-fuzz*.json`.
 Long whitespace runs use linear scans, including the shared Tencent trim helper,

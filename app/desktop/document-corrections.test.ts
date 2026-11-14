@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DocumentCorrectionSave, DocumentParseResult, DesktopDocumentReply, DesktopDocumentRequest, Question } from "../src/contracts.generated.js";
@@ -144,12 +144,10 @@ it.each(["entries", "bytes"])("bounds correction history by %s and retains its p
   expect(f.api.store.read(["document_tasks", f.id, "corrections"], f.checkpointId)).toEqual(before); expect(f.http).not.toHaveBeenCalled();
 });
 
-const referenceCases = JSON.parse(readFileSync(new URL("../fixtures/tencent/corrections.json", import.meta.url), "utf8")).cases as { name: string; original: DocumentParseResult; index: number; edited: Question; expected?: Question; code?: string }[];
-it.each(referenceCases)("matches the Python correction reference: $name", item => {
-  const before = canonical(item.original);
-  if (item.code) expect(() => validateCorrection(item.original.questions[item.index], item.edited, item.original, item.index)).toThrow(expect.objectContaining({ code: item.code }));
-  else expect(validateCorrection(item.original.questions[item.index], item.edited, item.original, item.index)).toEqual(item.expected);
-  expect(canonical(item.original)).toBe(before);
+it.each(["stem", "answerPayload", "analysis", "scoringRubric"])("permits an explicit human edit of %s without changing source evidence", field => {
+  const original = document(), before = canonical(original), values = { stem: "Human correction", answerPayload: { text: "Human answer" }, analysis: "Human explanation", scoringRubric: "Human rubric" };
+  const edited = { ...original.questions[0], [field]: values[field as keyof typeof values] }, result = validateCorrection(original.questions[0], edited, original, 0);
+  expect(result[field as keyof Question]).toEqual(values[field as keyof typeof values]); expect(canonical(original)).toBe(before);
 });
 
 async function savedAnswers(f: Awaited<ReturnType<typeof setup>>, questions = [question({ stem: "1. Answer", answerPayload: { text: "Supplied answer" }, sourceText: "1. Supplied answer", analysis: "Supplied explanation" })], role: "answers" | "questions" = "answers") {
