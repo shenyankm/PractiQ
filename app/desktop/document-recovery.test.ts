@@ -54,7 +54,7 @@ it.each(["unknown", "succeeded"])("recovers a SIGKILL after a %s provider receip
       },store);
       await runtime.run(${JSON.stringify(receipt.threadId)},config);process.exit(0);
     `;
-    child = spawn(process.execPath, ["--input-type=module", "-e", script], { env: {}, stdio: ["ignore", "pipe", "pipe"] });
+    child = spawn(process.execPath, ["--input-type=module", "-e", script], { env: { ELECTRON_RUN_AS_NODE: "1" }, stdio: ["ignore", "pipe", "pipe"] });
     let output = ""; const saved = new Promise<void>(resolve => child!.stdout!.on("data", chunk => { output += String(chunk); if (output.includes("provider-saved")) resolve(); }));
     child.stderr!.on("data", () => {});
     const bounded = <T,>(promise: Promise<T>) => Promise.race([promise, new Promise<never>((_resolve, reject) => { const timer = setTimeout(() => reject(new Error("Recovery child did not reach its provider boundary")), 8000); timer.unref(); })]);

@@ -19,6 +19,7 @@ const fixture = new URL("../fixtures/all-types.zip", import.meta.url).pathname;
 const document = (questions: unknown[] = [{ id: "one", stem: "Question", answerMode: "true_false", answerPayload: { value: true } }]) => ({ schemaVersion: 3, questions, groups: [], visualElements: [], warnings: [], confidenceScore: 0 });
 function preview(value: unknown): { ticket: string; title: string; count: number } { return value as { ticket: string; title: string; count: number }; }
 
+// Both preview passes invoke bounded native media validators, including cold CoreAudio startup.
 it.skipIf(process.platform !== "darwin")("reads verified preview resources before import without persisting them", async () => {
   const { directory, store } = setup();
   const zip = await BoundedZip.open(fixture, { archiveBytes: BANK_ZIP_LIMIT, expandedBytes: BANK_ZIP_LIMIT, entries: 2002 });
@@ -40,7 +41,7 @@ it.skipIf(process.platform !== "darwin")("reads verified preview resources befor
   const current = preview(await store.packages.previewZip(fixture));
   store.packages.import(current.ticket, null, current.title);
   for (const [digest, bytes] of resources) expect(Buffer.from(store.request({ type: "asset", hash: digest }) as ArrayBuffer)).toEqual(bytes);
-});
+}, 20000);
 
 it.skipIf(process.platform !== "darwin")("round-trips all existing question types and verified resources without study data", async () => {
   const { directory, store } = setup(), first = preview(await store.packages.previewZip(fixture));
