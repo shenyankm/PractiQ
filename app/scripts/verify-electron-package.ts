@@ -17,6 +17,8 @@ const release = realpathSync(process.argv[2]), report = JSON.parse(readFileSync(
 version(`v${report.appVersion}`); assert.ok(["arm64", "x64"].includes(report.arch)); assert.equal(report.dmg.file, `PractiQ-${report.appVersion}-${report.arch}.dmg`);
 assert.equal(createHash("sha256").update(readFileSync(join(release, report.dmg.file))).digest("hex"), report.dmg.sha256, "DMG checksum differs from its build receipt");
 mkdirSync(mount); mkdirSync(installed); mkdirSync(evidence, { recursive: true }); let mounted = false, instance: Awaited<ReturnType<typeof electron.launch>> | undefined;
+const oldProfile = join(profile, "electron-migration", "v4"), oldBytes = Buffer.from("Historical prototype state must remain unopened and unchanged");
+mkdirSync(oldProfile, { recursive: true }); writeFileSync(join(oldProfile, "practiq.sqlite"), oldBytes);
 const run = (command: string, args: string[]) => { const result = spawnSync(command, args, { encoding: "utf8", timeout: 30000 }); if (result.error) throw result.error; assert.equal(result.status, 0, `${command} failed: ${result.stderr}`); };
 let stage = "startup";
 const watchdog = setTimeout(() => { console.error(`Package check timed out during ${stage}; macOS may require Keychain approval for a new signature.`); instance?.process().kill("SIGTERM"); const force = setTimeout(() => { const process = instance?.process(); if (process && process.exitCode === null && process.signalCode === null) process.kill("SIGKILL"); }, 2000); force.unref(); }, 120000); watchdog.unref();
@@ -34,7 +36,7 @@ try {
   const state = await instance.evaluate(({ app, BrowserWindow }) => { const preferences = (BrowserWindow.getAllWindows()[0].webContents as unknown as { getLastWebPreferences(): WebPreferences }).getLastWebPreferences(); return { packaged: app.isPackaged, userData: app.getPath("userData"), appPath: app.getAppPath(), executable: process.execPath, node: process.versions.node, electron: process.versions.electron, sandbox: preferences.sandbox, contextIsolation: preferences.contextIsolation, nodeIntegration: preferences.nodeIntegration }; });
   assert.equal(state.packaged, true); assert.equal(realpathSync(state.userData), realpathSync(profile)); assert.ok(state.appPath.startsWith(installed)); assert.deepEqual([state.sandbox, state.contextIsolation, state.nodeIntegration], [true, true, false]);
   const bridge = async (request: unknown, target = page) => { const reply = await target.evaluate(value => window.practiq!.request(value), request) as { ok: boolean; value: any; error?: { code: string } }; assert.equal(reply.ok, true, reply.error?.code ?? "Packaged command failed"); return reply.value; };
-  const directory = join(profile, "electron-migration/v4"); assert.equal((await bridge({ type: "info" })).dataDirectory, directory); assert.equal((await bridge({ type: "banks" })).length, 0);
+  const directory = join(profile, "v4"); assert.equal((await bridge({ type: "info" })).dataDirectory, directory); assert.equal((await bridge({ type: "banks" })).length, 0); assert.ok(readFileSync(join(oldProfile, "practiq.sqlite")).equals(oldBytes));
   await bridge({ type: "add_example_bank" }); assert.equal((await bridge({ type: "banks" }))[0].count, 20);
   const bankId = await bridge({ type: "save_bank", id: null, title: "安装包验证", description: "离线运行与恢复" });
   await bridge({ type: "save_question_tree", bank_id: bankId, root_id: null, questions: [{ id: "packaged-question", stem: "安装后的离线判断验证", questionTypeId: "判断题", answerMode: "true_false", answerPayload: { value: true }, analysis: "不依赖独立后端", sourceText: "固定离线用例", needsReview: false }] });
@@ -62,6 +64,7 @@ try {
   assert.deepEqual(errors, []); assert.deepEqual(http, []); await instance.close(); instance = await launch(); const reopened = await instance.firstWindow({ timeout: 20000 }); await reopened.waitForFunction(() => Boolean(window.practiq?.request));
   const banks = await reopened.evaluate(async () => { const reply = await window.practiq!.request({ type: "banks" }); if (!reply.ok) throw Error(reply.error.code); return reply.value as { id: string }[]; }); assert.ok(banks.some(bank => bank.id === bankId)); assert.equal(banks.length, 2);
   await reopened.getByText("安装包验证", { exact: true }).waitFor();
+  assert.ok(readFileSync(join(oldProfile, "practiq.sqlite")).equals(oldBytes), "Package cutover changed the historical profile");
   let existingDataReport: string | undefined;
   if (process.argv[3]) {
     const script = join(temporary, "verify-existing-data.mjs"); writeFileSync(script, stripTypeScriptTypes(readFileSync("scripts/verify-existing-data.ts", "utf8")), { mode: 0o600 });

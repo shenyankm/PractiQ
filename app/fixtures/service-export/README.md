@@ -1,5 +1,11 @@
 # Independent service export fixture
 
+> Historical reproduction: committed fixture bytes remain unchanged. Generation
+> commands and runtime claims below describe the [original source](https://github.com/shenyankm/PractiQ/blob/a3bef2da8c818aaa889b1f27c72c4ce4f1617c7b/app/fixtures/service-export/README.md),
+> not the current desktop toolchain. Current Node tests consume these frozen
+> inputs without Python, Rust or LibreOffice; see the migration ledger.
+
+
 `partial-media-bank.zip` was produced by the real
 `practiq_ai.bank_export.export_task_bank` and a temporary `ObjectStore`.
 `generate.py` supplies a fixed parser result and calls that exporter. It does not

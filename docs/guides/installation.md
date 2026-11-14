@@ -3,8 +3,9 @@
 The current source builds one macOS Electron application with embedded Node AI
 workers, LangGraph.js, SQLite and local files. No independent service, Python,
 Rust, PostgreSQL, RabbitMQ or LibreOffice installation is required. Historical
-service sources remain migration references until the
-[acceptance ledger](../maintainers/electron-migration.md) closes.
+service runtime sources are retired. Frozen fixtures, Git history and retained
+deployment/evidence files preserve the references described in the
+[acceptance ledger](../maintainers/electron-migration.md).
 
 Run commands from the repository root unless stated otherwise. Published
 installers may predate this migration; check their release notes rather than
@@ -85,6 +86,14 @@ and never resent automatically. Reads, exports and backups do not call models.
 If keys are unavailable, skip the live step and report it as untested.
 
 ## Preserve existing data
+
+The production Electron profile uses `v4/` under its macOS user-data directory
+(normally `~/Library/Application Support/PractiQ/v4/`). The earlier
+`electron-migration/v4/` prototype and Tauri's `com.practiq.desktop` profile are
+left untouched; they are not silently adopted. To transfer practice data, export
+a version-4/schema-11 learning backup from the previous installation and restore
+it explicitly under **Settings → Import and restore**. Current provider
+credentials must be configured separately and never travel in learning backups.
 
 Do not remove old application directories, AI task files, service database
 volumes, backups or credentials to make a build work. Use isolated test profiles

@@ -67,27 +67,6 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: app/package-lock.json
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: '3.14'
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-        with:
-          version: '0.12.13'
-          enable-cache: true
-          cache-dependency-glob: server/uv.lock
-      - name: Install locked service dependencies for contract checks
-        run: |
-          set -eu
-          requirements=$(mktemp)
-          trap 'rm -f "$requirements"' EXIT
-          reference_python=$(command -v python)
-          cd server
-          uv export --locked --extra dev --no-emit-project --python "$reference_python" -o "$requirements" >/dev/null
-          uv pip install --break-system-packages --python "$reference_python" -r "$requirements"
-          uv pip install --break-system-packages --python "$reference_python" --no-deps -e .
-      - run: python app/scripts/export-contracts.py --check
-      - run: python app/scripts/check-fixtures.py
-      - run: python -m pytest server/tests/test_release_checks.py server/tests/test_release_workflow.py server/tests/test_desktop_package.py
       - run: npm ci
         working-directory: app
         env:

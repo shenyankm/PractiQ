@@ -2,7 +2,13 @@
 
 This reference describes the current local implementation. Import JSON uses `schemaVersion: 3`; the desktop SQLite database uses `user_version=11`. Supported types have data, validation, and answering paths. This does not establish that AI extraction identifies every such question accurately in arbitrary source documents.
 
-The primary sources are `ParsedQuestion`, `QUESTION_KIND_MODES`, and `validate_question_tree` in [contracts.py](../../server/src/practiq_ai/contracts.py), the corresponding native checks in [contract.rs](../../app/src-tauri/src/contract.rs), and [schema.sql](../../app/src-tauri/src/schema.sql). See [question-model.md](question-model.md) for the broader model and [question-bank-package.md](../guides/question-bank-package.md) for ZIP packaging.
+The primary sources are the schemas/classification metadata in
+[shared/ai-contracts.json](../../shared/ai-contracts.json), `validateParsedQuestion`
+and `validateParsedTree` in [question-contract.ts](../../app/desktop/question-contract.ts),
+and [schema.sql](../../app/desktop/schema.sql). Frozen original schemas retain
+the strict reference behavior without a Python/Rust runtime. See
+[question-model.md](question-model.md) for the broader model and
+[question-bank-package.md](../guides/question-bank-package.md) for ZIP packaging.
 
 ## 1. Supported question types
 
@@ -18,7 +24,7 @@ Single and multiple choice both use `answerMode="choice"`, distinguished by `cho
 
 `questionKind` may be omitted or null. When supplied, it must match the mode; validation does not silently rewrite `answerMode`. Basic choices and true/false questions normally leave the kind unset. `answerMode=null` preserves an unclassified question for free-text answering and review; it is not a twelfth mode and must not imply an automatically incorrect answer.
 
-Sources: `AnswerMode` and `ParsedQuestion.validate_answer` in [contracts.py](../../server/src/practiq_ai/contracts.py), `modeNames` and `canInteract` in [api.ts](../../app/src/api.ts), and `questionKinds` in [english.ts](../../app/src/english.ts).
+Sources: `AnswerMode` and `validateParsedQuestion` in [shared/ai-contracts.json](../../shared/ai-contracts.json), `modeNames` and `canInteract` in [api.ts](../../app/src/api.ts), and `questionKinds` in [english.ts](../../app/src/english.ts).
 
 ### 1.2 Basic types: six modes
 
@@ -32,7 +38,7 @@ Sources: `AnswerMode` and `ParsedQuestion.validate_answer` in [contracts.py](../
 | Ordering | `ordering` | `items` | `{"order":[1,0]}` | Exact item-ID order |
 | Matching | `matching` | `matchingVariant="one_to_one"` or `"many_to_one"` | `{"matches":[{"left":0,"right":2}]}` | Equal pair collections, independent of pair-array order |
 
-Automatic grading also requires a complete reference answer and usable structure/resources. Missing answers or required material remain ungraded rather than automatically incorrect. `needsReview=true` alone does not necessarily disable interaction or grading. See `answer_complete` and `grade` in [contract.rs](../../app/src-tauri/src/contract.rs), and resource/self-evaluation checks in `write_attempt` in [sessions.rs](../../app/src-tauri/src/sessions.rs).
+Automatic grading also requires a complete reference answer and usable structure/resources. Missing answers or required material remain ungraded rather than automatically incorrect. `needsReview=true` alone does not necessarily disable interaction or grading. See `answer_complete` and `grade` in [question-contract.ts](../../app/desktop/question-contract.ts), and resource/self-evaluation checks in `writeAttempt` in [sessions.ts](../../app/desktop/sessions.ts).
 
 ### 1.3 Composite types: five parent modes
 
@@ -48,7 +54,7 @@ Composite parents hold material and relationships. Their `answerPayload` must be
 
 For `word_bank`, `cloze`, and `gap_fill`, passage blocks with `partType="blank"` must reference every direct child exactly once through `questionId`. Duplicate, missing, and foreign references are rejected. Passage blank order and node-array order are separate information; printed question numbers are not references.
 
-A non-listening parent without a passage, or any composite parent without children, is marked with missing `material`. Invalid ancestry, cycles, incompatible child modes, and inconsistent blank references fail validation. `reading` and `listening` cannot themselves be children of another question. Sources: `COMPOSITE_MODES` and `validate_question_tree` in [contracts.py](../../server/src/practiq_ai/contracts.py), and `validate_tree` in [contract.rs](../../app/src-tauri/src/contract.rs).
+A non-listening parent without a passage, or any composite parent without children, is marked with missing `material`. Invalid ancestry, cycles, incompatible child modes, and inconsistent blank references fail validation. `reading` and `listening` cannot themselves be children of another question. Sources: `COMPOSITE_MODES` and `validateParsedTree` in [shared/ai-contracts.json](../../shared/ai-contracts.json), and `validateTree` in [question-contract.ts](../../app/desktop/question-contract.ts).
 
 ### 1.4 All nine semantic kinds
 
@@ -64,7 +70,10 @@ A non-listening parent without a passage, or any composite parent without childr
 | `translation` | Translation / “翻译题” | `short_answer` | Source/target languages; source material in `contentBlocks` |
 | `writing` | Writing / “写作题” | `short_answer` | Target language, genre, minimum/maximum words, live word count |
 
-`QUESTION_KIND_MODES` in [contracts.py](../../server/src/practiq_ai/contracts.py) is exported by [export-contracts.py](../../app/scripts/export-contracts.py) into [contracts.generated.ts](../../app/src/contracts.generated.ts) and [question_metadata.rs](../../app/src-tauri/src/question_metadata.rs). Extend the source mapping and regenerate rather than maintaining independent lists.
+`metadata.questionKindModes` in [shared/ai-contracts.json](../../shared/ai-contracts.json)
+is exported by [export-contracts.ts](../../app/scripts/export-contracts.ts) into
+[contracts.generated.ts](../../app/src/contracts.generated.ts). Extend the source
+mapping and regenerate rather than maintaining independent lists.
 
 ## 2. Common JSON structure and constraints
 
@@ -108,7 +117,7 @@ The importer accepts a bare `DocumentParseResult` or the `result` inside task ou
 }
 ```
 
-Required envelope fields are `schemaVersion` (exactly 3), `questions` (0–1000 nodes including parents), `groups`, `visualElements`, `warnings` (each at most 1000 entries), and `confidenceScore` (0–100). Document confidence differs from a question's 0–1 `confidence`. Strict models forbid extra fields; `extra="forbid"` does not mean every Pydantic field forbids coercion. Strict booleans and integers follow their individual declarations.
+Required envelope fields are `schemaVersion` (exactly 3), `questions` (0–1000 nodes including parents), `groups`, `visualElements`, `warnings` (each at most 1000 entries), and `confidenceScore` (0–100). Document confidence differs from a question's 0–1 `confidence`. Strict schemas forbid extra fields. Source-compatible scalar handling is explicit in `ai-json.ts`; strict model integer tokens, booleans, safe integer bounds and score tolerances retain the original regression cases. Ordinary native inputs are not silently coerced.
 
 ### 2.2 Common fields and the `questions` table
 
@@ -137,7 +146,10 @@ Nullable fields generally also permit omission, using contract defaults. Fragmen
 
 `answerPayload` is split into subtype tables rather than stored in the common row. Passage, audio, options, items, and translation/writing metadata have the mappings below. There is no `questions.snapshot` column.
 
-Sources: `ParsedQuestion` in [contracts.py](../../server/src/practiq_ai/contracts.py), `write` and `read_scoped` in [questions.rs](../../app/src-tauri/src/questions.rs), and [schema.sql](../../app/src-tauri/src/schema.sql). Python/Rust enforce JSON ranges and cross-field consistency. SQL `json_valid` alone does not enforce the complete contract.
+Sources: `ParsedQuestion` in [shared/ai-contracts.json](../../shared/ai-contracts.json),
+`writeQuestion` and `readQuestions` in [questions.ts](../../app/desktop/questions.ts),
+and [schema.sql](../../app/desktop/schema.sql). Node validates JSON ranges and
+cross-field consistency; SQL `json_valid` alone does not enforce the contract.
 
 ### 2.3 Missing data, reference answers, and drafts
 
@@ -149,9 +161,9 @@ Complete answer arrays contain 1–100 entries. Incomplete extraction can retain
 
 `missingFields` permits `stem`, `questionTypeId`, `answerMode`, `choiceVariant`, `matchingVariant`, `options`, `items`, `answerPayload`, `analysis`, `sourceText`, `media`, and `material`. Repairable omissions usually preserve a reviewable question. Wrong types, contradictory references, and out-of-range values are rejected. A completely empty object is not an identifiable question.
 
-Reference answers and user drafts are separate: `question.answerPayload` holds the source reference; `AnswerInput` emits an `Answer` saved to `attempts.answer`. Free-text fallback emits `{"text":"..."}`. Drafts can be incomplete; `answerReady` controls the practice submission button, while native `validate_attempt` validates writes. Each reference fill answer is one string, with no nested array of equivalent alternatives for a single blank.
+Reference answers and user drafts are separate: `question.answerPayload` holds the source reference; `AnswerInput` emits an `Answer` saved to `attempts.answer`. Free-text fallback emits `{"text":"..."}`. Drafts can be incomplete; `answerReady` controls the practice submission button, while native `validateAttempt` validates writes. Each reference fill answer is one string, with no nested array of equivalent alternatives for a single blank.
 
-Sources: `normalize_answer` and `question_missing_fields` in [contracts.py](../../server/src/practiq_ai/contracts.py), `validate_attempt` in [contract.rs](../../app/src-tauri/src/contract.rs), and `answerReady` in [api.ts](../../app/src/api.ts).
+Sources: schemas in [shared/ai-contracts.json](../../shared/ai-contracts.json), `normalizeQuestionText`, `validateParsedQuestion` and `validateAttempt` in [question-contract.ts](../../app/desktop/question-contract.ts), and `answerReady` in [api.ts](../../app/src/api.ts).
 
 ## 3. Type-specific JSON and database mappings
 
@@ -218,7 +230,7 @@ The following node array can replace envelope `questions`. Omitted common fields
 ]
 ```
 
-Sources: answer models, `ParsedOption`, and `ParsedItem` in [contracts.py](../../server/src/practiq_ai/contracts.py); [schema.sql](../../app/src-tauri/src/schema.sql); `write` in [questions.rs](../../app/src-tauri/src/questions.rs); `itemIds` and `canInteract` in [api.ts](../../app/src/api.ts).
+Sources: answer models, `ParsedOption`, and `ParsedItem` in [shared/ai-contracts.json](../../shared/ai-contracts.json); [schema.sql](../../app/desktop/schema.sql); `writeQuestion` in [questions.ts](../../app/desktop/questions.ts); `itemIds` and `canInteract` in [api.ts](../../app/src/api.ts).
 
 ### 3.2 Composite modes and shared options
 
@@ -289,13 +301,14 @@ erDiagram
     sessions ||--o{ attempts : answers
 ```
 
-See [composite.json](../../app/fixtures/composite.json) for complete examples, `validate_tree` in [contract.rs](../../app/src-tauri/src/contract.rs) for relationships, and `write_attempt` in [sessions.rs](../../app/src-tauri/src/sessions.rs) for reuse checks on saved drafts.
+See [composite.json](../../app/fixtures/composite.json) for complete examples, `validateTree` in [question-contract.ts](../../app/desktop/question-contract.ts) for relationships, and `writeAttempt` in [sessions.ts](../../app/desktop/sessions.ts) for reuse checks on saved drafts.
 
 ### 3.3 Listening
 
-| JSON field | Type and constraint | `listening_questions` column |
+| JSON field | Type and constraint | SQLite storage |
 | --- | --- | --- |
-| `audioRef` | `AudioReference / null`; missing audio preserves the question with missing `media` | `audio_ref TEXT NOT NULL`, JSON object / null |
+| `audioRef` | Historical `AudioReference / null`; missing media retains a review flag | `listening_questions.audio_ref`, JSON object / null |
+| `contentBlocks` role `listening_audio_url` | One validated public playback address; current input stores no recording | `questions.content_blocks` |
 | `audioStartSeconds` | Finite number, default 0, range 0–86400 | `start_seconds REAL NOT NULL` |
 | `audioEndSeconds` | Finite number / null, `0 < x <= 86400` and greater than start; null means file end | `end_seconds REAL` |
 | `transcript` | `ContentBlock[]`, default empty, maximum 1000; no blank blocks | `transcript TEXT NOT NULL`, JSON array |
@@ -303,9 +316,19 @@ See [composite.json](../../app/fixtures/composite.json) for complete examples, `
 
 `AudioReference` contains `objectKey` (relative resource path, 1–1024 characters), `sha256` (64 lowercase hexadecimal characters), `mediaType` (`audio/mpeg`, `audio/mp4`, `audio/aac`, or `audio/wav`), and `sizeBytes` (positive integer, maximum 25 MiB). Paths reject backslashes, colons, empty segments, `.` and `..`. Import also checks actual bytes, size, hash, and decoded duration; a valid JSON reference does not establish resource availability.
 
-Start must be before actual file duration, and end must not exceed duration plus a 0.05-second tolerance. Non-listening questions cannot carry audio references, nonempty transcripts, or nondefault audio parameters. Native audio inspection probes and decodes bounded bytes with Symphonia on macOS. Playback uses local assets, without automatic transcription, TTS, or remote audio streaming.
+For historical files, start must be before actual duration and end must not exceed
+duration plus a 0.05-second tolerance. Non-listening questions cannot carry audio
+references, nonempty transcripts or nondefault audio parameters. Historical
+audio is probed/decoded by sandboxed macOS CoreAudio helpers with bounded bytes,
+output, duration and enforced deadlines. Current URL playback fetches bytes into
+memory only after an explicit action; it does not create a local audio asset.
+There is no automatic transcription or TTS. See
+[listening addresses](question-model.md#listening-urls-and-qr-codes).
 
-This reference comes from [english.json](../../app/fixtures/english.json) and requires the actual [chimes.wav](../../app/fixtures/resources/audio/chimes.wav) resource in the package. The three-chime fixture tests playback structure, not English speech recognition.
+This historical compatibility example comes from [english.json](../../app/fixtures/english.json)
+and requires [chimes.wav](../../app/fixtures/resources/audio/chimes.wav) in its
+package. The current bundled example omits recordings. The three-chime fixture
+tests compatibility/playback structure, not English speech recognition.
 
 ```json
 [
@@ -321,7 +344,7 @@ This reference comes from [english.json](../../app/fixtures/english.json) and re
 ]
 ```
 
-Sources: `AudioReference` and `ParsedQuestion` in [contracts.py](../../server/src/practiq_ai/contracts.py); `audio_info`, `validate_segment`, and `persist_audio` in [audio.rs](../../app/src-tauri/src/audio.rs); resource import in [bank_zip.rs](../../app/src-tauri/src/bank_zip.rs).
+Sources: `AudioReference` and `ParsedQuestion` in [shared/ai-contracts.json](../../shared/ai-contracts.json); `audioInfo` and `validateSegment` in [media.ts](../../app/desktop/media.ts); resource import in [bank-packages.ts](../../app/desktop/bank-packages.ts).
 
 ### 3.4 Paragraph matching, translation, and writing
 
@@ -368,7 +391,7 @@ Language tags receive a format check, not a registry lookup. Word limits produce
 ]
 ```
 
-Sources: specialized-field validation in [contracts.py](../../server/src/practiq_ai/contracts.py), [AnswerInput.tsx](../../app/src/AnswerInput.tsx), [Content.tsx](../../app/src/Content.tsx), and [english.ts](../../app/src/english.ts).
+Sources: specialized-field validation in [shared/ai-contracts.json](../../shared/ai-contracts.json), [AnswerInput.tsx](../../app/src/AnswerInput.tsx), [Content.tsx](../../app/src/Content.tsx), and [english.ts](../../app/src/english.ts).
 
 ## 4. Rich content, sections, and associated resources
 
@@ -405,7 +428,7 @@ Final `DocumentGroup` requires a title of 1–1000 characters, optional instruct
 
 `imageRef` points to a question image/crop; `sourceRef` points to the complete verification page, which may include answers. Both use `ArtifactReference`: `objectKey` length 1–1024, a 64-character lowercase SHA-256, `mediaType` length 1–255, and nonnegative integer `sizeBytes`. Actual resource acceptance also checks formats, paths, and hashes. Unassociated visuals display a document-level association warning, not an assertion that they belong exclusively to the current question.
 
-Import remaps node IDs, parent IDs, option owners, passage blank IDs, section membership, and visual associations together. Mixed-bank session snapshots and copied banks convert document-level visuals into explicit IDs for their source bank's included questions; adding another bank never broadens those associations. A single-bank snapshot or ZIP retains empty references and the document-level association warning; ZIP exports of merged banks preserve their explicit references. Sources: `remap`, `put_context`, `read_scoped`, `freeze`, and `copy_context` in [questions.rs](../../app/src-tauri/src/questions.rs), and `DocumentGroup`, `VisualContent`, and `DocumentProcessing` in [contracts.py](../../server/src/practiq_ai/contracts.py).
+Import remaps node IDs, parent IDs, option owners, passage blank IDs, section membership, and visual associations together. Mixed-bank session snapshots and copied banks convert document-level visuals into explicit IDs for their source bank's included questions; adding another bank never broadens those associations. A single-bank snapshot or ZIP retains empty references and the document-level association warning; ZIP exports of merged banks preserve their explicit references. Sources: `remapQuestion`, `putContext` and `copyContext` in [bank-context.ts](../../app/desktop/bank-context.ts), `readQuestions` and `freeze` in [questions.ts](../../app/desktop/questions.ts), and `DocumentGroup`, `VisualContent`, and `DocumentProcessing` in [shared/ai-contracts.json](../../shared/ai-contracts.json).
 
 ## 5. Frontend rendering
 
@@ -456,11 +479,11 @@ There is no drag-and-drop sorting, line-drawing matching, or dragging words into
 3. `Practice` answers one child at a time, shows navigation for siblings with the same `parentId`, and provides a global answer card. The material dialog uses the Chinese label “查看原文”. Selecting a blank closes the dialog and navigates to its child, after saving the current draft.
 4. `Blocks` numbers blanks by passage order and shows their current selected/input answers. Blanks are navigation buttons; actual answering happens in `AnswerInput`.
 5. Shared options are stored once in the parent and frozen document. `hydrate` fills the child snapshot's options for the ordinary choice control, without a second frontend request. The current material dialog does not render a separate shared-option panel; the options appear in the child's answer area.
-6. With `allowReuse=false`, `Practice` collects other drafts using the same option source and passes `usedOptions`. Used choices are labelled and disabled, while the current choice remains selectable. Rust rechecks reuse on write.
+6. With `allowReuse=false`, `Practice` collects other drafts using the same option source and passes `usedOptions`. Used choices are labelled and disabled, while the current choice remains selectable. The database worker rechecks reuse on write.
 
 [QuestionPreview.tsx](../../app/src/QuestionPreview.tsx) paginates by 20 roots, preserves complete groups, resolves shared options, and allows expanding answers/explanations/sources. It serves import/detail review rather than the exam answering flow.
 
-Sources: `selected_rows` in [paper.rs](../../app/src-tauri/src/paper.rs), `Index.hydrate` and `freeze` in [questions.rs](../../app/src-tauri/src/questions.rs), [Practice.tsx](../../app/src/Practice.tsx), [Content.tsx](../../app/src/Content.tsx), and [sessions.rs](../../app/src-tauri/src/sessions.rs).
+Sources: `selectedRows` in [paper.ts](../../app/desktop/paper.ts), `QuestionIndex.hydrate` and `freeze` in [questions.ts](../../app/desktop/questions.ts), [Practice.tsx](../../app/src/Practice.tsx), [Content.tsx](../../app/src/Content.tsx), and [sessions.ts](../../app/desktop/sessions.ts).
 
 ### 5.4 Rich-media behavior and limits
 
@@ -472,7 +495,7 @@ Actual images are rendered by `ImageAsset`, which reads local bytes with the nat
 
 Native `answer_content` identifies roles containing `answer`, `analysis`, `solution`, `explanation`, `rubric`, `transcript`, and their supported Chinese counterparts. `strip_answer_lines` also handles explicit answer labels in stems/instructions. This is role/text filtering, not answer detection inside unlabelled images. Answer-bearing parent passage blocks are already removed by `hydrate`; do not rely on them reappearing in the same material panel after submission. Use the dedicated reference-answer and explanation fields.
 
-Sources: `Markdown`, `Blocks`, and `ImageAsset` in [Content.tsx](../../app/src/Content.tsx); `answer_content` and `hydrate` in [questions.rs](../../app/src-tauri/src/questions.rs); `strip_answer_lines` in [exams.rs](../../app/src-tauri/src/exams.rs).
+Sources: `Markdown`, `Blocks`, and `ImageAsset` in [Content.tsx](../../app/src/Content.tsx); `answerContent` in [question-contract.ts](../../app/desktop/question-contract.ts); `hydrate` in [questions.ts](../../app/desktop/questions.ts); `stripLines` and `redactSnapshot` in [redaction.ts](../../app/desktop/redaction.ts).
 
 ### 5.5 Listening playback
 
@@ -482,7 +505,7 @@ Playback is independent of child answers. `listening_playback` uses `(session_id
 
 Visibility changes, leaving the page, unmounting, resource/group changes and session completion cancel pending playback as well as pausing current audio. Each asynchronous boundary checks the current Play intent before starting media or charging a listening opportunity. If native start was already issued, its completion is followed by pause/end accounting without replaying the start. Exams restrict speed and seeking; the native side checks remaining plays and plausible progress. Historical review uses unrestricted playback without mutating locked session counts. Missing audio, browser start failures, or resource mismatches display errors rather than implying completed listening work.
 
-Sources: [ListeningPlayer.tsx](../../app/src/ListeningPlayer.tsx), `listening_playback` in [audio.rs](../../app/src-tauri/src/audio.rs), and [schema.sql](../../app/src-tauri/src/schema.sql).
+Sources: [ListeningPlayer.tsx](../../app/src/ListeningPlayer.tsx), `listeningPlayback` in [sessions.ts](../../app/desktop/sessions.ts), and [schema.sql](../../app/desktop/schema.sql).
 
 ## 6. Practice, self-test, and mock exams
 
@@ -511,7 +534,7 @@ Before native session responses return, `enrich_session` and `audio.redact_sessi
 
 `PracticeClock` updates every second. Per-question time accumulates only while visible/focused, caps each increment at 1500 ms, and saves every three active ticks. Answer edits enqueue immediate saves; navigation and finish wait for pending saves. Mock exams use absolute millisecond `deadline_at=creation time+minutes×60000`. Native session reads/writes and session-list paths enforce expiration. There is no independent submission process while the app is closed; the next access applies the original deadline immediately rather than extending the exam.
 
-Sources: [StudySetup.tsx](../../app/src/StudySetup.tsx), `PracticeClock` in [Practice.tsx](../../app/src/Practice.tsx), `start_paper`, `expire_exam`, and `enrich_session` in [exams.rs](../../app/src-tauri/src/exams.rs), session expiration in [sessions.rs](../../app/src-tauri/src/sessions.rs), and `redact_session` in [audio.rs](../../app/src-tauri/src/audio.rs).
+Sources: [StudySetup.tsx](../../app/src/StudySetup.tsx), `PracticeClock` in [Practice.tsx](../../app/src/Practice.tsx), paper/session creation and expiration in [sessions.ts](../../app/desktop/sessions.ts), and `redactSnapshot` in [redaction.ts](../../app/desktop/redaction.ts).
 
 ### 6.1 Immutable sessions and scores
 
@@ -521,21 +544,25 @@ Sources: [StudySetup.tsx](../../app/src/StudySetup.tsx), `PracticeClock` in [Pra
 
 `sourceScore` is the source paper's reference score, not the user's result. Actual exam allocation uses integer hundredths of a point: `max_cents` for available points and `earned_cents` for earned points; UI values divide by 100. Non-composite children receive scores, without additional parent scoring. Subjective model grading requires an explicit user request and a reference answer or source rubric; answering does not automatically call a model. Missing required material or scoring evidence leaves a pending result instead of forcing zero.
 
-Sources: `freeze` / `thaw` in [questions.rs](../../app/src-tauri/src/questions.rs), [schema.sql](../../app/src-tauri/src/schema.sql), `has_basis` / `prepare_grade` in [exams.rs](../../app/src-tauri/src/exams.rs), and [ExamResults.tsx](../../app/src/ExamResults.tsx).
+Sources: `freeze` / `thaw` in [questions.ts](../../app/desktop/questions.ts), [schema.sql](../../app/desktop/schema.sql), `hasBasis` in [sessions.ts](../../app/desktop/sessions.ts) and `prepare` in [grading.ts](../../app/desktop/grading.ts), and [ExamResults.tsx](../../app/src/ExamResults.tsx).
 
 ## 7. Maintenance and verification
 
-Change the Python contract first and regenerate through `app/scripts/export-contracts.py`; `--check` detects drift. Adding a frontend label alone does not implement a type: native validation, subtype persistence, attempts, snapshots, rendering, and grading must agree.
+Change `shared/ai-contracts.json` first and regenerate with
+`node app/scripts/export-contracts.ts`; `--check` detects drift. Frozen legacy
+schemas are intentionally not regenerated. Adding a frontend label alone does
+not implement a type: native validation, subtype persistence, attempts, snapshots,
+rendering and grading must agree.
 
 | Coverage | Existing source |
 | --- | --- |
-| Completeness and missing fields | [test_question_completeness.py](../../server/tests/test_question_completeness.py) |
-| Composite merging and boundaries | [test_composite_questions.py](../../server/tests/test_composite_questions.py) |
-| English/listening contracts | [test_english_questions.py](../../server/tests/test_english_questions.py) |
+| Completeness and missing fields | [question-contract.test.ts](../../app/desktop/question-contract.test.ts), original fixture expectations |
+| Composite merging and boundaries | [text-structures.test.ts](../../app/desktop/text-structures.test.ts), retained source/OCR/assembly corpora |
+| English/listening contracts | [listening-links.test.ts](../../app/desktop/listening-links.test.ts), shared English/contract samples |
 | Basic inputs and answer display | [AnswerInput.test.tsx](../../app/src/AnswerInput.test.tsx) |
 | Shared options and parent/child preview | [Composite.test.tsx](../../app/src/Composite.test.tsx) |
 | Material dialog, writing, and listening | [EnglishQuestions.test.tsx](../../app/src/EnglishQuestions.test.tsx) |
 | Rich content and score UI | [Content.test.tsx](../../app/src/Content.test.tsx), [ExamResults.test.tsx](../../app/src/ExamResults.test.tsx) |
-| Native relationships, playback, redaction, snapshots | [tests.rs](../../app/src-tauri/src/tests.rs), embedded tests in [audio.rs](../../app/src-tauri/src/audio.rs) |
+| Native relationships, redaction, snapshots | [sessions.test.ts](../../app/desktop/sessions.test.ts), [native-ipc-parity.test.ts](../../app/desktop/native-ipc-parity.test.ts) |
 
 Complete import samples are [sample.json](../../app/fixtures/sample.json), [composite.json](../../app/fixtures/composite.json), and [english.json](../../app/fixtures/english.json). The abbreviated examples above validate with the current `DocumentParseResult`; omitted source fields intentionally trigger review and do not make those examples complete exam-ready questions.

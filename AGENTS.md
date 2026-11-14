@@ -1,95 +1,189 @@
 # Repository Guidelines
 
-## Approved architecture migration
-
-The user has approved replacing the architecture below with a single macOS
-Electron application using TypeScript/Node, LangGraph.js (`@langchain/langgraph`),
-embedded AI workers, SQLite, and local files. See [the migration acceptance ledger](docs/maintainers/electron-migration.md)
-and issue #549. The existing Rust/Python implementation is the behavioral reference
-until parity is verified, then its running chains must be removed. Preserve all
-data, backup, validation, explicit-action, receipt, and recovery guarantees below.
-This migration authorization supersedes language, independent-service, credential
-location, PostgreSQL, and RabbitMQ requirements that conflict with that target.
-Do not discard historical user data, credentials, or deployment volumes.
-Migrate the existing engineering safeguards and recovery strategies with their
-regression evidence; keep unfinished parity items explicit. Checkpoints, Store,
-document graphs and AI orchestration must all use the JavaScript implementation.
-For the new desktop, `shared/ai-contracts.json` owns wire schemas;
-`app/scripts/export-contracts.ts` derives types and legacy parity artifacts.
-Keep the historical Python exporter check passing until its service is removed.
-
 ## Architecture
 
-`server/src/practiq_ai/` is the sole Python 3.14+ LangGraph AI document import service. Keep its format extractors, shared parser graphs, structured contracts, local file storage and model usage accounting together. `webapp.py` exposes same-origin upload and artifact routes; The single-process open-source LangGraph runtime consumes RabbitMQ document-run deliveries through a PostgreSQL transactional outbox; PostgreSQL owns task/run records, checkpoints, Store and grading receipts; `/ok` and `/ready` are health checks. Do not restore official Agent Server APIs or Redis.
+PractiQ is one macOS Electron application using TypeScript/Node, React/Vite,
+shadcn/ui, LangGraph.js (`@langchain/langgraph`), SQLite and local files. AI runs
+in embedded background workers owned by the App. LangGraph orchestration,
+checkpoints and Store all use the JavaScript implementation. The renderer is
+sandboxed; SQLite, credentials, networking and native file access stay behind
+narrow validated typed IPC. See [the migration ledger](docs/maintainers/electron-migration.md)
+and issue #549 for parity evidence and unfinished acceptance.
 
-`shared/cloud/` is the document-import workspace embedded in the macOS App. There is no independent Web frontend or static-asset hosting. Model provider configuration and credentials belong to the independent Python service environment.
+- `app/desktop/`: Electron main/preload, database and AI workers, document graphs,
+  provider transports, practice storage, restoration and package resources.
+- `app/src/`: React renderer; `api.ts`/`transport.ts` consume the typed preload bridge.
+- `shared/cloud/`: the document-import workspace embedded in the App, with an
+  explicit browser harness for tests. There is no independently hosted frontend.
+- `shared/ai-contracts.json`: authoritative wire/model schemas and classifications.
+  `app/scripts/export-contracts.ts` derives TypeScript types. Frozen wire/model,
+  grading and native IPC fixtures preserve the historical behavior; do not
+  regenerate baselines to conceal incompatibility.
+- `app/scripts/`: TypeScript packaging, source-bound release verification and
+  native acceptance tools. Local builds and reports stay under ignored `.build/`.
 
-`app/` is the independent offline Tauri 2 practice application (React/Vite/shadcn/ui/TypeScript, Rust, SQLite). It imports saved Python backend results directly through the existing AI JSON contract and checked image/audio references; no ZIP is created on that path. Portable ZIP import/export remains for offline sharing and backups. Its optional document-import workspace uses native file selection and the shared service client; all source recognition and parsing remain in the independent service. It contains no Python service, LibreOffice runtime or local source parser. All AI, including explicit subjective grading, uses the independent Python backend; App contains no direct model transport or API-key management. Offline practice needs no service. The app targets macOS only. Use desktop layouts. Keep SQLite and native file access behind typed Tauri commands. Preserve imported review flags and immutable practice snapshots. Images are immutable content-addressed files; SQLite stores their metadata. Write and verify images before committing database references. Backups include practice data and images, but exclude AI task state and credentials. App data uses `v4/` and SQLite schema 11; initialize only empty databases and reject older databases/backups without migration. Preserve old directories, task files and credential namespaces untouched. The separate versioned `v4/service-settings-v1.sqlite` sidecar and historical grading connection fields remain for strict backup/restore compatibility only; runtime grading uses the import backend origin without modifying the schema-11 practice database or its legacy provider columns. Backups carry optional strictly validated version-1 grading connection settings in the existing version-4 manifest; old schema-11 backups remain supported. A durable pending restore record is resolved before startup opens the practice database for writes; the current instance blocks database operations while recovery remains required. Only an empty version-0 sidecar with no SQLite objects is treated as absent on reads and initialized on explicit writes; never replace unknown nonempty settings databases. Legacy Keychain entries remain untouched and are excluded from backups; all current provider credentials stay in the backend environment. Only explicit grading or retry may start app model work.
+Rust/Tauri and Python service sources/build tools are retired. Never forward
+an unported operation to an old runtime or return synthetic success. Do not
+restore PostgreSQL, RabbitMQ, Agent Server, Redis, Python/LibreOffice discovery,
+another recognition fallback or an independent service dependency. Historical
+deployment files, reports and fixture provenance remain references in `server/`
+and Git history, not current startup instructions.
 
-The independent service is for personal self-hosted use without an application access token; App import and optional service-mode App grading use the loopback service. Do not add user management, phone accounts, point billing, products, checkout or payment dependencies. Keep provider usage records, model-call budgets, explicit recovery and partial export. New service databases use schema 9; upgrade only complete historical schemas offline, preserve historical account/payment tables and refuse customer-owned tasks, uploads or unsettled calls rather than adopting or cleaning them through a personal token. Use a fresh database/storage/vhost for those deployments; see `server/docs/personal-use.md`. Material-question groups are document content, not study groups.
+The product is an open-source single-person application. Do not add accounts,
+administration, sessions for authentication, phone registration, plans, points,
+payments, billing or cloud sync. Material-question groups are document content.
+The current App targets macOS on Apple Silicon; use accessible desktop layouts,
+the existing octopus brand, Lucide icons and existing shadcn components.
 
 ## Commands
 
-These commands operate on the single Electron/Node application. Historical
-service startup, database-upgrade and Tauri packaging targets are retired.
-
-- `make install` / `make install-locked` / `make app-install`: install locked npm dependencies and explicitly install the locked Electron binary.
-- `make dev` / `make app-dev`: start Electron with embedded AI/practice workers.
-- `make test`: frontend and embedded-runtime tests with required coverage, without external model calls.
-- `make verify` / `make app-check`: Node CI guards, shared contracts, maintainer/frontend/worker types, lint, frontend/backend coverage, release-tool regressions and the production renderer build. Do not run duplicate full suites after these pass without a new failure, change or unresolved concern.
+- `make install` / `make install-locked` / `make app-install`: install locked npm
+  dependencies and explicitly install the locked Electron binary.
+- `make dev` / `make app-dev`: start Electron and embedded workers.
+- `make test`: frontend and embedded-runtime tests with coverage, without real
+  provider calls.
+- `make verify` / `make app-check`: Node CI guards, shared contracts, maintainer,
+  frontend and worker types, lint, frontend/backend coverage, release-tool tests
+  and production renderer build. Do not repeat full passing suites without a
+  new change, failure or unresolved concern.
 - `make audit`: audit the locked npm dependencies; network required.
-- `make build` / `make app-build`: build a fresh native macOS app/DMG without publishing; set `APP_PACKAGE_DIRECTORY` to choose a fresh output directory.
-- `make app-package-check`: build and independently install/verify that same DMG, including protected credentials and recovery checks.
-- `make test-e2e`: browser and actual Electron workflows with local provider substitutes.
-- `npm --prefix app run contracts:check`: check TypeScript types generated from `shared/ai-contracts.json`. Frozen wire/grading baselines in `app/fixtures/` must not be regenerated to hide drift.
+- `make build` / `make app-build`: build a fresh macOS App/DMG without publishing.
+  Set `APP_PACKAGE_DIRECTORY` to choose a fresh output directory.
+- `make app-package-check`: build and independently install/verify that same DMG,
+  including protected credentials and recovery flows.
+- `make test-e2e`: browser and actual Electron flows with local provider substitutes.
+- From `app/`, `npm run contracts:check`, `npm run desktop:build` and
+  `npm run check:packaging` provide focused checks. Helpers run compiled code;
+  serialize SDK rebuilds and native/backend checks that consume `.build/electron/`.
 
-Until historical Python source is removed, App CI retains the Python exporter,
-fixture and release-reference checks with its own locked bootstrap. Use an
-existing Python 3.14+ interpreter for those reference checks; no project `.venv`.
-They are not part of the desktop installation or default verification commands.
+Only Node/npm and the supported macOS system tools are needed. No project Python
+environment, Cargo toolchain, database/broker service or Docker is used by current
+commands or CI. Pure/frontend checks must not start unrelated native services.
 
-## Module Conventions
+## Practice data and recovery
 
-### AI service (`server/`)
+Practice data remains in `v4/` with SQLite schema 11. Initialize only empty
+databases; reject unknown/older schemas and backups without implicit migration.
+Portable bank ZIPs remain version 2; full backups remain version 4/schema 11.
+Bank import appends content under **Settings → Import and restore**; complete
+restoration requires explicit replacement confirmation. Imported review flags,
+nulls, warnings, source associations and immutable practice/score snapshots must
+survive edits, copies, exports and restoration. Incomplete or unavailable answers
+must not become automatically incorrect. Write and verify immutable content-
+addressed resource files before committing database references.
 
-- Layout: `webapp.py` same-origin upload/artifact routes, `config.py` environment settings, `graphs/` workflows, `extractors/` format readers, `contracts.py` shared models, `runtime.py` graph registration, `database.py` PostgreSQL task records, tests in `tests/`. Do not add another parser or restore product APIs.
-- Style: four-space indentation, type annotations and small single-responsibility modules; `snake_case` functions/variables, `PascalCase` classes and Pydantic models, `UPPER_CASE` constants; keep public payload fields compatible with the existing camelCase API contracts; prefer async for I/O and reuse shared errors and models instead of duplicating validation. Run the configured Ruff checks and type-check with `pyrightconfig.json`.
-- Tests: pytest with `pytest-asyncio` in automatic mode, named `test_<behavior>` with fixtures or fakes close to each scenario and shared fakes in `tests/support.py`, not other test modules. Runtime tests explicitly request the `disposable_databases` fixture; pure tests must not start Docker. Cover success paths, validation failures, resumability and storage/checksum boundaries; never call real LLM services (monkeypatch them as existing tests do). Service CI exercises PDFium and the deployed Office adapter; desktop CI verifies that final packages contain no Python or LibreOffice runtime. Keep the 90% coverage threshold and add a focused regression test for every behavior change.
+Production uses `v4/` under Electron's user-data directory. Earlier Tauri and
+`electron-migration/v4/` prototype profiles remain untouched; transfer compatible
+practice data only through explicit backup restoration, never silent adoption.
 
-### App import workspace (`shared/cloud/`, `app/`)
+Backups contain practice data, referenced resources, optional strictly validated
+version-1 legacy connection settings and learning notes. They exclude current
+credentials and AI task state. Historical `v4/service-settings-v1.sqlite`,
+`v4/import-service-v1.json`, legacy provider columns and grading receipts are
+compatibility evidence only; never reinterpret them as current credentials or
+targets. Never replace unknown nonempty sidecars. Only a version-0 sidecar with
+no SQLite objects is treated as absent on reads and initialized on explicit writes.
 
-- Derive shared types from `server/src/practiq_ai/contracts.py` using the existing exporter. Do not hand-maintain duplicate API schemas.
-- Use same-origin fetches without browser credentials, bounded files and verified binary artifacts. Never render raw document/model HTML, accept arbitrary download URLs or persist provider credentials in URLs, browser storage or logs.
-- File selection, GET polling and ZIP export are passive. Start import, resume, retry and parse again are explicit actions. Preserve failed/unknown outcomes and request IDs; do not automatically replay uncertain mutations.
-- Reuse the octopus brand, Lucide icons and standard accessible desktop layouts. Test upload/result/control behavior with model substitutes.
+A durable pending restore record resolves before startup permits database writes.
+Failed publication/rollback blocks current operations until explicit recovery or
+restart recovery finishes. Preserve the original recovery copy, database/settings/
+notes consistency and generation fences against late replies. Resource collection
+must include immutable history, so deleting a source question cannot remove its
+historical media. Temporary integration-test profiles must never use real data.
 
-### Practice app (`app/`)
+Preserve old directories, task files, Python checkpoints, Keychain namespaces,
+environment files, deployment volumes, historical account/payment tables and
+customer-owned data. Do not adopt or clean them through this migration. Python
+checkpoint serialization is not loaded as JavaScript state. Never `git clean`
+or remove whole historical directories to delete tracked source; retain their
+ignore files and unrelated ignored contents. Databases, credentials, uploads,
+packages, reports and local caches stay out of Git.
 
-- Validate all native command inputs. File access begins with a native file picker; imported content cannot request arbitrary SQL, file access or network access.
-- Preserve nulls, quality warnings, source associations and practice snapshots. Unreviewed content may be practised; incomplete/unavailable answers must not become automatically incorrect.
-- Keep databases out of the repository. Use temporary directories in integration tests, including resource import and restore tests.
-- Use the existing octopus brand asset, Lucide (`lucide-react`) for functional icons, existing shadcn components and standard CSS layout. Preserve accessible desktop interactions.
+## Embedded AI and explicit actions
 
-## Boundaries
+Current provider credentials use macOS-protected encrypted local storage, outside
+SQLite, URLs, browser storage, logs and learning backups. Leave old Keychain/env
+values untouched. Validate settings, endpoint/model changes and every native
+command input. File access begins with a native file picker; imported content
+cannot choose arbitrary SQL, paths, executables or network destinations. Artifact
+reads require a valid task and a verified reference owned by that task. Do not
+render raw document/model HTML or accept arbitrary artifact download URLs.
 
-Preserve strict Pydantic inputs, bounded uploads, path and checksum validation, partial-result details, checkpoint resumability and per-call usage on success and failure. Never inject raw document/model HTML. Do not add another source-document parser or a product compatibility layer. The desktop JSON importer must follow the existing AI contracts.
+Selecting files, reading/polling, export, backup and migration are passive. Only
+explicit Start import, resume, retry, parse again or grading actions authorize
+their provider work. Preserve idempotent request IDs, atomic admission, run and
+checkpoint fences, durable paid-call intents/receipts and unknown outcomes.
+Never automatically replay uncertain submissions or model calls. Explicit retry
+may incur charges. Preserve successful-unit reuse, partial results/exports,
+per-call usage on success/failure/uncertainty and cumulative task/day budgets.
+Keep bounded concurrency, queued cancellation, time/memory/output limits,
+worker termination/draining, shutdown recovery and execution fingerprints.
 
-Bind services to loopback. Keep document-import provider credentials server-side. All AI provider keys stay in the backend environment; preserve legacy App credential namespaces untouched. Never commit environment secrets. Preserve existing files, database volumes and unrelated worktree changes. Use local file storage; preserve reference and checksum validation. Do not restore cloud object-storage backends. Local AI storage resolves relative to `server/`; production must use a persistent absolute path.
+Every new supported import uses Tencent SubmitMultimodalDocParseJob /
+DescribeMultimodalDocParseJob before structuring. Supported formats are PDF, TXT,
+Markdown, PNG/JPEG, DOC/DOCX, PPT/PPTX and XLS/XLSX; reject new CSV while retaining
+saved records/banks. Verify immutable source hashes and durable submission intents
+before paid work. Local files remain authoritative storage. Tencent input limits
+are at most 150 MiB; local Base64 also has an 8 MiB cap. Private COS is explicit
+advanced opt-in: stage every source privately and use signed FileUrl without
+automatic transport fallback. Never persist signed URLs; retain local source/
+result references, checksums, upload intents and safe validated-result cleanup.
 
-Update relevant documentation and focused tests with behavior changes. Follow `CONTRIBUTING.md` for issues and pull requests. Issues must use the applicable template in `.github/ISSUE_TEMPLATE/`; pull requests must use `.github/PULL_REQUEST_TEMPLATE.md`. This applies to submissions through the GitHub UI, CLI, or API. Preserve template fields and sections, explain non-applicable items, and mark checklist items complete only when verified.
+TXT/Markdown use output type 2; layout/resource inputs use 9 for coordinates and
+XML associations. Split oversized text at UTF-8 boundaries, PDF into rendered
+pages and images into lossless tiles before the first submission. Oversized
+Office must first be exported as PDF by the user; no LibreOffice conversion or
+executable preference is supported. Preserve hidden-sheet/slide visibility,
+ordered split receipts, source byte/pixel ranges, original pages, manifest
+checksums, engine identity and shared preparation capacity/cleanup limits.
+Only exact Tencent/original text equality permits original-text presence and
+deduplication proofs; differing evidence remains reviewable OCR. Models may
+associate fixed figure IDs but cannot invent or alter coordinates.
 
-The service accepts PDF, TXT, Markdown, PNG/JPEG, Word (.doc/.docx), PPT (.ppt/.pptx) and Excel (.xls/.xlsx) through Tencent SubmitMultimodalDocParseJob / DescribeMultimodalDocParseJob. Reject new CSV uploads/tasks while preserving saved records and banks. Every new supported import uses Tencent before question structuring; no local recognition fallback or user-selectable Office conversion mode is permitted. Verify immutable source hashes and durable submission intents before paid work; an uncertain submission is never automatically replayed. Local directories remain the default. AI_TENCENT_INPUT_MAX_BYTES is at most 150 MiB; local Base64 has an additional 8 MiB cap. Private COS is explicit advanced opt-in via AI_TENCENT_COS_ENABLED: when enabled, every source uses private staged objects and signed FileUrl, with no automatic transport fallback. COS is temporary input staging, never the authoritative storage backend; retain local source/result references and checksums. Validate source-type limits, preserve upload intents and safe cleanup, and never persist signed URLs. TXT/Markdown select output type 2; layout/resource inputs select 9 to retain JSON coordinates and XML image associations. Split larger inputs before the first submission: UTF-8 text boundaries, rendered PDF pages and lossless image tiles. Oversized Office alone reuses the isolated LibreOffice PDF adapter, with hidden sheets/slides included; smaller Office goes directly to Tencent. Preserve ordered split receipts, source byte/pixel ranges and original-page references. Only Tencent text exactly matching the original may reuse original-text source-presence and deduplication proofs; differing evidence stays reviewable as OCR pages. Models associate fixed Tencent figure IDs and cannot invent or change their coordinates. Reuse the isolated `office` worker and existing format extractors; do not add parser graphs, python-docx, openpyxl or UNO. Executable/version configuration comes only from trusted service environment, never HTTP or desktop preferences. Preserve original source hashes, derived manifest checksums, deterministic manifest order, engine identity, process cleanup and shared limits across conversion and parsing. The explicit App Start import action authorizes normalization and AI submission without a second confirmation dialog; merely selecting a file must not submit it to a model. Retain upstream licenses and source links in the independent deployment. Desktop packages must not include or discover Python/LibreOffice installations. Do not store executable preferences in SQLite; reject backups containing them. Offline question-bank ZIP import is under Settings > Import and restore alongside full study-data restoration; bank import appends content, while full restoration requires replacement confirmation.
+Parsing extracts supplied answers, scores and rubrics without solving questions.
+`generateAnswers` defaults false; enabling it plus explicit Start authorizes a
+separate post-extraction node to fill missing answers/analysis. Preserve supplied
+or partially supplied fields, source proofs and references. Generated content is
+marked for review and shares durable receipts and task budgets. Passive reads/
+export must not generate answers.
 
-Subjective grading is allowed only after an explicit user grading or retry action. Parsing still extracts supplied answers, scores and rubrics without solving questions. The optional `generateAnswers` import flag defaults to false; only a checked flag plus explicit Start authorizes a separate post-extraction step to fill missing answers/analysis. Preserve supplied fields, source proofs and references; generated content is marked for review and shares existing durable receipts and per-task model budgets. Passive reads/export must never generate answers. Grading requires a reference answer or explicit rubric; missing evidence remains ungraded. Reuse existing scoring snapshots and safeguards. Direct grading makes one bounded model call without automatic retries; persist an unknown-result receipt before sending, bind it to the endpoint/model/prompt version, and require explicit regrading after uncertainty or a target change. Existing service mode retains its server receipts; keep exam answers, score snapshots and manual overrides local and preserve them in backups. Legacy provider settings and keys must not be interpreted as a service URL/token or deleted during this change.
+Subjective grading needs an explicit grading/regrading action and a reference
+answer or rubric; absent evidence stays ungraded. Direct grading makes one
+bounded model call without automatic retries. Persist unknown-result intent
+before sending, bind endpoint/model/prompt version and immutable scoring input,
+and require explicit regrading after uncertainty or target changes. Preserve
+historical receipts, score snapshots and manual/self-assessment priority. Validate
+quotes, criteria, arithmetic, limits and response shape before replacing a score.
 
-## Commit Conventions
+## Listening and native resources
 
-Use Conventional Commits: `<type>(<scope>): <summary>`. Allowed types are `feat`, `fix`, `docs`, `refactor`, `test`, and `chore`. Use an optional module name for `scope`, an imperative summary of at most 72 characters, and no trailing period. Example: `fix(extractors): enforce PDF page limit`. Keep each commit scoped to one concern.
+New listening input stores validated QR-derived or manually supplied playback
+addresses, never recordings. QR decoding/applying an address are offline. Only
+explicit discovery/playback performs guarded public HTTP/HTTPS reads; reject URL
+credentials, private/reserved addresses and unsafe redirects. Retain DNS pinning,
+no-proxy requests, redirect/body/deadline bounds and unresolved-DNS fencing.
+Fetched bytes/Blob URLs are memory-only and released after use. Snapshots, ZIPs
+and backups retain the address without downloading audio. Historical recordings,
+checksums, segments and offline playback remain compatible; native decoding is
+sandboxed and bounded. New desktop packages contain no Python/LibreOffice runtime
+and must not discover installations or accept executable preferences in backups.
 
-Task, upload, artifact and grading APIs need no application access token; retain loopback bindings and cross-origin request rejection. Artifact reads require a valid task ID and a verified reference belonging to it. Preserve call records and unknown results; explicit resume/retry may incur provider charges. Never start models during passive reads, export, migration or backup.
+## Validation and delivery
 
-## Personal deployment and native import
+Use temporary data and provider substitutes; normal tests never call real models
+or Tencent. Preserve original regression corpora and first-failure evidence.
+Backend coverage requires 90% statements/lines/functions and 85% branches, with
+reports retained on failure. Verify actual native workflows separately from
+browser mocks, remote CI, final-package/manual acceptance and live-provider
+quality. Signing, notarization, publication and model accuracy are not established
+by successful tests. Update relevant documentation and focused regressions with
+behavior changes. Preserve pinned dependency/license provenance, source/lock
+identity, exact final bytes and fresh outputs in package/release checks.
 
-The product is an open-source single-person application. Do not restore administrator pages, login/registration, users, sessions, plans, entitlements or payments. The App import workspace uses the independent personal Python backend and defaults to `http://127.0.0.1:8090`. Global Settings contains the shared AI backend address and recognition/recovery preferences; no connection gate precedes the workspace. The macOS App reuses `shared/cloud/` for native source selection/upload, task review and direct local-bank import; source parsing stays server-side. The native import origin is versioned in `v4/import-service-v1.json`; do not read, reinterpret or delete legacy account configuration or Keychain namespaces. Fence requests and source tickets when the origin changes, disallow redirects/arbitrary destinations and keep native paths outside the WebView. Grading uses the same backend origin; do not restore direct model calls or App API-key settings.
-
-Service schema 9 upgrades only personal schemas 1–5 explicitly offline with verified database/storage backups. Refuse modern multi-user schemas 6–8 without mutation; use fresh personal database/storage/vhost instead of exposing owned data. Historical tables and old deployment files remain untouched. Preserve model budgets, usage receipts and uncertain outcomes. Keep services on loopback or a private access-controlled proxy.
+Follow `CONTRIBUTING.md`. Issues use `.github/ISSUE_TEMPLATE/`; PRs use
+`.github/PULL_REQUEST_TEMPLATE.md` with all sections preserved, non-applicable
+items explained and only verified checklist items checked. Conventional Commits:
+`<type>(<scope>): <summary>`, types `feat`, `fix`, `docs`, `refactor`, `test`,
+`chore`; optional scope, imperative summary at most 72 characters, no trailing
+period. Keep each commit scoped to one concern. Do not publish a release or
+discard historical deployment data as part of routine migration/CI work.

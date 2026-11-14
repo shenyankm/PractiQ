@@ -8,6 +8,13 @@ it("preserves every legacy exported wire schema exactly", () => {
   for (const [key, name] of Object.entries(contractSource.exports)) expect(schemaFor(name)).toEqual(legacy[key]);
 });
 
+it("preserves every original model output schema after retiring the Python exporter", () => {
+  const legacy = JSON.parse(readFileSync(new URL("../fixtures/legacy-model-schemas.json", import.meta.url), "utf8"));
+  const names = ["UnitParseResult", ...contractSource.desktopModels];
+  for (const name of names) expect(Object.hasOwn(legacy, name), name).toBe(true);
+  for (const [name, schema] of Object.entries(legacy)) expect(contractSource.definitions[name], name).toEqual(schema);
+});
+
 it("compiles every contract and rejects additional fields without coercing input", () => {
   for (const name of Object.keys(contractSource.definitions)) {
     try { validateContract(name, {}); }

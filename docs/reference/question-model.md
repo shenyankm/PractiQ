@@ -22,6 +22,13 @@ Only `schemaVersion: 3` JSON is accepted, either as a bare result or the `result
 
 The desktop starts with an empty database in `v4/` under the system application-data directory. Earlier directories, including `v3/`, are not read, migrated, overwritten or deleted. Databases with older schemas and full backups outside container version 4/schema 11 are explicitly rejected; earlier backups matching those versions and current-format question-bank ZIPs remain importable. Initialization accepts only an empty database. Settings contain no executable-path or remote-storage preferences.
 
+The production Electron profile normally resides at
+`~/Library/Application Support/PractiQ/v4/`. Tauri's earlier
+`com.practiq.desktop` profile and the migration prototype's
+`electron-migration/v4/` remain separate and unchanged. Transfer compatible
+practice data through an explicit version-4/schema-11 backup restore; do not
+copy a live database or import old provider credentials automatically.
+
 All AI runs in embedded Node workers. Current provider settings and credentials
 use a separate versioned local record; credentials are protected by macOS
 encryption and excluded from learning backups. Historical

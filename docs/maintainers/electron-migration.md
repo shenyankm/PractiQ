@@ -6,8 +6,8 @@ The approved target is one macOS Electron application. React remains the UI;
 TypeScript/Node replaces Rust and Python business logic. SQLite and local files
 replace PostgreSQL and RabbitMQ. AI runs in background processes owned by the app.
 LangGraph.js (`@langchain/langgraph`) owns document orchestration, checkpoints and
-Store; Python LangGraph remains a behavioral reference only during migration.
-The independent service is a migration reference, not a permanent dependency.
+Store. Historical Python/Rust behavior is retained in frozen fixtures and Git
+history; those runtimes are no longer current build or execution dependencies.
 
 The user confirmed two desktop scope changes on 2026-11-14. Office files above
 the active transport/type limit must be exported as PDF before import; the app
@@ -20,35 +20,101 @@ and locally verified. Acceptance of the final package remains required.
 
 ## Acceptance ledger
 
-Each item requires executable evidence before the old implementation is removed.
+Checked items have executable evidence in the sections below. The final cutover
+gate remains open until the latest source passes remote native/package checks;
+earlier green builds do not certify later source changes.
 
 - [x] Sandboxed Electron renderer, narrow validated IPC, background database worker.
 - [x] Schema-11 practice database, locale compatibility, exact schema validation,
   restoration recovery, and copy-based existing-data comparison.
-- [ ] Bank/question CRUD, every question type, source associations, review flags,
+- [x] Bank/question CRUD, every question type, source associations, review flags,
   search/filter/pagination, favorites, notes, and learning statistics.
-- [ ] Practice and exam selection, immutable snapshots, timing, listening,
+- [x] Practice and exam selection, immutable snapshots, timing, listening,
   objective marking, manual overrides, history, and retry workflows.
-- [ ] Verified content-addressed images/audio, native file tickets, bounded
+- [x] Verified content-addressed images/audio, native file tickets, bounded
   archive import/export, duplicate detection, version-4 backups and restoration.
 - [x] TypeScript-owned strict contracts and parity with committed IPC/AI fixtures.
 - [ ] Embedded AI settings and OS-protected credentials, absent from backups/logs.
-- [ ] SQLite AI tasks, LangGraph.js checkpoints/Store, usage budgets, durable call receipts,
+- [x] SQLite AI tasks, LangGraph.js checkpoints/Store, usage budgets, durable call receipts,
   pause/cancel/resume, explicit retries, partial export, and shutdown recovery.
-- [ ] Tencent submission/query/signing, immutable sources, uncertain submission
+- [x] Tencent submission/query/signing, immutable sources, uncertain submission
   recovery, source splitting, optional private COS, and immutable figure mappings.
-- [ ] PDF/image/Office normalization parity, resource limits, process cleanup,
-  hidden sheets/slides, trusted converter configuration, and engine identity.
-- [ ] Extraction, supplied-answer preservation, optional explicit answer generation,
+- [x] PDF/image/Office normalization parity within the approved desktop policy,
+  resource limits, process cleanup, hidden sheets/slides and engine identity.
+  Oversized Office requires user-exported PDF; no converter discovery remains.
+- [x] Extraction, supplied-answer preservation, optional explicit answer generation,
   reference-grounded grading, and success/failure/unknown usage records.
 - [ ] Real Electron happy paths and recovery, packaged offline operation, dependency
   audits, CI, release tooling, documentation, and removal of obsolete runtimes.
+
+## Current cutover status — 2026-11-14
+
+The default install, development, test, build and verification commands, both CI
+workflows, contract generation and release tooling now use Node/TypeScript only.
+The 284 tracked Rust/Tauri/Python runtime, test and build-tool files have been
+removed (97,607 deleted lines). Fourteen dated Python scripts under
+`docs/evidence/` remain historical reproduction evidence, outside every current
+build graph. Historical deployment files, licenses, reports, fixtures and
+`.gitignore` rules remain intact. The repository-owned old loopback Python
+process was stopped gracefully; port 8090 no longer has that listener. No
+PostgreSQL/RabbitMQ volumes, local source/task files or credentials were removed.
+Streaming inventories before and after tracked retirement contain the same
+61,692 ignored paths and the same SHA-256
+`573c57c8a31f9bdb423b14ca79480fc458cd97addd0dfaa985ad7339daef2c82`.
+
+Before retiring the Python exporter, its contract/fixture checks passed one last
+time. In addition to the existing frozen wire and IPC schemas, the original
+Pydantic serialization schemas for all six model outputs and their nested
+definitions are frozen in `app/fixtures/legacy-model-schemas.json` (19 exact
+definitions). A Node regression compares every definition with the authoritative
+TypeScript-owned schema. The fixture provenance records the original revision
+and checksum; frozen references are never regenerated from the new exporter.
+
+`make verify` passes after tracked retirement: 5,895 embedded-runtime tests
+across 90 files, 916 frontend tests with seven existing skips, 26 CI guards and
+76 release-tool tests, contracts, types, lint, required coverage and renderer
+build. Backend statements/lines/functions/branches are 91.65/92.95/92.35/87.42%.
+The CI guards explicitly reject retired runtime bootstraps and verify that
+historical ignored data remains protected. These are substitute-provider tests,
+not live model accuracy measurements.
+
+The production profile now uses Electron's `userData/v4/`. Historical Tauri and
+`electron-migration/v4/` prototype directories remain untouched; users transfer
+compatible schema-11/version-4 learning data through explicit backup restore.
+The installed-package check seeds an invalid old prototype database and verifies
+that startup, backup/restore and restart neither open nor alter it.
+
+The current arm64 DMG has SHA-256
+`63938917c0c9135d1baa86dbe4b3d3d95a4f637f1ad748d85b2702f0184821d3`.
+Read-only installation outside the checkout passes signature, sandbox,
+system-only PATH, canonical profile, offline practice, all five ZIP codecs,
+bundled PDFium, backup/restore and restart checks, with zero paid calls and zero
+renderer HTTP requests. Its installed Node 24.22.2 runtime also verifies a
+private copy of the existing profile: every table, hydrated projections,
+4 banks, 64 question rows, 15 sessions and 2 assets survive backup/restore, and
+original-profile hashes remain unchanged. Evidence is retained in
+`app/.build/evidence/electron-package-63938917c0c9-1794648172205-acceptance.json`
+and `existing-data-QFn9FY/report.json` beneath that directory.
+
+That DMG's local OS credential initialization timed out. Its three credential
+flags remain false; core success does not turn the complete package check green.
+No timeout, encryption requirement or Keychain namespace was weakened. The last
+pushed source, `a3bef2da`, passed both
+[Desktop CI](https://github.com/shenyankm/PractiQ/actions/runs/43577564145) and
+[Service CI](https://github.com/shenyankm/PractiQ/actions/runs/43577564200),
+including full copied-app workflows and installed-DMG OS encryption/restart on
+the fresh macOS runner. Those receipts predate tracked retirement and the
+canonical profile change. New-head CI/native acceptance and final review remain
+required. Native dialogs are substituted in automated package tests; publisher
+signing/notarization and live provider fidelity are not claimed.
 
 ## Engineering safeguard parity
 
 This map preserves the original safeguards, including recovery paths. A tested
 foundation is not acceptance of the complete document pipeline. Pending behavior
 must remain visible until its original regression scenarios run on TypeScript.
+The table and chronological evidence below retain the historical checkpoints;
+the current cutover section above records later results and remaining gates.
 
 | Guarantee | Original implementation | TypeScript implementation and evidence | Still required |
 | --- | --- | --- | --- |

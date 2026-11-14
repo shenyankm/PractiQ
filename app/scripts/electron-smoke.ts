@@ -15,7 +15,7 @@ import type { WebPreferences } from "electron";
 assert.ok(process.argv.length === 2 || process.argv.length === 4 && process.argv[2] === "--installed", "Use --installed /absolute/path/to/PractiQ for installed acceptance");
 const executable = process.argv[3] ? await realpath(process.argv[3]) : undefined;
 const directory = await mkdtemp(join(tmpdir(), "practiq-electron-smoke-")), profile = join(directory, "chromium");
-const practiceDirectory = executable ? join(profile, "electron-migration", "v4") : join(directory, "v4");
+const practiceDirectory = executable ? join(profile, "v4") : join(directory, "v4");
 let modelCalls = 0;
 let documentModelCalls = 0;
 const model = createServer(async (request, response) => {

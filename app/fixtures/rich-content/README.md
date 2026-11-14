@@ -1,5 +1,11 @@
 # Rich-content acceptance corpus
 
+> Historical reproduction: committed fixture bytes remain unchanged. Generation
+> commands and runtime claims below describe the [original source](https://github.com/shenyankm/PractiQ/blob/a3bef2da8c818aaa889b1f27c72c4ce4f1617c7b/app/fixtures/rich-content/README.md),
+> not the current desktop toolchain. Current Node tests consume these frozen
+> inputs without Python, Rust or LibreOffice; see the migration ledger.
+
+
 Synthetic, locally authored documents; this is a bounded regression corpus, not
 an overall production recognition-accuracy benchmark. `expected.json` is the
 hand-authored import expectation, not model output. The source PDF stays frozen.

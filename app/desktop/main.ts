@@ -64,7 +64,7 @@ else {
   void app.whenReady().then(() => {
   const directory = !app.isPackaged && process.env.PRACTIQ_DATA_DIR
     ? resolve(process.env.PRACTIQ_DATA_DIR)
-    : join(app.getPath("userData"), "electron-migration", "v4");
+    : join(app.getPath("userData"), "v4");
   database = new DatabaseClient(directory);
   const aiRuntime = () => { invariant(!shuttingDown, "AI_RUNTIME_UNAVAILABLE", "AI runtime is closing"); return ai ??= new AiClient(directory); };
   const aiSettings = new AiSettings(directory, {

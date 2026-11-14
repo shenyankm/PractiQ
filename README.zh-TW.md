@@ -82,6 +82,8 @@ PractiQ 仍在開發中。建置通過不代表已完成簽章、乾淨環境驗
 
 桌面資料儲存在 `v4/` 目錄中，SQLite schema 為 11。完整備份使用容器版本 4、schema 11；先前使用相同版本的備份仍受支援。更舊的 schema 不會自動遷移，舊目錄會原樣保留，目前格式的題庫 ZIP 仍可匯入。詳見[資料格式說明（英文）](docs/reference/question-model.md#versions-and-directories)。
 
+Electron 預設使用 `~/Library/Application Support/PractiQ/v4/`。舊 Tauri 與遷移試用目錄原樣保留，既有練習資料透過相容備份明確還原；供應商憑證須另行設定。
+
 ## 本機資料與 AI 工作處理程序
 
 練習資料與 AI 作業分別儲存在本機 SQLite 資料庫中。學習備份包含練習紀錄與引用資源，不包含 AI 作業與目前憑證。新增聽力僅儲存 QR Code 辨識出的播放位址或手動填寫的位址，音訊在記憶體中播放；歷史錄音仍相容。既有資料、Keychain 命名空間與歷史服務資料卷保留。舊服務文件與報告用於遷移參考，不是目前安裝步驟。

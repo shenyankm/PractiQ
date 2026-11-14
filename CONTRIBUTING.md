@@ -2,8 +2,8 @@
 
 The approved Electron/TypeScript migration is tracked in
 [the acceptance ledger](docs/maintainers/electron-migration.md) and issue #549.
-During this migration, the old architecture below remains a behavioral reference.
-New desktop work belongs in `app/desktop/`; it must not forward unported
+The old runtime source is retired; frozen fixtures and Git history retain the
+behavioral reference. New desktop work belongs in `app/desktop/`; it must not forward unported
 operations to the old runtime. Test with isolated data directories.
 
 Run `make app-install` to install locked npm dependencies and the locked Electron
@@ -119,10 +119,10 @@ Run the relevant commands from the repository root:
 | Verify contracts, types, lint, tests, release tooling and production build | `make verify` or `make app-check` |
 | Build a fresh application and DMG | `make build` |
 
-Model-substitute tests need no real model credentials or external services. The
-remaining Python contract/reference checks in App CI use an existing Python
-3.14+ interpreter and locked dependencies only while the old source is retained.
-Their isolated bootstrap is in the workflow, not the desktop installation path.
+Model-substitute tests need no real model credentials or external services.
+All current CI and contract checks use Node. Frozen wire/model, grading and
+native IPC references preserve the old contract checks without installing the
+historical Python or Rust implementation.
 
 ### Respect component boundaries
 
@@ -131,7 +131,7 @@ Their isolated bootstrap is in the workflow, not the desktop installation path.
 | `app/desktop/` | Electron main/preload, bounded background workers, SQLite practice/AI state, local files, LangGraph.js orchestration, checkpoints and Store. |
 | `app/src/` | Sandboxed React renderer using the validated typed preload bridge. |
 | `shared/` | Import workspace, rendering and theme code used inside the App; validate affected native and browser-harness flows. |
-| `server/`, `app/src-tauri/` | Historical behavioral references pending final removal; no desktop runtime forwarding. Preserve local state and historical evidence. |
+| `server/` and ignored old App directories | Retained deployment files, fixtures, reports and local state. Runtime source is retired; never use these as current startup instructions or remove unrelated data. |
 
 App packages contain no Python or LibreOffice runtime. Passive reads, polling,
 export and backup must not start model work. Model calls run in embedded workers
@@ -158,11 +158,10 @@ commit all affected generated files:
 - `app/src/contracts.generated.ts`
 
 The exporter supports `--check` for parity verification. Do not edit generated
-contracts by hand. During migration, also run the historical
-`/path/to/python3.14 app/scripts/export-contracts.py --check` to verify parity with
-the existing service models; changes must update both sides until that service
-is removed. Frozen wire and grading baselines in `app/fixtures/` are intentionally
-not regenerated; see their [provenance](app/fixtures/migration-reference.md).
+contracts by hand. Frozen wire/model and grading baselines in `app/fixtures/`
+are intentionally not regenerated; see their
+[provenance](app/fixtures/migration-reference.md). Native IPC parity executes
+actual temporary Node SQLite state against the original frozen response fixture.
 
 ## Validate the change
 

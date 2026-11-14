@@ -84,6 +84,10 @@ PractiQ is still in development. A passing build does not establish signing, cle
 
 Desktop data lives in `v4/` with SQLite schema 11. Full backups use container version 4 and schema 11; earlier backups with those versions remain supported. Older schemas are rejected without migration, older directories are left untouched, and current question-bank ZIP files still import. See the [data format boundaries](docs/reference/question-model.md#versions-and-directories).
 
+Electron normally uses `~/Library/Application Support/PractiQ/v4/`. Earlier Tauri
+and migration-test profiles stay untouched; transfer practice data through an
+explicit compatible backup restore. Provider credentials are configured separately.
+
 ## Local data and AI workers
 
 Practice and AI state use separate local SQLite databases. Learning backups
