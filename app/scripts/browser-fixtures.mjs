@@ -1,7 +1,7 @@
 import { withEvidence } from '../../shared/browser-evidence.mjs';
 
 export async function installBrowserFixtures(page) {
-  await page.route('**/src/transport.ts*', route => route.fulfill({
+  await page.route('**/src/transport.ts*', route => new URL(route.request().url()).searchParams.has('browser-native') ? route.continue() : route.fulfill({
     contentType: 'application/javascript',
     body: 'export { invoke } from "/scripts/fixtures/transport.ts";',
   }));

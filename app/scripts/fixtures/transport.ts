@@ -1,4 +1,3 @@
-import { invoke as nativeInvoke } from "@tauri-apps/api/core";
 import { fixtureScenario } from "./scenario";
 
 export async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -7,5 +6,8 @@ export async function invoke<T>(command: string, args?: Record<string, unknown>)
     const { demoInvoke } = await import("./preview-data");
     return await demoInvoke(command, args || {}, scenario) as T;
   }
-  return nativeInvoke<T>(command, args);
+  // The query bypasses the browser harness route for tests with explicit IPC mocks.
+  const nativePath = "../../src/transport.ts?browser-native";
+  const { invoke } = await import(/* @vite-ignore */ nativePath) as typeof import("../../src/transport");
+  return invoke<T>(command, args);
 }

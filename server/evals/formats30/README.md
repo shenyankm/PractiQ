@@ -1,5 +1,11 @@
 # Frozen six-per-format evaluation matrix
 
+> Historical reproduction: committed fixture bytes remain unchanged. Generation
+> commands and runtime claims below describe the [original source](https://github.com/shenyankm/PractiQ/blob/a3bef2da8c818aaa889b1f27c72c4ce4f1617c7b/server/evals/formats30/README.md),
+> not the current desktop toolchain. Current Node tests consume these frozen
+> inputs without Python, Rust or LibreOffice; see the migration ledger.
+
+
 This is the requested **30-case matrix**: six TXT, six DOCX, six PDF, six XLSX,
 and six ordered image groups. Run three repetitions for 90 document observations.
 The original `../cases.json` and its 30 regression cases remain unchanged.

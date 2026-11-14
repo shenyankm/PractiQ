@@ -1,4 +1,4 @@
-name: AI service
+name: Embedded AI
 on:
   pull_request:
   push:
@@ -23,116 +23,71 @@ jobs:
       pull-requests: read
     outputs:
       required: ${{ steps.scope.outputs.required }}
+      sha: ${{ inputs.ref || github.sha }}
     steps:
+      - name: Validate immutable source revision
+        id: validate-source
+        env:
+          SOURCE_SHA: ${{ inputs.ref || github.sha }}
+        run: |
+          if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo '::error::Source revision must be a full commit SHA.'
+            exit 1
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          python-version: '3.14'
+          node-version: '22'
       - id: scope
         env:
           GH_TOKEN: ${{ github.token }}
           CI_FULL_CHECKS: ${{ inputs.ref != '' }}
-        run: python server/scripts/ci_scope.py scope service
+        run: node .github/scripts/ci-scope.ts scope service
   quality:
-    name: Service quality (Python ${{ matrix.python }})
+    name: Embedded AI quality
     needs: changes
     if: needs.changes.outputs.required == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: macos-15
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        python: ['3.14', '3.15']
-    env:
-      TEST_DATABASE_URI: postgresql://postgres:practiq-test@127.0.0.1:5432/postgres
-      TEST_RABBITMQ_URI: amqp://practiq-test:practiq-test@127.0.0.1:5672/
-      TEST_RABBITMQ_MANAGEMENT_URL: http://127.0.0.1:15672
-      TEST_RABBITMQ_PROMETHEUS_URL: http://127.0.0.1:15692
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_PASSWORD: practiq-test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s --health-timeout 5s --health-retries 10
-      rabbitmq:
-        image: rabbitmq:4.3.6-management@sha256:8dd6e3570ddaa2ef82a6c3a8950e79c1f73893adfbdddbc374fc1f1ac8a0f5dd
-        env:
-          RABBITMQ_DEFAULT_USER: practiq-test
-          RABBITMQ_DEFAULT_PASS: practiq-test
-        ports:
-          - 5672:5672
-          - 15672:15672
-          - 15692:15692
-        options: >-
-          --health-cmd "rabbitmq-diagnostics -q check_running"
-          --health-interval 5s --health-timeout 5s --health-retries 12
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - name: Configure disposable broker monitoring and watermarks
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        working-directory: app
         env:
-          BROKER_CONTAINER: ${{ job.services.rabbitmq.id }}
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - name: Verify shared contracts and maintainer types
+        working-directory: app
         run: |
-          docker cp server/deploy/rabbitmq.conf "$BROKER_CONTAINER:/etc/rabbitmq/conf.d/20-practiq.conf"
-          docker cp server/deploy/rabbitmq-enabled-plugins "$BROKER_CONTAINER:/etc/rabbitmq/enabled_plugins"
-          docker restart "$BROKER_CONTAINER"
-          curl --fail --max-time 3 --retry 60 --retry-all-errors --retry-delay 1 --retry-max-time 60 http://127.0.0.1:15672/api/overview --user practiq-test:practiq-test > /dev/null
-          curl --fail --max-time 3 --retry 60 --retry-all-errors --retry-delay 1 --retry-max-time 60 http://127.0.0.1:15692/metrics > /dev/null
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: ${{ matrix.python }}
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-        with:
-          version: '0.12.13'
-          enable-cache: true
-          cache-dependency-glob: server/uv.lock
-      - name: Use Ubuntu archive mirror
-        run: printf '%s\n' 'https://mirrors.edge.kernel.org/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
-      - name: Install PDF fallback fonts
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
-      - name: Install locked dependencies
-        run: make install-locked AI_PYTHON="$(command -v python)"
-      - name: Verify service
-        env:
-          TEST_POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
-          TEST_RABBITMQ_CONTAINER: ${{ job.services.rabbitmq.id }}
-        run: make verify AI_PYTHON="$(command -v python)"
-      - name: Verify operational alert rules
-        if: matrix.python == '3.15'
-        run: make alerts-check
-      - name: Upload check reports
+          npm run contracts:check
+          npm run check:packaging
+      - name: Verify Node CI guards
+        run: node --test .github/scripts/*.test.ts
+      - name: Verify embedded AI, SQLite and recovery with required coverage
+        working-directory: app
+        run: npm run test:desktop
+      - name: Audit locked Node dependencies
+        working-directory: app
+        run: npm audit --audit-level=high
+      - name: Retain test and coverage reports
         if: ${{ always() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: service-checks${{ matrix.python == '3.14' && '-python314' || '' }}
+          name: embedded-ai-checks
           path: |
-            server/reports/checks/probes.xml
-            server/reports/checks/probes.json
-            server/reports/checks/probes.md
-            server/reports/checks/coverage.xml
+            app/.build/reports/desktop.xml
+            coverage/desktop/
           if-no-files-found: warn
+          include-hidden-files: true
           retention-days: 14
-      - name: Audit locked dependencies
-        run: make audit AI_PYTHON="$(command -v python)"
-      - name: Build service image
-        if: matrix.python == '3.15'
-        run: make image-check
-      - name: Smoke-test runtime image
-        if: matrix.python == '3.15'
-        run: >-
-          docker run --rm --entrypoint python practiq-ai:ci -c
-          'import os,sys,shutil,pydantic,ormsgpack,orjson,jiter,uuid_utils,zstandard;
-          import practiq_ai.webapp,yaml._yaml;
-          assert sys.version_info[:2] == (3,15);
-          assert os.getuid() == 10001;
-          assert all(shutil.which(tool) is None for tool in ("gcc","cargo","rustc"))'
   gate:
     name: Service CI
     needs: [changes, quality]
@@ -140,12 +95,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
+      - name: Require validated source
+        env:
+          SOURCE_STATUS: ${{ needs.changes.result }}
+        run: test "$SOURCE_STATUS" = success
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          python-version: '3.14'
+          node-version: '22'
       - env:
           NEEDS: ${{ toJSON(needs) }}
-        run: python server/scripts/ci_scope.py gate service
+        run: node .github/scripts/ci-scope.ts gate service

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "package": "commander",
+  "version": "2.0.0",
+  "artifactUrl": "https://registry.npmjs.org/commander/-/commander-2.0.0.tgz",
+  "artifactIntegrity": "sha512-qebjpyeaA/nJ4w3EO2cV2++/zEkccPnjWogzA2rff+Lk8ILI75vULeTmyd4wPxWdKwtP3J+G39IXVZadh0UHyw==",
+  "registryGitHead": null,
+  "repository": {
+    "url": "https://github.com/visionmedia/commander.js.git",
+    "type": "git"
+  },
+  "sourceFiles": [
+    {
+      "source": "https://registry.npmjs.org/commander/-/commander-2.0.0.tgz#package/Readme.md",
+      "sha256": "a62010074b96d15ff636d64f909ac5263a0f768b72501dfa9fc2662639420cf4",
+      "publishedMember": "Readme.md"
+    }
+  ],
+  "verification": "Complete license section retained in the exact installed README from the integrity-bound published npm package"
+}

@@ -1,0 +1,573 @@
+{
+  "provenance": "Synthetic engineering contract cases, not human grading calibration",
+  "cases": [
+    {
+      "name": "partial",
+      "valid": true,
+      "input": {
+        "question": {
+          "stem": "说明蒸发的含义",
+          "answerMode": "short_answer",
+          "answerPayload": {
+            "text": "液体表面发生的汽化现象"
+          },
+          "sourceScore": 5,
+          "scoringRubric": "汽化3分；液体表面2分"
+        },
+        "answer": "液体变成气体",
+        "maxCents": 500
+      },
+      "result": {
+        "scoreCents": 300,
+        "maxCents": 500,
+        "reason": "部分正确",
+        "evidence": [
+          "液体变成气体"
+        ],
+        "reviewReasons": [],
+        "criteria": [
+          {
+            "criterion": "汽化",
+            "scoreCents": 300,
+            "maxCents": 300,
+            "referenceQuote": "汽化3分",
+            "answerQuote": "液体变成气体",
+            "reason": "表达了汽化含义"
+          },
+          {
+            "criterion": "发生位置",
+            "scoreCents": 0,
+            "maxCents": 200,
+            "referenceQuote": "液体表面2分",
+            "answerQuote": "",
+            "reason": "未说明发生位置"
+          }
+        ]
+      }
+    },
+    {
+      "name": "rescaled",
+      "valid": true,
+      "input": {
+        "question": {
+          "stem": "说明蒸发的含义",
+          "answerMode": "short_answer",
+          "answerPayload": {
+            "text": "液体表面发生的汽化现象"
+          },
+          "sourceScore": 5,
+          "scoringRubric": "汽化3分；液体表面2分"
+        },
+        "answer": "液体变成气体",
+        "maxCents": 1000
+      },
+      "result": {
+        "scoreCents": 600,
+        "maxCents": 1000,
+        "reason": "部分正确",
+        "evidence": [
+          "液体变成气体"
+        ],
+        "reviewReasons": [],
+        "criteria": [
+          {
+            "criterion": "汽化",
+            "scoreCents": 300,
+            "maxCents": 300,
+            "referenceQuote": "汽化3分",
+            "answerQuote": "液体变成气体",
+            "reason": "表达了汽化含义"
+          },
+          {
+            "criterion": "发生位置",
+            "scoreCents": 0,
+            "maxCents": 200,
+            "referenceQuote": "液体表面2分",
+            "answerQuote": "",
+            "reason": "未说明发生位置"
+          }
+        ],
+        "assessmentMaxCents": 500
+      }
+    },
+    {
+      "name": "zero",
+      "valid": true,
+      "input": {
+        "question": {
+          "stem": "说明蒸发的含义",
+          "answerMode": "short_answer",
+          "answerPayload": {
+            "text": "液体表面发生的汽化现象"
+          },
+          "sourceScore": 5,
+          "scoringRubric": "汽化3分；液体表面2分"
+        },
+        "answer": "液体变成气体",
+        "maxCents": 500
+      },
+      "result": {
+        "scoreCents": 0,
+        "maxCents": 500,
+        "reason": "部分正确",
+        "evidence": [
+          "液体变成气体"
+        ],
+        "reviewReasons": [],
+        "criteria": [
+          {
+            "criterion": "汽化",
+            "scoreCents": 0,
+            "maxCents": 300,
+            "referenceQuote": "汽化3分",
+            "answerQuote": "",
+            "reason": "表达了汽化含义"
+          },
+          {
+            "criterion": "发生位置",
+            "scoreCents": 0,
+            "maxCents": 200,
+            "referenceQuote": "液体表面2分",
+            "answerQuote": "",
+            "reason": "未说明发生位置"
+          }
+        ]
+      }
+    },
+    {
+      "name": "abstention",
+      "valid": true,
+      "input": {
+        "question": {
+          "stem": "说明蒸发的含义",
+          "answerMode": "short_answer",
+          "answerPayload": {
+            "text": "液体表面发生的汽化现象"
+          },
+          "sourceScore": 5,
+          "scoringRubric": "汽化3分；液体表面2分"
+        },
+        "answer": "液体变成气体",
+        "maxCents": 500
+      },
+      "result": {
+        "scoreCents": null,
+        "maxCents": 500,
+        "reason": "部分正确",
+        "evidence": [
+          "液体变成气体"
+        ],
+        "reviewReasons": [
+          "评分依据冲突"
+        ],
+        "criteria": []
+      }
+    },
+    {
+      "name": "missing_criteria",
+      "valid": false,
+      "input": {
+        "question": {
+          "stem": "说明蒸发的含义",
+          "answerMode": "short_answer",
+          "answerPayload": {
+            "text": "液体表面发生的汽化现象"
+          },
+          "sourceScore": 5,
+          "scoringRubric": "汽化3分；液体表面2分"
+        },
+        "answer": "液体变成气体",
+        "maxCents": 500
+      },
+      "result": {
+        "scoreCents": 300,
+        "maxCents": 500,
+        "reason": "部分正确",
+        "evidence": [
+          "液体变成气体"
+        ],
+        "reviewReasons": [],
+        "criteria": []
+      }
+    },
+    {
+      "name": "wrong_sum",
+      "valid": false,
+      "input": {
+        "question": {
+          "stem": "说明蒸发的含义",
+          "answerMode": "short_answer",
+          "answerPayload": {
+            "text": "液体表面发生的汽化现象"
+          },
+          "sourceScore": 5,
+          "scoringRubric": "汽化3分；液体表面2分"
+        },
+        "answer": "液体变成气体",
+        "maxCents": 500
+      },
+      "result": {
+        "scoreCents": 400,
+        "maxCents": 500,
+        "reason": "部分正确",
+        "evidence": [
+          "液体变成气体"
+        ],
+        "reviewReasons": [],
+        "criteria": [
+          {
+            "criterion": "汽化",
+            "scoreCents": 300,
+            "maxCents": 300,
+            "referenceQuote": "汽化3分",
+            "answerQuote": "液体变成气体",
+            "reason": "表达了汽化含义"
+          },
+          {
+            "criterion": "发生位置",
+            "scoreCents": 0,
+            "maxCents": 200,
+            "referenceQuote": "液体表面2分",
+            "answerQuote": "",
+            "reason": "未说明发生位置"
+          }
+        ]
+      }
+    },
+    {
+      "name": "wrong_maximum",
+      "valid": false,
+      "input": {
+        "question": {
+          "stem": "说明蒸发的含义",
+          "answerMode": "short_answer",
+          "answerPayload": {
+            "text": "液体表面发生的汽化现象"
+          },
+          "sourceScore": 5,
+          "scoringRubric": "汽化3分；液体表面2分"
+        },
+        "answer": "液体变成气体",
+        "maxCents": 500
+      },
+      "result": {
+        "scoreCents": 300,
+        "maxCents": 500,
+        "reason": "部分正确",
+        "evidence": [
+          "液体变成气体"
+        ],
+        "reviewReasons": [],
+        "criteria": [
+          {
+            "criterion": "汽化",
+            "scoreCents": 300,
+            "maxCents": 400,
+            "referenceQuote": "汽化3分",
+            "answerQuote": "液体变成气体",
+            "reason": "表达了汽化含义"
+          },
+          {
+            "criterion": "发生位置",
+            "scoreCents": 0,
+            "maxCents": 200,
+            "referenceQuote": "液体表面2分",
+            "answerQuote": "",
+            "reason": "未说明发生位置"
+          }
+        ]
+      }
+    },
+    {
+      "name": "invented_reference",
+      "valid": false,
+      "input": {
+        "question": {
+          "stem": "说明蒸发的含义",
+          "answerMode": "short_answer",
+          "answerPayload": {
+            "text": "液体表面发生的汽化现象"
+          },
+          "sourceScore": 5,
+          "scoringRubric": "汽化3分；液体表面2分"
+        },
+        "answer": "液体变成气体",
+        "maxCents": 500
+      },
+      "result": {
+        "scoreCents": 300,
+        "maxCents": 500,
+        "reason": "部分正确",
+        "evidence": [
+          "液体变成气体"
+        ],
+        "reviewReasons": [],
+        "criteria": [
+          {
+            "criterion": "汽化",
+            "scoreCents": 300,
+            "maxCents": 300,
+            "referenceQuote": "不存在的参考答案",
+            "answerQuote": "液体变成气体",
+            "reason": "表达了汽化含义"
+          },
+          {
+            "criterion": "发生位置",
+            "scoreCents": 0,
+            "maxCents": 200,
+            "referenceQuote": "液体表面2分",
+            "answerQuote": "",
+            "reason": "未说明发生位置"
+          }
+        ]
+      }
+    },
+    {
+      "name": "invented_answer",
+      "valid": false,
+      "input": {
+        "question": {
+          "stem": "说明蒸发的含义",
+          "answerMode": "short_answer",
+          "answerPayload": {
+            "text": "液体表面发生的汽化现象"
+          },
+          "sourceScore": 5,
+          "scoringRubric": "汽化3分；液体表面2分"
+        },
+        "answer": "液体变成气体",
+        "maxCents": 500
+      },
+      "result": {
+        "scoreCents": 300,
+        "maxCents": 500,
+        "reason": "部分正确",
+        "evidence": [
+          "液体变成气体"
+        ],
+        "reviewReasons": [],
+        "criteria": [
+          {
+            "criterion": "汽化",
+            "scoreCents": 300,
+            "maxCents": 300,
+            "referenceQuote": "汽化3分",
+            "answerQuote": "我已经写了所有内容",
+            "reason": "表达了汽化含义"
+          },
+          {
+            "criterion": "发生位置",
+            "scoreCents": 0,
+            "maxCents": 200,
+            "referenceQuote": "液体表面2分",
+            "answerQuote": "",
+            "reason": "未说明发生位置"
+          }
+        ]
+      }
+    },
+    {
+      "name": "credit_without_answer",
+      "valid": false,
+      "input": {
+        "question": {
+          "stem": "说明蒸发的含义",
+          "answerMode": "short_answer",
+          "answerPayload": {
+            "text": "液体表面发生的汽化现象"
+          },
+          "sourceScore": 5,
+          "scoringRubric": "汽化3分；液体表面2分"
+        },
+        "answer": "液体变成气体",
+        "maxCents": 500
+      },
+      "result": {
+        "scoreCents": 300,
+        "maxCents": 500,
+        "reason": "部分正确",
+        "evidence": [
+          "液体变成气体"
+        ],
+        "reviewReasons": [],
+        "criteria": [
+          {
+            "criterion": "汽化",
+            "scoreCents": 300,
+            "maxCents": 300,
+            "referenceQuote": "汽化3分",
+            "answerQuote": "",
+            "reason": "表达了汽化含义"
+          },
+          {
+            "criterion": "发生位置",
+            "scoreCents": 0,
+            "maxCents": 200,
+            "referenceQuote": "液体表面2分",
+            "answerQuote": "",
+            "reason": "未说明发生位置"
+          }
+        ]
+      }
+    },
+    {
+      "name": "duplicate_criterion",
+      "valid": false,
+      "input": {
+        "question": {
+          "stem": "说明蒸发的含义",
+          "answerMode": "short_answer",
+          "answerPayload": {
+            "text": "液体表面发生的汽化现象"
+          },
+          "sourceScore": 5,
+          "scoringRubric": "汽化3分；液体表面2分"
+        },
+        "answer": "液体变成气体",
+        "maxCents": 500
+      },
+      "result": {
+        "scoreCents": 300,
+        "maxCents": 500,
+        "reason": "部分正确",
+        "evidence": [
+          "液体变成气体"
+        ],
+        "reviewReasons": [],
+        "criteria": [
+          {
+            "criterion": "汽化",
+            "scoreCents": 300,
+            "maxCents": 300,
+            "referenceQuote": "汽化3分",
+            "answerQuote": "液体变成气体",
+            "reason": "表达了汽化含义"
+          },
+          {
+            "criterion": "汽化",
+            "scoreCents": 0,
+            "maxCents": 200,
+            "referenceQuote": "液体表面2分",
+            "answerQuote": "",
+            "reason": "未说明发生位置"
+          }
+        ]
+      }
+    },
+    {
+      "name": "over_credit",
+      "valid": false,
+      "input": {
+        "question": {
+          "stem": "说明蒸发的含义",
+          "answerMode": "short_answer",
+          "answerPayload": {
+            "text": "液体表面发生的汽化现象"
+          },
+          "sourceScore": 5,
+          "scoringRubric": "汽化3分；液体表面2分"
+        },
+        "answer": "液体变成气体",
+        "maxCents": 500
+      },
+      "result": {
+        "scoreCents": 300,
+        "maxCents": 500,
+        "reason": "部分正确",
+        "evidence": [
+          "液体变成气体"
+        ],
+        "reviewReasons": [],
+        "criteria": [
+          {
+            "criterion": "汽化",
+            "scoreCents": 400,
+            "maxCents": 300,
+            "referenceQuote": "汽化3分",
+            "answerQuote": "液体变成气体",
+            "reason": "表达了汽化含义"
+          },
+          {
+            "criterion": "发生位置",
+            "scoreCents": 0,
+            "maxCents": 200,
+            "referenceQuote": "液体表面2分",
+            "answerQuote": "",
+            "reason": "未说明发生位置"
+          }
+        ]
+      }
+    },
+    {
+      "name": "abstention_without_reason",
+      "valid": false,
+      "input": {
+        "question": {
+          "stem": "说明蒸发的含义",
+          "answerMode": "short_answer",
+          "answerPayload": {
+            "text": "液体表面发生的汽化现象"
+          },
+          "sourceScore": 5,
+          "scoringRubric": "汽化3分；液体表面2分"
+        },
+        "answer": "液体变成气体",
+        "maxCents": 500
+      },
+      "result": {
+        "scoreCents": null,
+        "maxCents": 500,
+        "reason": "部分正确",
+        "evidence": [
+          "液体变成气体"
+        ],
+        "reviewReasons": [],
+        "criteria": []
+      }
+    },
+    {
+      "name": "blank_reason",
+      "valid": false,
+      "input": {
+        "question": {
+          "stem": "说明蒸发的含义",
+          "answerMode": "short_answer",
+          "answerPayload": {
+            "text": "液体表面发生的汽化现象"
+          },
+          "sourceScore": 5,
+          "scoringRubric": "汽化3分；液体表面2分"
+        },
+        "answer": "液体变成气体",
+        "maxCents": 500
+      },
+      "result": {
+        "scoreCents": 300,
+        "maxCents": 500,
+        "reason": " ",
+        "evidence": [
+          "液体变成气体"
+        ],
+        "reviewReasons": [],
+        "criteria": [
+          {
+            "criterion": "汽化",
+            "scoreCents": 300,
+            "maxCents": 300,
+            "referenceQuote": "汽化3分",
+            "answerQuote": "液体变成气体",
+            "reason": "表达了汽化含义"
+          },
+          {
+            "criterion": "发生位置",
+            "scoreCents": 0,
+            "maxCents": 200,
+            "referenceQuote": "液体表面2分",
+            "answerQuote": "",
+            "reason": "未说明发生位置"
+          }
+        ]
+      }
+    }
+  ]
+}

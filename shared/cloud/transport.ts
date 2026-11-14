@@ -1,8 +1,10 @@
-import type { DocumentReference } from "./contracts.generated";
+import type { DesktopDocumentRequest, DesktopDocumentReply, DocumentReference } from "./contracts.generated";
 
 export type SourceFile = Pick<File, "name" | "size"> & { arrayBuffer?: () => Promise<ArrayBuffer>; nativeTicket?: string };
 export interface NativeBridge {
   origin: string;
+  revision?: string;
+  documents?(request: DesktopDocumentRequest): Promise<DesktopDocumentReply>;
   confirm(message: string): Promise<boolean>;
   fetch(path: string, init: RequestInit): Promise<Response>;
   pickSources(): Promise<SourceFile[]>;

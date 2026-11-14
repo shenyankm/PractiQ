@@ -1,3 +1,4 @@
+import { mockDesktop } from "./mock-desktop.mjs";
 import { test as runner, expect } from 'playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -24,11 +25,11 @@ for (const [width, height] of [[1440, 900], [768, 900], [390, 844], [360, 640]])
     await mkdir(output, { recursive: true });
     await page.setViewportSize({ width, height });
     await page.emulateMedia({ colorScheme: theme, reducedMotion: 'reduce' });
-    await page.addInitScript(({ theme, locale }) => {
+    await mockDesktop(page); await page.addInitScript(({ theme, locale }) => {
       localStorage.setItem('practiq-theme', theme);
       Object.defineProperty(navigator, 'languages', { get: () => [locale] });
       window.__tasteNativeCalls = 0;
-      window.__TAURI_INTERNALS__ = { invoke: () => { window.__tasteNativeCalls++; throw Error('Unexpected native call in preview'); } };
+      window.__practiqNativeMock = { invoke: () => { window.__tasteNativeCalls++; throw Error('Unexpected native call in preview'); } };
     }, { theme, locale });
     await page.goto('/');
     await expect(page.getByRole('heading', { name: names.banks, exact: true })).toBeVisible();

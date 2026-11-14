@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { beforeEach, expect, it, vi } from "vitest";
 import { canInteract, type Bank, type PaperPreview, type Question, type QuestionPage as SummaryPage, type QuestionRow, type Request, type Session, type SessionPage } from "./api";
 import composite from "../fixtures/composite.json";
@@ -6,7 +7,6 @@ import type { PreviewScenario } from "../scripts/fixtures/scenario";
 const mode=vi.hoisted(()=>({value:"normal" as PreviewScenario}));
 vi.mock("../scripts/fixtures/scenario",()=>({fixtureScenario:()=>mode.value}));
 vi.mock("./transport",()=>import("../scripts/fixtures/transport"));
-vi.mock("@tauri-apps/api/core",()=>({invoke:vi.fn(()=>{throw new Error("Native IPC must not run");})}));
 beforeEach(()=>{vi.resetModules();mode.value="normal";});
 type QuestionPage = Omit<SummaryPage,"items"> & {items:QuestionRow[]};
 async function call<T>(request:Record<string,unknown>, command="request") {
@@ -371,21 +371,19 @@ it("compares the selected preview bank and appends imports to that bank",async()
 
 it("previews a personal import workspace without accounts or paid work", async () => {
  const {invoke}=await import("../scripts/fixtures/transport");
- const status=await invoke<{value:{origin:string;generation:number}}>("cloud_request",{request:{type:"status"}});
- const context={...status.value};
- const read=await invoke<{value:{status:number;bytes:string}}>("cloud_request",{request:{type:"fetch",path:"/api/import-capabilities",method:"GET"},context});
- expect(read.value.status).toBe(200);
- expect(JSON.parse(Buffer.from(read.value.bytes,"base64").toString()).sourceTypes).toContain("docx");
- const rejected=await invoke<{value:{status:number}}>("cloud_request",{request:{type:"fetch",path:"/api/document-tasks",method:"POST",body:{}},context});
- expect(rejected.value.status).toBe(409);
+ const read=await invoke<{type:string;value:{sourceTypes:string[]}}>("request",{request:{type:"document_request",request:{type:"capabilities"}}});
+ expect(read.type).toBe("capabilities");
+ expect(read.value.sourceTypes).toContain("docx");
+ await expect(invoke("request",{request:{type:"document_request",request:{type:"create",value:{}}}})).rejects.toThrow("Preview does not execute AI action");
 });
 
-it("configures an isolated preview origin explicitly and rejects stale origin contexts",async()=>{
+it("saves isolated preview preferences explicitly and rejects stale revisions",async()=>{
  mode.value="unconfigured";
  const {invoke}=await import("../scripts/fixtures/transport");
- expect(await invoke("cloud_request",{request:{type:"status"}})).toMatchObject({value:{origin:"http://127.0.0.1:8090"}});
- const connected=await invoke<{value:{origin:string;generation:number}}>("cloud_request",{request:{type:"configure",origin:"https://demo.example.test"}});
- expect(connected.value.origin).toBe("https://demo.example.test");
- await expect(invoke("cloud_request",{request:{type:"fetch",path:"/api/import-capabilities"},context:{origin:"https://other.test",generation:1}})).rejects.toEqual({code:"CLOUD_SERVICE_CHANGED"});
- await expect(invoke("cloud_request",{request:{type:"configure",origin:"https://user:password@bad.example.test"}})).rejects.toEqual({code:"CLOUD_ORIGIN_INVALID"});
+ const view=await invoke<import("./contracts.generated").DesktopAiSettingsView>("request",{request:{type:"ai_settings"}});
+ expect(view.configured.modelApiKey).toBe(false);
+ const value={revision:view.revision,preferences:{...view.preferences,maxCalls:20},secrets:{}};
+ expect(await invoke("request",{request:{type:"save_ai_settings",value}})).toMatchObject({preferences:{maxCalls:20}});
+ await expect(invoke("request",{request:{type:"save_ai_settings",value}})).rejects.toEqual({code:"AI_SETTINGS_CHANGED"});
+ await expect(invoke("cloud_request",{request:{type:"configure",origin:"https://demo.example.test"}})).rejects.toThrow("未实现命令");
 });

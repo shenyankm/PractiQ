@@ -2,11 +2,11 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./transport";
 import { ExamResults } from "./ExamResults";
 import { blankQuestion, type Attempt, type Session } from "./api";
 
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn() }));
+vi.mock("./transport", () => ({ invoke: vi.fn() }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 it("grades only the submitted current practice answer and renders scoring quotations", async () => {

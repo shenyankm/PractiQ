@@ -1,9 +1,12 @@
 # Release policy
 
-PractiQ releases deliver the offline practice application for macOS only. AI source import, Office conversion and parsing run in the independently deployed service. Users upload and review in the macOS App or the personal App import workspace; both use the independent single-person service without accounts or billing. Explicit client grading calls a user-configured OpenAI-compatible model directly, or the separately deployed service in service mode.
-The service keeps its own source version; record it separately without claiming
-it is deployed by a client installer. Linux remains an independent-service and
-CI host, not a client release target. Do not publish separate platform tags,
+PractiQ releases deliver one macOS Electron application with embedded
+TypeScript/Node AI workers, LangGraph.js, SQLite and local files. Import and
+explicit grading use configured remote providers from those workers; no
+independent backend is required. Oversized Office input requires PDF export
+before import. Historical services, data directories and deployment volumes are
+preserved without being started or bundled. Linux is a CI host, not an app
+target. Do not publish separate platform tags,
 server wheels, container images or updater assets without a supported delivery
 workflow. Actions artifacts expire and are not public releases.
 
@@ -16,28 +19,27 @@ during `0.x`. Define stable compatibility before `1.0.0`. Disclose incompatible
 JSON, database or backup changes even during development. See [SemVer](https://semver.org/).
 
 Before tagging, synchronize `app/package.json`, both version entries in
-`app/package-lock.json`, `app/src-tauri/Cargo.toml`, its package entry in
-`Cargo.lock`, and `tauri.conf.json` to the complete version without `v`.
-The explicitly merged `app/src-tauri/Info.plist` keeps that full identity in
+`app/package-lock.json` to the complete version without `v`.
+The generated Electron `Contents/Info.plist` keeps that full identity in
 `PractiQVersion`; `CFBundleShortVersionString` and `CFBundleVersion` use the
 three-integer core (for example, `0.2.0-beta.1` maps to `0.2.0`). The final macOS
 package gate checks all three fields, so two betas with the same numeric core
 cannot substitute for each other. Native version fields alone do not order beta
-updates; no automatic updater is shipped. The AI
-service version is independent. Native installer metadata may normalize
+updates; no automatic updater is shipped. Embedded AI shares the app version.
+Native installer metadata may normalize
 prerelease syntax; document that mapping rather than changing the product tag.
 Keep the full version in the application and asset names.
 
-Use the existing Python 3.14+ interpreter to update all six client entries and the macOS plist without
-resolving dependencies or changing the independent service version:
+Use Node 22.18+ to update the npm application and both lockfile root entries
+without resolving dependencies. The packager derives the native plist mapping:
 
 ```sh
-"$AI_PYTHON" app/scripts/bump-version.py 0.2.0-alpha.1
-git diff -- app/package.json app/package-lock.json app/src-tauri/Cargo.toml app/src-tauri/Cargo.lock app/src-tauri/tauri.conf.json app/src-tauri/Info.plist
+node app/scripts/bump-version.ts 0.2.0-alpha.1
+git diff -- app/package.json app/package-lock.json
 ```
 
 The updater rejects noncanonical versions, inconsistent current versions and
-unsupported TOML layouts before writing. Review and commit the diff; this command
+malformed lockfile roots before writing. Review and commit the diff; this command
 does not commit, create a tag or run release acceptance. Version `0.2.0-alpha.1`
 is an example for a future test candidate, not a selected or published release.
 
@@ -90,10 +92,14 @@ The current client release target is macOS arm64. An application ZIP is optional
 if supplied, preserve symlinks with `ditto` and verify the final archive too.
 Other native app targets and their build pipelines are not supported.
 
-Every installer includes only client code, build metadata with `schemaVersion: 2`,
-`packageMode: desktop-practice`, and source-bound Cargo/npm notices.
-The resource whitelist is `bundled/build-manifest.json` and `bundled/THIRD-PARTY.txt`.
-Python, LibreOffice and AI workers must be absent from the whole application.
+Every installer includes the Electron application, compiled TypeScript workers,
+renderer and required runtime dependencies. `Contents/Resources/PRACTIQ-BUILD.json`
+records build metadata version 1, reviewed npm lockfile hashes, execution hash,
+runtime dependencies and notices. Release candidates use
+`packageSchemaVersion: 1`, `packageMode: electron-desktop`.
+Python, LibreOffice, PostgreSQL, RabbitMQ and the former Rust/Tauri runtime must
+be absent from the whole application. Source-bound notices live in
+`Contents/Resources/THIRD-PARTY.txt`; licenses remain alongside the runtime.
 The selected application must contain a bounded Mach-O executable with an actual
 arm64 slice on macOS. Version labels and container CPU
 labels alone cannot establish this identity. Header checks do not prove startup,
@@ -131,11 +137,11 @@ The candidate must already include this workflow version. It reuses Service and
 Desktop CI at that exact commit, forces full checks
 regardless of changed paths, and gates the macOS arm64 asset. It checks a
 private read-only DMG snapshot for native version, engine absence, executable
-identity, metadata and source-bound Cargo/npm notices. Any failure blocks staging;
+identity, metadata, freshly rebuilt renderer/worker bytes and source-bound npm notices. Any failure blocks staging;
 diagnostics remain in Actions. Prerelease status never bypasses these gates.
 
 Assembly requires exactly one macOS candidate and rejects missing candidates, mismatched commits/versions, altered
-installers or missing/failed package evidence. It bundles service reports,
+installers or missing/failed package evidence. It bundles embedded AI reports,
 generates checksums, and fills [the release template](../../.github/RELEASE_TEMPLATE.md).
 GitHub's [generated release notes](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes)
 provide a merged-PR summary using [.github/release.yml](../../.github/release.yml):
@@ -199,7 +205,7 @@ mkdir -p app/.build/signed
 APPLE_SIGNING_IDENTITY='Developer ID Application: ...' \
 APPLE_NOTARY_PROFILE='practiq-release' \
 bash app/scripts/sign-release.sh \
-  app/src-tauri/target/release/bundle/macos/PractiQ.app \
+  app/.build/electron-ci/PractiQ.app \
   app/.build/signed/PractiQ_0.1.0-alpha.1_macos_arm64.dmg
 ```
 
@@ -214,7 +220,15 @@ the new reports to evidence, and regenerate the evidence hash and SHA256SUMS.
 Do not reuse an unsigned candidate's checksums or acceptance labels.
 Use the [explicit final-installer staging commands](../acceptance/final-package-acceptance.md#review-and-publication-handoff)
 to derive checked resources from the selected final file and rebuild local
-assets. Default `release.py stage` remains the CI path for unsigned macOS candidates. Explicit final staging requires the original CI candidate, installer and contained evidence; a previous restaging cannot replace original build provenance. Follow the [final-byte staging procedure](../acceptance/final-package-acceptance.md#review-and-publication-handoff) for installer snapshots, native identity, license gates, payload fingerprints, private/public evidence handling and unchanged original-candidate bytes. These checks fail on altered inputs and do not establish Actions provenance, signing or installation acceptance.
+assets. `node app/scripts/release.ts stage` is the CI path for unsigned macOS
+candidates, with explicit `--package`, `--acceptance`, `--output` and `--reports`
+paths. Explicit final staging instead requires `--installer` and
+`--build-candidate` for the original CI candidate, installer and contained
+evidence; a previous restaging cannot replace original build provenance. Follow
+the [final-byte staging procedure](../acceptance/final-package-acceptance.md#review-and-publication-handoff)
+for snapshots, native identity, license gates, payload fingerprints,
+private/public evidence and unchanged original-candidate bytes. These checks do
+not establish Actions provenance, publisher identity or installation acceptance.
 
 Archive independently reviewed signing, clean-machine and live-model records bound to the exact final installer SHA-256. The [signing and acceptance report contract](../acceptance/final-package-acceptance.md#review-and-publication-handoff) defines the required fields, status bindings and public sanitization; [acceptance input examples](../acceptance/final-package-acceptance.md#acceptance-report-inputs) cover the two acceptance reports. Without a signing report, publisher verification stays unverified; missing acceptance reports stay pending. Supplied reports preserve externally reported outcomes and do not run the checks, attest their truth, complete #91 or authorize publication. Independently review the expected/observed publisher identity, commands/results, original build provenance and final bytes before publication.
 
@@ -228,11 +242,14 @@ signing and manual/platform acceptance; they still require strict package gates
 and disclosure of known failures. Ordinary releases require all applicable
 [release acceptance requirements](../../CONTRIBUTING.md#release-verification).
 
-Historical embedded-engine reports remain historical evidence. Service Office
-fidelity and service dependency notices belong to that independent deployment;
-removing engines from the client does not establish their acceptance. See
-[notice requirements](../../app/licenses/README.md). Final-source live grading,
-service import and clean-machine acceptance remain separate required records.
+Historical service and embedded-engine reports remain historical evidence.
+Their conversion or provider results do not establish acceptance of this
+Electron application. Final-source live grading, embedded document import and
+clean-machine acceptance remain separate required records. Embedded AI report
+artifacts contain JUnit plus JSON, Cobertura and LCOV coverage; assembly checks
+success, nonempty counts, 90% statement/line/function and 85% branch thresholds,
+and agreement between the coverage formats. Public reports redact local paths;
+the release manifest retains original and public report hashes.
 
 Complete every section of the template: user-visible changes, downloads and
 installation, data compatibility, known limitations, distinct validation results,

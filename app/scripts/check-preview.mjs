@@ -1,3 +1,4 @@
+import { mockDesktop } from "./mock-desktop.mjs";
 import { withBrowserFixtures } from "./browser-fixtures.mjs";
 import { chooseOption } from "../../shared/select-test.mjs";
 import { test as runner, expect } from 'playwright/test';
@@ -46,7 +47,7 @@ function textLines(node) {
 const test=base.extend({page:async ({page},use)=>{
  const errors=[];
  page.on('pageerror',e=>errors.push(e.message));
- await page.addInitScript(()=>{window.__previewNativeCalls=0;window.__TAURI_INTERNALS__={invoke:()=>{window.__previewNativeCalls++;throw new Error('Unexpected native IPC in preview');}};});
+ await mockDesktop(page); await page.addInitScript(()=>{window.__previewNativeCalls=0;window.__practiqNativeMock={invoke:()=>{window.__previewNativeCalls++;throw new Error('Unexpected native IPC in preview');}};});
  await use(page);
  expect(errors).toEqual([]);
  expect(await page.evaluate(()=>window.__previewNativeCalls)).toBe(0);
@@ -106,7 +107,7 @@ for(const locale of ['zh-CN','en']) for(const width of [360,390,960,1280]) for(c
   const english=locale==='en';
   await page.setViewportSize({width,height:850});
   await page.emulateMedia({reducedMotion:'reduce',colorScheme:theme});
-  await page.addInitScript(language=>Object.defineProperty(navigator,'languages',{get:()=>[language]}),locale);
+  await mockDesktop(page); await page.addInitScript(language=>Object.defineProperty(navigator,'languages',{get:()=>[language]}),locale);
   await page.goto('/');
   const card=page.locator('.bank-card').first();
   await expect(card).toBeVisible();
@@ -159,7 +160,7 @@ for (const [locale, width, theme] of [['zh-CN', 1280, 'light'], ['en', 960, 'dar
  test(`settings backup actions share geometry in ${locale} at ${width}px (${theme})`, async ({page}, testInfo) => {
   await page.setViewportSize({width, height:850});
   await page.emulateMedia({reducedMotion:'reduce', colorScheme:theme});
-  await page.addInitScript(language => Object.defineProperty(navigator, 'languages', {get:()=>[language]}), locale);
+  await mockDesktop(page); await page.addInitScript(language => Object.defineProperty(navigator, 'languages', {get:()=>[language]}), locale);
   await page.goto('/');
   const english=locale==='en';
   await expect(page.getByRole('button',{name:english?'New bank':'新建题库',exact:true})).toBeEnabled();
@@ -551,7 +552,7 @@ test('listening URL drafts survive every implicit dismissal without triggering d
  expect(remoteRequests).toEqual([]);
 });
 
-test('applied listening URLs become guarded when their audio is removed or replaced',async ({page})=>{
+test('listening address changes remain guarded when removed, switched or replaced by a QR draft',async ({page})=>{
  const remoteRequests=[];
  page.on('request',request=>{if(request.url().startsWith('https://example.com/'))remoteRequests.push(request.url());});
  await page.goto('/');
@@ -561,20 +562,22 @@ test('applied listening URLs become guarded when their audio is removed or repla
  const input=editor.getByRole('textbox',{name:'听力资源网址',exact:true});
  const save=editor.getByRole('button',{name:'保存题目',exact:true});
  const confirmation=page.getByRole('alertdialog',{name:'放弃未保存的更改？',exact:true});
- for(const action of ['remove','mode','file']){
+ for(const action of ['remove','mode','qr']){
   await editQuestion(page, page.getByRole('button',{name:/Listening — chimes/}).locator('..').getByRole('button',{name:/^题目更多操作/}));
   const url=`https://example.com/${action}.wav`;
   await input.fill(url);
-  await editor.getByRole('button',{name:'从网址获取音频',exact:true}).click();
+  await editor.getByRole('button',{name:'应用播放地址',exact:true}).click();
   await expect(save).toBeEnabled();
   if(action==='remove')await editor.getByRole('button',{name:'移除音频',exact:true}).click();
   else if(action==='mode'){
    await chooseOption(editor.getByRole('combobox',{name:'答题方式',exact:true}), 'short_answer');
    await chooseOption(editor.getByRole('combobox',{name:'答题方式',exact:true}), 'listening');
-  }else await editor.getByRole('button',{name:'选择听力音频',exact:true}).click();
-  await expect(save).toBeDisabled();
-  await expect(input).toHaveValue(url);
-  await expect(editor.getByRole('status').filter({hasText:'网址尚未应用'})).toBeVisible();
+  }else await editor.getByRole('button',{name:'识别二维码图片',exact:true}).click();
+  const draft=action==='qr';
+  const value=draft?'https://example.com/listening.mp3':'';
+  await expect(save).toBeEnabled({enabled:!draft});
+  await expect(input).toHaveValue(value);
+  await expect(editor.getByRole('status').filter({hasText:'网址尚未应用'})).toHaveCount(draft?1:0);
   for(const dismiss of ['Escape','close','outside']){
    await input.focus();
    if(dismiss==='Escape')await page.keyboard.press('Escape');
@@ -582,8 +585,8 @@ test('applied listening URLs become guarded when their audio is removed or repla
    else await page.mouse.click(8,8);
    await expect(confirmation).toBeVisible();
    await confirmation.getByRole('button',{name:'继续编辑',exact:true}).click();
-   await expect(input).toHaveValue(url);
-   await expect(save).toBeDisabled();
+   await expect(input).toHaveValue(value);
+   await expect(save).toBeEnabled({enabled:!draft});
   }
   await input.fill('');
   await expect(save).toBeEnabled();
@@ -691,7 +694,7 @@ test('preview inline material hides ancestor answer passage before submission',a
 
 for(const scenario of ['empty','many','unconfigured','missing','slow','error']) {
  test(`preview scenario ${scenario} stays offline`,async ({page})=>{
-  await page.addInitScript(value=>sessionStorage.setItem('practiq-test-scenario',value),scenario);
+  await mockDesktop(page); await page.addInitScript(value=>sessionStorage.setItem('practiq-test-scenario',value),scenario);
   await page.goto('/');
   await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
   if(scenario==='empty') {
@@ -729,16 +732,15 @@ for(const scenario of ['empty','many','unconfigured','missing','slow','error']) 
 
 base('study setup retries failed statistics and manual pages without resetting settings',async ({page})=>{
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
- await page.addInitScript(()=>{
+ await mockDesktop(page); await page.addInitScript(()=>{
   sessionStorage.setItem('practiq-test-scenario','local');
-  window.isTauri=false;
   const questions=Array.from({length:31},(_,i)=>({id:`q${i}`,bankId:'one',bankTitle:'Retry bank',question:{id:`q${i}`,parentId:null,stem:`Retry question ${i}`,answerMode:'short_answer',questionTypeId:'简答题',options:[],items:[],answerPayload:{text:'Reference'},analysis:null,sourceText:null,contentBlocks:[],needsReview:false,missingFields:[],confidence:1},groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null}));
   const bank={id:'one',title:'Retry bank',description:'',count:31,createdAt:1};
   const statistics={count:31,types:{short_answer:31},feasibleCounts:Array.from({length:31},(_,i)=>i+1)};
   window.__studyRequests=[];
   window.__studyStatsFail=true;
   window.__studyPageFail=true;
-  window.__TAURI_INTERNALS__={invoke:async(command,{request})=>{
+  window.__practiqNativeMock={invoke:async(command,{request})=>{
    if(command!=='request')throw Error(`Unexpected command ${command}`);
    switch(request.type){
     case 'language':return 'zh-CN';
@@ -824,9 +826,8 @@ for (const colorScheme of ['light','dark']) for (const width of [1280,390]) {
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.emulateMedia({colorScheme});
   await page.setViewportSize({width,height:844});
-  await page.addInitScript(()=>{
+  await mockDesktop(page); await page.addInitScript(()=>{
    sessionStorage.setItem('practiq-test-scenario','local');
-   window.isTauri=false;
    const question={id:'q',parentId:null,passage:[],allowReuse:false,stem:'Answer-card status matrix',answerMode:'short_answer',questionTypeId:'简答题',choiceVariant:null,matchingVariant:null,options:[],items:[],answerPayload:{text:'Reference'},analysis:null,sourceText:null,contentBlocks:[],needsReview:false,missingFields:[],confidence:1};
    const snapshot={question,groups:[],visuals:[],sources:[],warnings:[],missingAssets:false};
    const partial={...snapshot,question:{...question,answerMode:'fill_blank',blankCount:2,answerPayload:{answers:['first','second']}}};
@@ -834,7 +835,7 @@ for (const colorScheme of ['light','dark']) for (const width of [1280,390]) {
    const session={id:'markers',title:'Status matrix',kind:'practice',createdAt:1,finishedAt:null,position:0,mode:'ordered',attempts:changes.map((change,ordinal)=>({ordinal,snapshot,answer:null,autoResult:null,result:null,gradeKind:'ungraded',submittedAt:null,skipped:false,elapsedMs:0,...change}))};
    const bank={id:'one',title:'Status matrix',description:'',count:8,createdAt:1};
    const questions=session.attempts.map(({snapshot},i)=>({...snapshot,id:String(i),bankId:'one',bankTitle:bank.title,favorite:false,latestResult:null}));
-   window.__TAURI_INTERNALS__={invoke:async(command,{request})=>{
+   window.__practiqNativeMock={invoke:async(command,{request})=>{
     if(command!=='request')throw Error(`Unexpected command ${command}`);
     switch(request.type){
      case 'language':return 'zh-CN';
@@ -963,13 +964,12 @@ for (const width of [960,1280]) {
  base(`performance: 1000-question answer card stays reachable at ${width}px`,async ({page},testInfo)=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.setViewportSize({width,height:640});
-  await page.addInitScript(()=>{
+  await mockDesktop(page); await page.addInitScript(()=>{
    sessionStorage.setItem('practiq-test-scenario','local');
-   window.isTauri=false;
    const questions=Array.from({length:1000},(_,i)=>({id:`q${i}`,bankId:'one',bankTitle:'Large bank',question:{id:`q${i}`,parentId:null,stem:`Question ${i+1}`,answerMode:'short_answer',questionTypeId:'简答题',options:[],items:[],answerPayload:{text:'Reference'},analysis:null,sourceText:null,contentBlocks:[],needsReview:false,missingFields:[],confidence:1},groups:[],visuals:[],sources:[],warnings:[],missingAssets:false,favorite:false,latestResult:null}));
    const bank={id:'one',title:'Large bank',description:'',count:1000,createdAt:1};
    const session={id:'large',title:'Large practice',kind:'practice',createdAt:1,finishedAt:null,position:0,mode:'ordered',attempts:questions.map((snapshot,ordinal)=>({ordinal,snapshot,answer:null,autoResult:null,result:null,gradeKind:'ungraded',submittedAt:null,skipped:false,elapsedMs:0}))};
-   window.__TAURI_INTERNALS__={invoke:async(command,{request})=>{
+   window.__practiqNativeMock={invoke:async(command,{request})=>{
     if(command!=='request')throw Error(`Unexpected command ${command}`);
     switch(request.type){
      case 'language':return 'zh-CN';
@@ -1155,15 +1155,17 @@ for (const width of [960, 1280]) for (const colorScheme of ['light', 'dark']) {
  });
 }
 
-test('unconfigured import opens the workspace with a local backend default', async ({page}) => {
- await page.addInitScript(()=>sessionStorage.setItem('practiq-test-scenario','unconfigured'));
+test('unconfigured import opens the embedded workspace without a service connection gate', async ({page}) => {
+ await mockDesktop(page); await page.addInitScript(()=>sessionStorage.setItem('practiq-test-scenario','unconfigured'));
  await page.goto('/');
  const sidebar=page.locator('#app-sidebar');
  await sidebar.getByRole('button',{name:'文档导入',exact:true}).click();
  await expect(page.getByRole('link',{name:'开始导入',exact:true})).toBeVisible();
  await expect(page.getByRole('heading',{name:'连接云端服务',exact:true})).toHaveCount(0);
  await page.getByRole('button',{name:'设置',exact:true}).click();
- await expect(page.getByLabel('AI 服务地址',{exact:true})).toHaveValue('http://127.0.0.1:8090');
+ await expect(page.getByLabel('AI 服务地址',{exact:true})).toHaveCount(0);
+ await expect(page.getByRole('heading',{name:'AI 模型与识别',exact:true})).toBeVisible();
+ await expect(page.getByLabel('模型 API 地址',{exact:true})).toHaveValue('https://api.openai.com/v1');
  await sidebar.getByRole('button',{name:'我的题库',exact:true}).click();
  await expect(page.getByRole('heading',{name:'我的题库',exact:true})).toBeVisible();
 });

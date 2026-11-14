@@ -48,23 +48,52 @@ Imported review warnings permit practice; confirming review records a local ackn
 
 ## Use optional AI grading
 
-Practice and local scoring work offline. Document import and optional subjective AI grading share the independent Python backend configured under **Settings → AI service** (default `http://127.0.0.1:8090`). Model addresses, model IDs and provider keys are configured only on that backend. Only explicit grading or retry starts a call. Grading requires a reference answer or rubric; missing evidence, failed calls and unknown outcomes remain ungraded. It is intended for personal practice, not formal examination scoring. Opening the app or changing settings does not call a model. **Configure AI service** opens global Settings; **Return to grading** preserves the current session, question and manual score/reason drafts without automatically retrying. These drafts are not persisted or included in backups until **Save manual score** succeeds. Failed saves keep the draft.
+Practice and local scoring work offline. Document import and optional subjective
+AI grading share embedded Node workers and the model settings under **Settings →
+AI model and recognition**. Current provider keys are encrypted locally using
+macOS protection and excluded from learning backups. Only explicit grading or
+retry starts a call. Grading requires a reference answer or rubric; missing
+evidence, failed calls and unknown outcomes remain ungraded. It is intended for
+personal practice, not formal examination scoring. Opening the app or changing
+settings does not call a model. Returning from global Settings preserves the
+current session, question and manual score/reason drafts without automatically
+retrying. These drafts are not persisted or included in backups until **Save
+manual score** succeeds. Failed saves keep the draft.
 
 In ordinary practice, submit the current short answer before choosing AI grading. This grades only that answer, without finishing the session or sending later questions. The maximum is the source question's score, or 100 points when none was supplied. Self-tests and mock exams remain locked until the paper is submitted. Self-assessment takes priority over a late AI response and clears the numeric AI score from the active result while retaining its receipt. Manual exam overrides keep their existing priority.
 
-New grading results include individual scoring points with earned/maximum scores, an exact quotation from the supplied reference/rubric, an exact quotation from the submitted answer (empty for a missed point), and an explanation. New grading responses reject invented quotations, missing breakdowns, duplicate criteria and inconsistent totals before accepting a new score. A contradictory or unallocatable rubric must produce an ungraded result. Scoring points retain their original scale when the session maximum is different; the application converts only the total. These checks establish quotation presence and arithmetic consistency, not whether a model's interpretation is educationally correct. Historical saved results remain readable without a breakdown. Older independent services must be updated to return the new breakdown for new scores; failed validation never replaces a saved score.
+New grading results include individual scoring points with earned/maximum scores, an exact quotation from the supplied reference/rubric, an exact quotation from the submitted answer (empty for a missed point), and an explanation. New grading responses reject invented quotations, missing breakdowns, duplicate criteria and inconsistent totals before accepting a new score. A contradictory or unallocatable rubric must produce an ungraded result. Scoring points retain their original scale when the session maximum is different; the application converts only the total. These checks establish quotation presence and arithmetic consistency, not whether a model's interpretation is educationally correct. Historical saved results remain readable without a breakdown; failed validation never replaces a saved score.
 
-The backend receives the frozen question, related materials, images and submitted answer, then calls its configured provider with durable usage receipts and budgets. The App validates returned scoring evidence before saving a result. Unknown outcomes are never automatically replayed. Checking a saved request can contact only the same backend recorded when grading started; a changed backend, a legacy direct-model receipt or a receipt without a target requires explicit regrading with a new request ID. The old outcome remains available. Old sidecars, backup connection settings and Keychain entries are preserved for compatibility and are never used to start direct model calls. See [data and credential boundaries](../reference/question-model.md#versions-and-directories). Parsing extracts supplied answers and rubrics without solving unanswered questions.
+The worker receives the frozen question, related materials, images and submitted
+answer, then calls the configured provider with durable usage receipts and
+budgets. The App validates returned scoring evidence before saving a result.
+Unknown outcomes are never automatically replayed. Receipts bind the immutable
+input, endpoint, model and prompt version. A changed target or historical service
+receipt requires explicit regrading with a new request ID; the old outcome
+remains available. Old sidecars, backup connection settings and Keychain entries
+remain untouched and never select a current provider. See
+[data and credential boundaries](../reference/question-model.md#versions-and-directories).
+Parsing extracts supplied answers and rubrics without solving unanswered
+questions; the separate missing-answer generation option requires explicit opt-in.
 
 Batch AI grading skips questions rejected locally for missing grading evidence, missing images or size limits and continues with later pending questions. Those rejected questions stay ungraded, and the error remains visible for manual handling. Configuration, target-change and other rejected grading calls stop the batch; no failed request is automatically retried. A target-change recovery button appears only on the question that failed and still requires confirmation before a new paid request.
 
-New service grading responses require a nonempty bounded reason and bounded string arrays for evidence/review reasons before a score can be stored. Invalid responses retain a non-usable request outcome and do not replace an existing score. Older malformed explanation fields are omitted safely when reopening saved results; saved scores and practice data are not rewritten.
+New grading responses require a nonempty bounded reason and bounded string arrays for evidence/review reasons before a score can be stored. Invalid responses retain a non-usable request outcome and do not replace an existing score. Older malformed explanation fields are omitted safely when reopening saved results; saved scores and practice data are not rewritten.
 
 ## Keep editor drafts
 
 When a bank or question draft has changed, Escape, the close button and clicking outside offer **Continue editing** or **Discard changes**. Unchanged or reverted drafts close immediately. Continuing preserves the draft; discarding closes without saving. Child-question edits stay staged in the parent until you save the top-level question.
 
-Listening URLs require an explicit fetch. An entered or selected URL that has not been applied is protected as an unsaved change; fetch it or clear it before saving. Saving never starts a download. Changing the audio or answer mode can make a retained URL unapplied again. URL fetching has a 45-second total deadline covering DNS lookups, redirects and response reads. A system DNS lookup cannot be cancelled; if it remains blocked after timeout, further hostname lookups fail without starting extra workers until it finishes. Retry explicitly after checking the network or VPN configuration.
+New listening content stores a validated playback address. Apply an entered or
+QR-derived address before saving; QR decoding and applying an address are
+offline. Unapplied edits are protected as unsaved changes. Only explicit link
+discovery or playback fetches a URL. Audio bytes remain in memory and are
+released after playback; saving, export and backup never download a recording.
+Historical recordings continue to play locally and remain in compatible backups.
+URL fetching has a 45-second total deadline covering DNS lookups, redirects and
+response reads. A system DNS lookup cannot be cancelled; if it remains blocked
+after timeout, further hostname lookups fail without starting extra workers until
+it finishes. Retry explicitly after checking the network or VPN configuration.
 
 Editor drafts stay in memory while open and are not recovered after closing the app. Closing or quitting the macOS app asks before discarding unsaved editor changes or manual grading drafts. Saved practice drafts and successfully saved manual scores remain durable.
 

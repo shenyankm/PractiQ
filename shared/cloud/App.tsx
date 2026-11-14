@@ -15,6 +15,8 @@ import { ErrorBoundary } from "../../shared/error-boundary";
 import { RenderFailure } from "./RenderFailure";
 import { CorrectionDraftRecovery } from "./CorrectionDraftRecovery";
 import { ImportSettingsPanel } from "./ImportSettingsPanel";
+import { SourceRepair } from "./SourceRepair";
+import { CostUsage } from "./CostUsage";
 const ResultReview = lazy(() => import("./ResultReview"));
 
 const sourceExtensions: Record<Capabilities["sourceTypes"][number], string> = { pdf: ".pdf", text: ".txt", markdown: ".md", ppt: ".ppt", pptx: ".pptx", image: ".png,.jpg,.jpeg", doc: ".doc", docx: ".docx", xls: ".xls", xlsx: ".xlsx" };
@@ -25,6 +27,7 @@ const formatLabels: Record<Capabilities["sourceTypes"][number], string> = { pdf:
 const formatGroups: Record<Capabilities["sourceTypes"][number], string> = { pdf: "PDF", text: "TXT", markdown: "Markdown", ppt: "PPT", pptx: "PPT", image: "图片", doc: "Word", docx: "Word", xls: "Excel", xlsx: "Excel" };
 const fileLabels: Record<FileItem["state"], string> = { ready: "尚未提交", hashing: "校验文件", uploading: "上传文件", starting: "创建任务", created: "任务已创建", failed: "提交失败" };
 const errorText = (error: unknown) => error instanceof ApiError ? error.message : t("读取或操作失败，请手动重试。");
+const hasBlocking = (task: DocumentTaskDetail, code: string) => task.blocking.some(value => value === code || value !== null && typeof value === "object" && "code" in value && value.code === code);
 const accessFailure = (error: unknown) => error instanceof ApiError && [401, 403].includes(error.status);
 const pollRetryDelay = (failures: number) => Math.min(30_000, 3000 * 2 ** Math.min(failures - 1, 4)) * (0.8 + Math.random() * 0.2);
 const sizeLabel = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
@@ -45,9 +48,9 @@ function Progress({ task }: { task: DocumentTaskDetail }) {
 const Usage = memo(function Usage({ task }: { task: DocumentTaskDetail }) {
   useCloudLocale();
   const [loaded, setLoaded] = useState(false);
-  const input = loaded ? task.usage.reduce((sum, call) => sum + call.inputTokens, 0) : 0;
-  const output = loaded ? task.usage.reduce((sum, call) => sum + call.outputTokens, 0) : 0;
-  return <details className="resource-card" onToggle={event => { if (event.currentTarget.open && !loaded) setLoaded(true); }}><summary>{t("模型用量与任务诊断")}</summary>{loaded && <div className="space-y-3 pt-3"><p>{t("已知用量：")}{task.usage.length}{t(" 次调用，输入 ")}{input}{t(" tokens，输出 ")}{output} {t("tokens。")}</p><p>{task.unknownUsageCalls.length ? t("有 {0} 次调用未返回用量，实际总用量未知。", task.unknownUsageCalls.length) : t("没有已记录的未知用量调用。")}</p><p>{t("调用预算：已预留 ")}{task.modelBudget.reserved}/{task.modelBudget.limit}{t(" 次。")}</p><dl className="metadata-grid"><dt>{t("处理阶段")}</dt><dd>{task.phase}</dd><dt>{t("检查点")}</dt><dd>{task.checkpointId ?? t("尚无（null）")}</dd><dt>{t("运行 ID")}</dt><dd>{task.runId ?? t("无（null）")}</dd><dt>{t("父任务")}</dt><dd>{task.parentThreadId ?? t("无（null）")}</dd><dt>{t("到期时间")}</dt><dd>{task.expiresAt}</dd></dl><pre className="raw-data">{JSON.stringify({ usage: task.usage, unknownUsageCalls: task.unknownUsageCalls, processing: task.processing, blocking: task.blocking, parserJobs: task.parserJobs || [] }, null, 2)}</pre></div>}</details>;
+  const input = loaded ? task.usage.reduce((sum, call) => sum + BigInt(call.inputTokens), 0n).toString() : "0";
+  const output = loaded ? task.usage.reduce((sum, call) => sum + BigInt(call.outputTokens), 0n).toString() : "0";
+  return <details className="resource-card" onToggle={event => { if (event.currentTarget.open && !loaded) setLoaded(true); }}><summary>{t("模型用量与任务诊断")}</summary>{loaded && <div className="space-y-3 pt-3"><p>{t("已知用量：")}{task.usage.length}{t(" 次调用，输入 ")}{input}{t(" tokens，输出 ")}{output} {t("tokens。")}</p><p>{task.unknownUsageCalls.length ? t("有 {0} 次调用未返回用量，实际总用量未知。", task.unknownUsageCalls.length) : t("没有已记录的未知用量调用。")}</p>{hasBlocking(task, "TASK_ACCOUNTING_UNREADABLE") && <p role="alert">{t("部分调用或额度记录无法验证，实际总用量可能未知。继续和重试已停用，原始记录保留。")}</p>}<p>{task.modelBudget.reserved === null ? t("调用预算：预留数未知；任务上限 {0} 次。", task.modelBudget.limit) : <>{t("调用预算：已预留 ")}{task.modelBudget.reserved}/{task.modelBudget.limit}{t(" 次。")}</>}</p><dl className="metadata-grid"><dt>{t("处理阶段")}</dt><dd>{task.phase}</dd><dt>{t("检查点")}</dt><dd>{task.checkpointId ?? t("尚无（null）")}</dd><dt>{t("运行 ID")}</dt><dd>{task.runId ?? t("无（null）")}</dd><dt>{t("父任务")}</dt><dd>{task.parentThreadId ?? t("无（null）")}</dd><dt>{t("到期时间")}</dt><dd>{task.expiresAt}</dd></dl><CostUsage key={task.threadId} threadId={task.threadId} /><pre className="raw-data">{JSON.stringify({ usage: task.usage, unknownUsageCalls: task.unknownUsageCalls, processing: task.processing, blocking: task.blocking, parserJobs: task.parserJobs || [] }, null, 2)}</pre></div>}</details>;
 });
 
 type Page = "import" | "records" | "settings";
@@ -144,13 +147,17 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
     window.location.hash = "records";
   }, [requestedTask, selected]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [zipNotice, setZipNotice] = useState<{ threadId: string; checkpointId: string | null; message: string } | null>(null);
   const [pendingImports, setPendingImports] = useState<DocumentTaskCreate[]>([]);
   const [pendingReparses, setPendingReparses] = useState<ReparseIntent[]>([]);
+  const [pendingDeletions, setPendingDeletions] = useState<string[]>([]);
   useEffect(() => {
     if (!client || busy) return;
     try { setPendingImports(client.pendingImports()); }
     catch (error) { setOperationError(errorText(error)); }
     try { setPendingReparses(client.pendingReparses()); }
+    catch (error) { setOperationError(errorText(error)); }
+    try { setPendingDeletions(client.pendingDeletions()); }
     catch (error) { setOperationError(errorText(error)); }
   }, [client, busy]);
 
@@ -289,7 +296,12 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
     catch (error) { if (client.active && job.current === id) setOperationError(errorText(error)); }
     finally { if (job.current === id) { job.current = null; activeJob.current = false; setBusy(false); } }
   }
+  async function deleteTask(current: Client, id: string) {
+    await current.delete(id);
+    if (current.active) { deleteCompleted.current = true; setSelected(value => value === id ? null : value); setListRevision(value => value + 1); setDeleteTarget(null); setNotice(t("任务已删除。")); }
+  }
   function chooseFiles(chosen: SourceFile[]) {
+    if (!chosen.length) return;
     setFileError(null);
     if (!capabilities) return;
     const pending = files.filter(item => item.state === "failed");
@@ -341,7 +353,8 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
               {documentRole === "answers" && <p>{t("答案卷只提取已有内容，不生成答案。导入完成后，在题目任务中选择“关联答案卷”核对并采用。")}</p>}
               <FilePicker className="file-picker"><FileText aria-hidden="true" />{nativeBridge() ? <Button type="button" variant="outline" className="file-picker-action" aria-label={t("选择文档")} aria-describedby="file-limit file-help" disabled={busy} onClick={() => { void nativeBridge()!.pickSources().then(chooseFiles).catch(error => setFileError(error instanceof Error ? error.message : t("文件选择失败。"))); }}>{t("选择文件")}</Button> : <><span className="file-picker-action">{t("选择文件")}</span><Input className="sr-only" ref={fileInput} type="file" multiple aria-label={t("选择文档")} aria-describedby="file-limit file-help" aria-invalid={!!fileError} accept={capabilities.sourceTypes.map(type => sourceExtensions[type]).join(",")} disabled={busy} onChange={event => chooseFiles(Array.from(event.target.files || []))} /></>}</FilePicker>
               <div className="upload-details"><p className="supported-formats">{t("服务支持：")}{[...new Set(capabilities.sourceTypes.map(type => t(formatGroups[type])))].join("、")}</p>
-              <p id="file-help">{t("单文件 ≤ ")}{sizeLabel(sourceLimit(capabilities))}{capabilities.officeAvailable && sourceLimit(capabilities, "docx") < sourceLimit(capabilities) && ` · Word / Excel ≤ ${sizeLabel(sourceLimit(capabilities, "docx"))}`}</p></div>
+              <p id="file-help">{t("单文件 ≤ ")}{sizeLabel(sourceLimit(capabilities))}{capabilities.officeAvailable && sourceLimit(capabilities, "docx") < sourceLimit(capabilities) && ` · ${t("Word / PPT ≤ {0} · Excel ≤ {1}", sizeLabel(sourceLimit(capabilities, "docx")), sizeLabel(sourceLimit(capabilities, "xlsx")))}`}</p>
+              {nativeBridge()?.documents && <p>{t("Word、Excel 或 PPT 超出当前大小限制时，请先导出为 PDF 后导入。")}</p>}</div>
               {capabilities.parserConfigured === false && <p className="notice">{t("腾讯文档识别尚未配置，当前无法开始新的文档导入。")}</p>}
               {!capabilities.modelConfigured && <p className="notice">{t("服务端尚未配置模型，暂不能开始解析。")}</p>}
               {fileError && <p role="alert" className="text-destructive">{fileError}</p>}
@@ -379,7 +392,7 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
   const detailContent = client && (selected || deleteTarget) && (<section id="task-detail" tabIndex={-1} className="task-panel" aria-label={t("任务详情")}>
           {selected && <a className="workspace-link" href="#task-list-heading">{t("返回任务列表")}</a>}
 
-          {deleteTarget && <div ref={deletePrompt} tabIndex={-1} onKeyDown={event => { if (event.key === "Escape" && !busy) setDeleteTarget(null); }} className="notice delete-confirmation" role="group" aria-label={t("删除任务确认")}><p>{t("确认删除“")}{deleteTarget.fileName}{t("”及其检查点？已下载的题库不受影响。")}</p><div className="flex gap-2 mt-3"><Button variant="destructive" disabled={busy} onClick={() => void run(async current => { await current.delete(deleteTarget.threadId); if (current.active) { deleteCompleted.current = true; setSelected(value => value === deleteTarget.threadId ? null : value); setListRevision(value => value + 1); setDeleteTarget(null); setNotice(t("任务已删除。")); } })}>{t("确认删除")}</Button><Button variant="outline" disabled={busy} onClick={() => setDeleteTarget(null)}>{t("保留任务")}</Button></div></div>}
+          {deleteTarget && <div ref={deletePrompt} tabIndex={-1} onKeyDown={event => { if (event.key === "Escape" && !busy) setDeleteTarget(null); }} className="notice delete-confirmation" role="group" aria-label={t("删除任务确认")}><p>{t("确认删除“")}{deleteTarget.fileName}{t("”及其检查点？已下载的题库不受影响。")}</p><div className="flex gap-2 mt-3"><Button variant="destructive" disabled={busy} onClick={() => void run(current => deleteTask(current, deleteTarget.threadId))}>{t("确认删除")}</Button><Button variant="outline" disabled={busy} onClick={() => setDeleteTarget(null)}>{pendingDeletions.includes(deleteTarget.threadId) ? t("关闭删除提示") : t("保留任务")}</Button></div></div>}
           {selected && <>
             {detailError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{detailError}</span><Button variant="outline" onClick={refreshDetail}>{t("重试任务详情")}</Button></div>}
             {previewError && <div className="error-banner" role="alert"><span className="min-w-0 flex-1">{previewError}</span><Button variant="outline" onClick={refreshDetail}>{t("重试检查点预览")}</Button></div>}
@@ -389,13 +402,16 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
               {preview && preview.checkpointId !== detail.checkpointId && <p className="notice">{t("任务检查点正在更新，读取一致后才能继续或导出。")}</p>}
               <p>{t("文件用途：")}{detail.documentRole === "answers" ? t("答案卷（仅提取已有答案）") : t("题目文件")}{t(" · 页面范围：")}{detail.pages?.join(", ") || t("全部")}</p>
               <Progress task={detail} />
-              {(detail.blocking.includes("MODEL_RESULT_UNKNOWN") || detail.unknownUsageCalls.length > 0) && <div className="notice" role="alert"><p>{t("模型请求已发送，但结果尚未确认。已保存的题目、检查点和用量记录仍保留。")}</p><p>{t("请先核对模型供应商的调用记录；继续解析或重试可能再次计费，不会自动重试未知调用。")}</p></div>}
-              {detail.blocking.includes("RUN_DEADLINE_EXCEEDED") && <p className="notice" role="alert">{t("本轮解析已达到运行时限，已保存的进度仍保留。可按可用操作继续解析，后续模型调用可能计费。")}</p>}
-              <div className="task-actions" aria-label={t("当前任务操作")}>{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (!["pause", "interrupt"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{action === "pause" ? <Pause /> : action === "interrupt" ? <Square /> : action === "resume" ? <Play /> : <RefreshCw />}{t(actionLabels[action])}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { await downloadBlob(exported.blob, exported.name); setNotice(nativeBridge() ? t("题库已导入，可前往“我的题库”开始练习。") : t("题库 ZIP 已下载。每次导出包含当前全部已完成内容，重复导入会创建独立题库。请在应用设置中追加导入。")); } }, false)}><Download />{nativeBridge() ? t("导入题库") : t("下载题库 ZIP")}</Button></div>
+              {hasBlocking(detail, "COST_BUDGET_EXCEEDED") && <p className="notice" role="alert">{t("费用预留限额不足。可在任务诊断中读取预留记录，或前往设置核对价格与限额；保存调整后仍需明确继续任务。")}</p>}
+              {hasBlocking(detail, "TASK_CHECKPOINT_UNREADABLE") && <div className="notice" role="alert"><p>{t("保存的任务结果或检查点无法读取，继续、重试和导出已停用。原文件、调用记录和用量记录仍保留。")}</p><p>{t("请先恢复损坏文件，再刷新任务详情。也可在其他任务操作中明确重新解析为新任务，可能再次计费。")}</p></div>}
+              {(hasBlocking(detail, "MODEL_RESULT_UNKNOWN") || detail.unknownUsageCalls.length > 0) && <div className="notice" role="alert"><p>{t("模型请求已发送，但结果尚未确认。已保存的题目、检查点和用量记录仍保留。")}</p><p>{t("请先核对模型供应商的调用记录；继续解析或重试可能再次计费，不会自动重试未知调用。")}</p></div>}
+              {hasBlocking(detail, "RUN_DEADLINE_EXCEEDED") && <p className="notice" role="alert">{t("本轮解析已达到运行时限，已保存的进度仍保留。可按可用操作继续解析，后续模型调用可能计费。")}</p>}
+              <div className="task-actions" aria-label={t("当前任务操作")}>{detail.allowedActions.map(action => <Button key={action} variant="outline" disabled={busy || !detailFresh || (!["pause", "interrupt"].includes(action) && !matchingCheckpoint) || (!["pause", "interrupt"].includes(action) && (!detail.modelConfigured || !detail.resumeCompatible))} onClick={() => act(action)}>{action === "pause" ? <Pause /> : action === "interrupt" ? <Square /> : action === "resume" ? <Play /> : <RefreshCw />}{t(actionLabels[action])}</Button>)}<Button disabled={busy || !canExport} onClick={() => void run(async current => { const exported = await current.exportBank(detail); if (current.active) { await downloadBlob(exported.blob, exported.name); setNotice(nativeBridge() ? t("题库已导入，可前往“我的题库”开始练习。") : t("题库 ZIP 已下载。每次导出包含当前全部已完成内容，重复导入会创建独立题库。请在应用设置中追加导入。")); } }, false)}><Download />{nativeBridge() ? t("导入题库") : t("下载题库 ZIP")}</Button>{nativeBridge()?.documents && <Button variant="outline" disabled={busy || !canExport} onClick={() => void run(async current => { setZipNotice(null); const saved = await current.saveBankZip(detail); if (current.active) setZipNotice({ threadId: detail.threadId, checkpointId: detail.checkpointId, message: saved ? t("题库 ZIP 已保存。") : t("已取消保存题库 ZIP。") }); }, false)}><Download />{t("导出题库 ZIP")}</Button>}</div>
+              {zipNotice?.threadId === detail.threadId && zipNotice.checkpointId === detail.checkpointId && <p role="status">{zipNotice.message}</p>}
               {detail.state !== "COMPLETED" && <p className="text-sm text-muted-foreground">{nativeBridge() ? t("暂停后可导入已完成题目，需有可用题目且检查点一致。") : t("暂停后可下载已完成题目，需有可用题目且检查点一致。")}</p>}
-              <details className="task-secondary-actions"><summary>{t("其他任务操作")}</summary><p className="text-sm text-muted-foreground">{t("重新解析会重新提交腾讯识别并创建新的 AI 整理请求，可能再次计费；删除会移除此任务和检查点。已下载的题库不受影响。")}</p><div className="task-actions"><Button variant="outline" disabled={busy || !detailFresh || !detail.modelConfigured || detail.state === "EXPIRED"} onClick={() => void run(async current => { const receipt = await current.reparse(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice(t("新解析任务已创建。")); } })}><RefreshCw />{t("重新解析为新任务")}</Button><Button variant="destructive" disabled={busy || !detailFresh || ["RUNNING", "PENDING", "PAUSING"].includes(detail.state)} onClick={() => setDeleteTarget({ threadId: detail.threadId, fileName: detail.fileName })}><Trash2 />{t("删除任务")}</Button></div></details>
+              <details className="task-secondary-actions"><summary>{t("其他任务操作")}</summary><p className="text-sm text-muted-foreground">{t("重新解析会重新提交腾讯识别并创建新的 AI 整理请求，可能再次计费；删除会移除此任务和检查点。已下载的题库不受影响。")}</p><div className="task-actions"><Button variant="outline" disabled={busy || !detailFresh || !detail.modelConfigured || detail.state === "EXPIRED"} onClick={() => void run(async current => { const receipt = await current.reparse(detail.threadId); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice(t("新解析任务已创建。")); } })}><RefreshCw />{t("重新解析为新任务")}</Button><Button variant="destructive" disabled={busy || !detailFresh || ["RUNNING", "PENDING", "PAUSING"].includes(detail.state)} onClick={() => setDeleteTarget({ threadId: detail.threadId, fileName: detail.fileName })}><Trash2 />{t("删除任务")}</Button></div>{nativeBridge() && <SourceRepair key={detail.threadId} client={client} threadId={detail.threadId} busy={busy || !detailFresh} run={run} />}</details>
               {!!detail.failures.length && <section className="notice"><h3>{t("失败单元")}</h3><ul>{detail.failures.map(failure => <li key={`${failure.stage}:${failure.index}`}>{failure.stage} · {failure.index} · {failure.code}{failure.code === "AI_PROVIDER_BALANCE_REQUIRED" && <> · {t("模型供应商余额不足，请充值或更换后端模型配置后再手动重试。")}</>} · {failure.retryable ? t("可重试，剩余 {0} 次", failure.retriesRemaining ?? 0) : t("不可重试")}</li>)}</ul></section>}
-              {(!detail.modelConfigured || !detail.resumeCompatible) && <p className="notice">{!detail.modelConfigured ? t("服务端模型未配置。") : t("当前模型配置与检查点不兼容。")}{t("继续、重试和接受部分结果暂不可用，现有结果仍可检查。")}</p>}
+              {!hasBlocking(detail, "TASK_CHECKPOINT_UNREADABLE") && (!detail.modelConfigured || !detail.resumeCompatible) && <p className="notice">{!detail.modelConfigured ? t("服务端模型未配置。") : t("当前模型配置与检查点不兼容。")}{t("继续、重试和接受部分结果暂不可用，现有结果仍可检查。")}</p>}
               <ErrorBoundary key={selected} fallback={<RenderFailure />}><Suspense fallback={<p>{t("正在加载结果检查视图…")}</p>}><ResultReview task={detail} preview={preview} client={client} unavailable={busy} onLeaveGuardChange={registerCorrectionGuard} onReparse={selection => { void run(async current => { const receipt = await current.reparse(detail.threadId, selection); if (current.active) { setSelected(value => value === detail.threadId ? receipt.threadId : value); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice(t("所选来源单元已创建新解析任务，原任务保留。")); } }); }} /></Suspense></ErrorBoundary>
               <Usage task={detail} />
             </div>}
@@ -414,6 +430,7 @@ export default function App({ requestedTask, hideSkipLink = false, focusMain = f
         {notice && <p className="notice operation-notice" role="status">{notice}</p>}
         {operationError && <div ref={operationNotice} className="error-banner" role="alert"><span className="min-w-0 flex-1">{operationError}</span></div>}
         {!!pendingImports.length && <section className="notice" aria-label={t("未确认的导入提交")}><h2>{t("未确认的导入提交")}</h2><p>{t("原请求 ID 与文件引用已保存在本机，不含文件内容。请先查看导入记录；重试沿用原请求和参数，已有任务会返回原回执，尚未创建则会开始解析并可能计费。")}</p><p>{t("清除本机恢复记录不会取消服务端任务；之后再次导入会视为新提交，可能重复计费。")}</p><ul>{pendingImports.map(request => <li key={request.requestId}><p>{request.document.fileName}{t(" · 自动去重：")}{request.deduplicateQuestions ? t("开启") : t("关闭")}</p>{request.generateAnswers && <p>{t("AI 生成答案与解析：开启")}</p>}<small>{t("原提交请求 ID：")}{request.requestId}</small><div className="task-actions"><Button variant="outline" disabled={busy || !capabilities?.modelConfigured || capabilities.parserConfigured === false} onClick={() => void run(async current => { const receipt = await current.retryImport(request.requestId); if (current.active) { navigate("records"); setSelected(receipt.threadId); setListRevision(value => value + 1); setDetailRevision(value => value + 1); setNotice(t("原提交已确认，正在读取服务端任务。")); } })}>{t("重试原提交")}</Button><Button variant="ghost" disabled={busy} onClick={() => void run(async current => { current.forgetImport(request.requestId); setNotice(t("本机恢复记录已清除，服务端任务不受影响。")); }, false)}>{t("已核对，清除恢复记录")}</Button></div></li>)}</ul></section>}
+        {!!pendingDeletions.length && <section className="notice" aria-label={t("未确认的任务删除")}><h2>{t("未确认的任务删除")}</h2><p>{t("删除只清理原任务和检查点，已导入题库、共享原文和用量记录保留。只在你重试时继续，不会启动 AI。")}</p><p>{t("移除本机提示不会撤销已开始的删除。")}</p><ul>{pendingDeletions.map(id => <li key={id}><p>{t("原任务 ID：")}{id}</p><div className="task-actions"><Button variant="destructive" disabled={busy} onClick={() => void run(current => deleteTask(current, id))}>{t("重试原任务删除")}</Button><Button variant="ghost" disabled={busy} onClick={() => void run(async current => { current.forgetDeletion(id); setNotice(t("本机任务删除提示已移除，原删除状态保留。")); }, false)}>{t("移除本机删除提示")}</Button></div></li>)}</ul></section>}
         {!!pendingReparses.length && <section className="notice" aria-label={t("未确认的重新解析")}>
           <h2>{t("未确认的重新解析")}</h2>
           <p>{t("原任务与请求 ID 已保存在本机，不含文件内容。请先查看导入记录；重试沿用原请求，已有任务会返回原回执，尚未创建则会开始重新解析并可能计费。")}</p>

@@ -1,7 +1,10 @@
 # Preserve checksum-pinned upstream notices and acceptance input bytes.
-app/licenses/texts/** -text
+app/licenses/texts/** -text whitespace=-blank-at-eol
 app/licenses/*.provenance.json -text
 app/fixtures/ai-import/formats/** -text
+app/fixtures/legacy-wire-schemas.json -text
+app/fixtures/legacy-model-schemas.json -text
+app/fixtures/grading-evidence-v2.json -text
 server/evals/fixtures/pdf/pdf-no-answer.pdf binary
 docs/evidence/2026-10-04-package-reference/** -text
 # Locked payment dependency license texts remain byte-for-byte upstream copies.
@@ -10,3 +13,4 @@ server/licenses/payments/** -text whitespace=-blank-at-eol
 # Preserve raw benchmark patches and captured tool output, including whitespace.
 docs/evidence/2026-11-07-twenty-rounds/*.patch -text whitespace=-blank-at-eol,-blank-at-eof
 docs/evidence/2026-11-07-twenty-rounds/*.txt -text whitespace=-blank-at-eol,-blank-at-eof
+app/fixtures/pdf/*.pdf binary

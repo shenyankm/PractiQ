@@ -1,0 +1,8 @@
+export const HISTORICAL_COUNTS = `WITH RECURSIVE frozen AS MATERIALIZED (
+            SELECT d.session_id,q.value AS content FROM session_documents d JOIN json_each(d.content,'$.questions') q
+            WHERE EXISTS(SELECT 1 FROM attempts a WHERE a.session_id=d.session_id AND a.submitted_at>=?1 AND a.submitted_at<=?2)
+        ), classified(session_id,id,kind) AS (
+            SELECT session_id,json_extract(content,'$.id'),COALESCE(json_extract(content,'$.question.questionKind'),CASE json_extract(content,'$.question.answerMode') WHEN 'choice' THEN json_extract(content,'$.question.choiceVariant') WHEN 'gap_fill' THEN 'grammar_fill' ELSE json_extract(content,'$.question.answerMode') END,'') FROM frozen WHERE json_extract(content,'$.question.parentId') IS NULL
+            UNION ALL SELECT c.session_id,json_extract(f.content,'$.id'),c.kind FROM classified c JOIN frozen f ON f.session_id=c.session_id AND json_extract(f.content,'$.question.parentId')=c.id
+        ) SELECT a.skipped,a.result,a.grade_kind,json_extract(f.content,'$.bankId'),json_extract(f.content,'$.bankTitle'),c.kind FROM attempts a JOIN frozen f ON f.session_id=a.session_id AND json_extract(f.content,'$.id')=a.snapshot_question_id JOIN classified c ON c.session_id=a.session_id AND c.id=a.snapshot_question_id WHERE a.submitted_at>=?1 AND a.submitted_at<=?2`;
+export const REVIEW_TREES = `WITH RECURSIVE tree(root,id) AS (SELECT id,id FROM questions WHERE parent_id IS NULL UNION ALL SELECT t.root,q.id FROM tree t JOIN questions q ON q.parent_id=t.id) SELECT t.root,q.id,q.mode,b.id,b.title,root.stem FROM tree t JOIN questions q ON q.id=t.id JOIN questions root ON root.id=t.root JOIN banks b ON b.id=q.bank_id ORDER BY b.created_at DESC,root.position,q.position`;

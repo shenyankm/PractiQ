@@ -10,6 +10,7 @@ import { countEnglishWords } from "./english";
 import * as english from "./english";
 import { api, type Question, type Session } from "./api";
 import fixture from "../fixtures/english.json";
+import { listeningAddress, listeningBlocks } from "../../shared/listening";
 HTMLElement.prototype.scrollIntoView=()=>{};
 vi.mock("./api",async importOriginal=>({...await importOriginal<typeof import("./api")>(),api:vi.fn()}));
 const questions=fixture.questions as Question[];
@@ -118,104 +119,6 @@ it("edits translation fields and preserves source materials",async()=>{
   await userEvent.click(screen.getByRole("button",{name:"保存题目"}));
   expect(save).toHaveBeenCalledWith(expect.objectContaining({targetLanguage:"en-GB",contentBlocks:question("translate").contentBlocks}),[]);
 });
-it("saves listening edits and releases staged audio after closing the editor", async () => {
-  const user = userEvent.setup();
-  const save = vi.fn();
-  audioMocks();
-  const reference = question("listen").audioRef!;
-  const pick = vi.fn().mockResolvedValueOnce(null).mockRejectedValueOnce(new Error("Invalid audio"))
-    .mockResolvedValue({ reference, duration: 3, lease:reference.sha256 });
-  mockApi.mockImplementation(async request => {
-    if (request.type === "pick_audio") return pick();
-    if (request.type === "asset") return new ArrayBuffer(2) as never;
-    return null as never;
-  });
-  const view = render(<QuestionEditor initial={{ ...question("listen"), audioRef: null, missingFields: ["media", "material"] }} busy={false} onClose={() => {}} onSave={save} />);
-  await user.click(screen.getByRole("button", { name: "选择听力音频" }));
-  expect(screen.queryByRole("button", { name: "移除音频" })).toBeNull();
-  expect(screen.queryByRole("alert")).toBeNull();
-  await user.click(screen.getByRole("button", { name: "选择听力音频" }));
-  expect(await screen.findByRole("alert")).toBeTruthy();
-  await user.click(screen.getByRole("button", { name: "选择听力音频" }));
-  expect(await screen.findByRole("button", { name: "移除音频" })).toBeTruthy();
-  expect(screen.queryByRole("alert")).toBeNull();
-  await user.clear(screen.getByLabelText("开始秒数"));
-  await user.type(screen.getByLabelText("开始秒数"), "0.5");
-  await user.type(screen.getByLabelText("结束秒数（可留空）"), "2.5");
-  await user.clear(screen.getByLabelText("考试播放次数"));
-  await user.type(screen.getByLabelText("考试播放次数"), "3");
-  await user.clear(screen.getByLabelText("听力原文"));
-  await user.type(screen.getByLabelText("听力原文"), "Listen carefully.");
-  await user.click(screen.getByRole("button", { name: "保存题目" }));
-  expect(save).toHaveBeenLastCalledWith(expect.objectContaining({
-    audioRef: reference, audioStartSeconds: 0.5, audioEndSeconds: 2.5, examPlayCount: 3,
-    transcript: [{ partType: "text", textValue: "Listen carefully." }], missingFields: ["material"],
-  }), []);
-  await user.click(screen.getByRole("button", { name: "移除音频" }));
-  await user.clear(screen.getByLabelText("结束秒数（可留空）"));
-  await user.clear(screen.getByLabelText("听力原文"));
-  await user.click(screen.getByRole("button", { name: "保存题目" }));
-  expect(save).toHaveBeenLastCalledWith(expect.objectContaining({ audioRef: null, audioEndSeconds: null, transcript: [] }), []);
-  view.unmount();
-  expect(mockApi).toHaveBeenCalledWith({ type: "release_audio", lease: reference.sha256 });
-}, 15000);
-
-it("releases replaced, removed, and late audio picks", async () => {
-  audioMocks();
-  const original = question("listen").audioRef!;
-  const references = ["a", "b", "c"].map(letter => ({...original,sha256:letter.repeat(64),objectKey:`audio/${letter.repeat(64)}`}));
-  let resolveLate: ((value:{reference:typeof original;duration:number;lease:string})=>void)|undefined;
-  const late = new Promise<{reference:typeof original;duration:number;lease:string}>(resolve=>{resolveLate=resolve;});
-  let picks=0;
-  mockApi.mockImplementation(async request=>{
-    if(request.type==="pick_audio") return (picks++ < 2 ? {reference:references[picks-1],duration:3,lease:references[picks-1].sha256} : await late) as never;
-    if(request.type==="asset") return new ArrayBuffer(2) as never;
-    return null as never;
-  });
-  const view=render(<QuestionEditor initial={{...question("listen"),audioRef:null}} busy={false} onClose={()=>{}} onSave={()=>{}}/>);
-  await userEvent.click(screen.getByRole("button",{name:"选择听力音频"}));
-  await screen.findByRole("button",{name:"移除音频"});
-  await userEvent.click(screen.getByRole("button",{name:"选择听力音频"}));
-  await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"release_audio",lease:references[0].sha256}));
-  await userEvent.click(screen.getByRole("button",{name:"移除音频"}));
-  await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"release_audio",lease:references[1].sha256}));
-  await userEvent.click(screen.getByRole("button",{name:"选择听力音频"}));
-  await waitFor(()=>expect(picks).toBe(3));
-  view.unmount();
-  resolveLate!({reference:references[2],duration:3,lease:references[2].sha256});
-  await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"release_audio",lease:references[2].sha256}));
-});
-
-it("releases staged and late audio picks when the answer mode changes", async () => {
-  audioMocks();
-  const user=userEvent.setup();
-  const original=question("listen").audioRef!;
-  const refs=["d","e"].map(letter=>({...original,sha256:letter.repeat(64),objectKey:`audio/${letter.repeat(64)}`}));
-  let resolveLate:((value:{reference:typeof original;duration:number;lease:string})=>void)|undefined;
-  const late=new Promise<{reference:typeof original;duration:number;lease:string}>(resolve=>{resolveLate=resolve;});
-  let picks=0;
-  mockApi.mockImplementation(async request=>{
-    if(request.type==="pick_audio")return (picks++===0?{reference:refs[0],duration:3,lease:refs[0].sha256}:await late) as never;
-    if(request.type==="asset")return new ArrayBuffer(2) as never;
-    return null as never;
-  });
-  render(<QuestionEditor initial={{...question("listen"),audioRef:null}} busy={false} onClose={()=>{}} onSave={()=>{}}/>);
-  const chooseMode=async (value:string)=>{
-    await user.selectOptions(screen.getByRole("combobox",{name:"答题方式"}),value);
-  };
-  await user.click(screen.getByRole("button",{name:"选择听力音频"}));
-  await screen.findByRole("button",{name:"移除音频"});
-  await chooseMode("short_answer");
-  await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"release_audio",lease:refs[0].sha256}));
-  await chooseMode("listening");
-  await user.click(screen.getByRole("button",{name:"选择听力音频"}));
-  await waitFor(()=>expect(picks).toBe(2));
-  await chooseMode("short_answer");
-  resolveLate!({reference:refs[1],duration:3,lease:refs[1].sha256});
-  await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"release_audio",lease:refs[1].sha256}));
-  expect(screen.queryByRole("button",{name:"移除音频"})).toBeNull();
-});
-
 it("saves writing limits and materials while preserving continuation roles", async () => {
   const user = userEvent.setup();
   const save = vi.fn();
@@ -262,6 +165,7 @@ function audioMocks() {
   const state={used:0,position:0,active:false,limit:2,restricted:true};
   mockApi.mockImplementation(async request=>{
     if(request.type === "asset")return new ArrayBuffer(2) as never;
+    if(request.type === "load_listening_audio")return {bytes:new ArrayBuffer(2),mediaType:"audio/wav"} as never;
     if(request.type === "listening_playback"){
       if(request.action === "start" && !state.active){state.used++;state.active=true;}
       if(request.position != null)state.position=request.position;
@@ -336,27 +240,6 @@ it("resumes practice progress after remount and still permits seeking",async()=>
   expect(player.currentTime).toBe(0.5);expect(state.used).toBe(1);
 });
 
-it("decodes QR locally, requires an explicit fetch, and saves downloaded audio", async()=>{
-  audioMocks();
-  const user=userEvent.setup();
-  const save=vi.fn();
-  const url="https://example.com/listening.wav";
-  mockApi.mockImplementation(async r=>{
-    if(r.type==="pick_audio_qr")return [{url,label:""}] as never;
-    if(r.type==="import_audio_url")return {audio:{reference:question("listen").audioRef,duration:3,lease:question("listen").audioRef!.sha256},links:[]} as never;
-    if(r.type==="asset")return new ArrayBuffer(2) as never;
-    return null as never;
-  });
-  render(<QuestionEditor initial={{...question("listen"),audioRef:null,missingFields:["media"]}} busy={false} onClose={()=>{}} onSave={save}/>);
-  await user.click(screen.getByRole("button",{name:"识别二维码图片"}));
-  expect((screen.getByRole("textbox",{name:"听力资源网址"}) as HTMLInputElement).value).toBe(url);
-  expect(mockApi.mock.calls.some(([r])=>r.type==="import_audio_url")).toBe(false);
-  await user.click(screen.getByRole("button",{name:"从网址获取音频"}));
-  await screen.findByRole("button",{name:"移除音频"});
-  await user.click(screen.getByRole("button",{name:"保存题目"}));
-  expect(save).toHaveBeenCalledWith(expect.objectContaining({audioRef:question("listen").audioRef,missingFields:[]}),[]);
-});
-
 it.each(["typed", "QR", "selected"])("protects an unapplied %s listening URL and keeps it after continuing", async source => {
   const user = userEvent.setup();
   const close = vi.fn(), save = vi.fn();
@@ -391,7 +274,7 @@ it.each(["typed", "QR", "selected"])("protects an unapplied %s listening URL and
   expect(save).toHaveBeenCalledOnce();
   await user.keyboard("{Escape}");
   expect(close).toHaveBeenCalledOnce();
-  expect(mockApi.mock.calls.some(([request]) => request.type === "import_audio_url")).toBe(false);
+  expect(mockApi.mock.calls.some(([request]) => request.type === "listening_links")).toBe(false);
 });
 
 it("keeps a failed listening URL guarded without retrying when continuing", async () => {
@@ -402,293 +285,130 @@ it("keeps a failed listening URL guarded without retrying when continuing", asyn
   render(<QuestionEditor initial={{ ...question("listen"), audioRef: null }} busy={false} onClose={close} onSave={vi.fn()} />);
   const input = screen.getByRole("textbox", { name: "听力资源网址" });
   await user.type(input, url);
-  await user.click(screen.getByRole("button", { name: "从网址获取音频" }));
+  await user.click(screen.getByRole("button", { name: "查找网页中的播放地址" }));
   await screen.findByRole("alert");
   await user.keyboard("{Escape}");
   expect(close).not.toHaveBeenCalled();
   await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
   expect((input as HTMLInputElement).value).toBe(url);
-  expect(mockApi.mock.calls.filter(([request]) => request.type === "import_audio_url")).toHaveLength(1);
+  expect(mockApi.mock.calls.filter(([request]) => request.type === "listening_links")).toHaveLength(1);
 });
 
-it("marks only accepted listening URLs applied while later URL edits remain guarded", async () => {
-  audioMocks();
-  const user = userEvent.setup();
-  const close = vi.fn();
-  const initial = { ...question("listen"), audioStartSeconds: 0, audioEndSeconds: null, missingFields: [] };
-  mockApi.mockImplementation(async request => {
-    if (request.type === "import_audio_url") return { audio: { reference: initial.audioRef, duration: 3, lease: "existing-audio" }, links: [] } as never;
-    if (request.type === "asset") return new ArrayBuffer(2) as never;
-    return null as never;
-  });
-  render(<QuestionEditor initial={initial} busy={false} onClose={close} onSave={vi.fn()} />);
-  const input = screen.getByRole("textbox", { name: "听力资源网址" });
-  await user.type(input, "https://example.com/existing.wav");
-  await user.click(screen.getByRole("button", { name: "从网址获取音频" }));
-  await waitFor(() => expect((screen.getByRole("button", { name: "保存题目" }) as HTMLButtonElement).disabled).toBe(false));
-  await user.keyboard("{Escape}");
-  expect(close).toHaveBeenCalledOnce();
-  expect(screen.queryByRole("alertdialog")).toBeNull();
-  close.mockClear();
-  await user.clear(input);
-  await user.type(input, "https://example.com/unapplied.wav");
-  await user.keyboard("{Escape}");
-  expect(close).not.toHaveBeenCalled();
-  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
-  await user.clear(input);
-  await user.keyboard("{Escape}");
-  expect(close).toHaveBeenCalledOnce();
-  expect(mockApi.mock.calls.filter(([request]) => request.type === "import_audio_url")).toHaveLength(1);
+it("saves a playback address and listening controls without loading or storing audio", async () => {
+  const user=userEvent.setup(), save=vi.fn();
+  render(<QuestionEditor initial={{...question("listen"),audioRef:null,missingFields:["media","material"]}} busy={false} onClose={()=>{}} onSave={save}/>);
+  expect(screen.queryByRole("button",{name:"选择听力音频"})).toBeNull();
+  await user.type(screen.getByLabelText("听力资源网址"),"https://example.com/listen.wav#track");
+  await user.click(screen.getByRole("button",{name:"应用播放地址"}));
+  await user.clear(screen.getByLabelText("开始秒数"));await user.type(screen.getByLabelText("开始秒数"),"0.5");
+  await user.type(screen.getByLabelText("结束秒数（可留空）"),"2.5");
+  await user.clear(screen.getByLabelText("考试播放次数"));await user.type(screen.getByLabelText("考试播放次数"),"3");
+  await user.clear(screen.getByLabelText("听力原文"));await user.type(screen.getByLabelText("听力原文"),"Original transcript");
+  await user.click(screen.getByRole("button",{name:"保存题目"}));
+  const saved=save.mock.calls[0][0] as Question;
+  expect(listeningAddress(saved)).toBe("https://example.com/listen.wav");
+  expect(saved).toMatchObject({audioRef:null,audioStartSeconds:.5,audioEndSeconds:2.5,examPlayCount:3,missingFields:["material"],transcript:[{partType:"text",textValue:"Original transcript"}]});
+  expect(mockApi).not.toHaveBeenCalled();
 });
 
-it.each(["remove", "mode", "same-file", "replacement-file"])("guards an applied URL again after %s invalidates its audio", async action => {
-  audioMocks();
-  const user = userEvent.setup();
-  const close = vi.fn(), save = vi.fn();
-  const reference = question("listen").audioRef!;
-  const replacement = action === "same-file" ? reference : { ...reference, sha256: "f".repeat(64) };
-  const url = "https://example.com/applied.wav";
-  mockApi.mockImplementation(async request => {
-    if (request.type === "import_audio_url") return { audio: { reference, duration: 3, lease: "url-audio" }, links: [] } as never;
-    if (request.type === "pick_audio") return { reference: replacement, duration: 3, lease: "file-audio" } as never;
-    if (request.type === "asset") return new ArrayBuffer(2) as never;
-    return null as never;
-  });
-  render(<QuestionEditor initial={{ ...question("listen"), audioStartSeconds: 0, audioEndSeconds: null, missingFields: [] }} busy={false} onClose={close} onSave={save} />);
-  let input = screen.getByRole("textbox", { name: "听力资源网址" });
-  const button = screen.getByRole("button", { name: "保存题目" }) as HTMLButtonElement;
-  await user.type(input, url);
-  await user.click(screen.getByRole("button", { name: "从网址获取音频" }));
-  await waitFor(() => expect(button.disabled).toBe(false));
-  if (action === "remove") await user.click(screen.getByRole("button", { name: "移除音频" }));
-  else if (action === "mode") {
-    await user.selectOptions(screen.getByRole("combobox", { name: "答题方式" }), "short_answer");
-    await user.selectOptions(screen.getByRole("combobox", { name: "答题方式" }), "listening");
-    input = screen.getByRole("textbox", { name: "听力资源网址" });
-  } else await user.click(screen.getByRole("button", { name: "选择听力音频" }));
-  await waitFor(() => expect(button.disabled).toBe(true));
-  expect((input as HTMLInputElement).value).toBe(url);
-  expect(screen.getByText("网址尚未应用，请先获取音频或清空网址后保存。")).toBeTruthy();
-  await user.click(button);
-  expect(save).not.toHaveBeenCalled();
-  for (const dismiss of ["Escape", "close", "outside"]) {
-    await user.click(input);
-    if (dismiss === "Escape") await user.keyboard("{Escape}");
-    else if (dismiss === "close") await user.click(screen.getByRole("button", { name: "关闭" }));
-    else await user.click(document.querySelector('[data-slot="dialog-overlay"]')!);
-    expect(close).not.toHaveBeenCalled();
-    await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
-    expect((input as HTMLInputElement).value).toBe(url);
-  }
-  expect(mockApi.mock.calls.filter(([request]) => request.type === "import_audio_url")).toHaveLength(1);
-  await user.clear(input);
-  expect(button.disabled).toBe(false);
-  await user.click(button);
-  expect(save).toHaveBeenCalledWith(expect.objectContaining({ audioRef: action === "remove" || action === "mode" ? null : replacement }), []);
+it("decodes a QR code locally but requires applying its address before saving", async () => {
+  const user=userEvent.setup(), save=vi.fn(), url="https://example.com/listening.wav";
+  mockApi.mockResolvedValue([{url,label:""}] as never);
+  render(<QuestionEditor initial={{...question("listen"),audioRef:null,missingFields:["media"]}} busy={false} onClose={()=>{}} onSave={save}/>);
+  await user.click(screen.getByRole("button",{name:"识别二维码图片"}));
+  expect(screen.getByLabelText("听力资源网址")).toHaveProperty("value",url);
+  expect(screen.getByRole("button",{name:"保存题目"})).toHaveProperty("disabled",true);
+  await user.click(screen.getByRole("button",{name:"应用播放地址"}));
+  await user.click(screen.getByRole("button",{name:"保存题目"}));
+  expect(listeningAddress(save.mock.calls[0][0])).toBe(url);
+  expect(mockApi.mock.calls.map(([r])=>r.type)).toEqual(["pick_audio_qr"]);
 });
 
-it("preserves the applied URL after cancelled or failed file selection", async () => {
-  audioMocks();
-  const user = userEvent.setup();
-  const reference = question("listen").audioRef!;
-  const pick = vi.fn().mockResolvedValueOnce(null).mockRejectedValueOnce(new Error("Invalid file"));
-  mockApi.mockImplementation(async request => {
-    if (request.type === "import_audio_url") return { audio: { reference, duration: 3, lease: "url-audio" }, links: [] } as never;
-    if (request.type === "pick_audio") return pick();
-    if (request.type === "asset") return new ArrayBuffer(2) as never;
-    return null as never;
-  });
-  render(<QuestionEditor initial={question("listen")} busy={false} onClose={vi.fn()} onSave={vi.fn()} />);
-  const input = screen.getByRole("textbox", { name: "听力资源网址" });
-  await user.type(input, "https://example.com/applied.wav");
-  await user.click(screen.getByRole("button", { name: "从网址获取音频" }));
-  const button = screen.getByRole("button", { name: "保存题目" }) as HTMLButtonElement;
-  await waitFor(() => expect(button.disabled).toBe(false));
-  for (let attempt = 0; attempt < 2; attempt++) {
-    await user.click(screen.getByRole("button", { name: "选择听力音频" }));
-    await waitFor(() => expect(button.disabled).toBe(false));
-    expect((input as HTMLInputElement).value).toBe("https://example.com/applied.wav");
-    expect(screen.queryByText("网址尚未应用，请先获取音频或清空网址后保存。")).toBeNull();
-  }
-  expect(screen.getByRole("alert")).toBeTruthy();
+it("preserves a stored address on reopen and rejects private replacements without requests", async () => {
+  const user=userEvent.setup(), save=vi.fn(), url="https://example.com/old.wav";
+  const initial={...question("listen"),audioRef:null,contentBlocks:listeningBlocks(question("listen").contentBlocks,url)};
+  render(<QuestionEditor initial={initial} busy={false} onClose={()=>{}} onSave={save}/>);
+  const input=screen.getByLabelText("听力资源网址");expect(input).toHaveProperty("value",url);
+  await user.clear(input);await user.type(input,"http://127.0.0.1/private.wav");
+  await user.click(screen.getByRole("button",{name:"应用播放地址"}));
+  expect(await screen.findByRole("alert")).toBeTruthy();expect(mockApi).not.toHaveBeenCalled();
+  expect(screen.getByRole("button",{name:"保存题目"})).toHaveProperty("disabled",true);
+  await user.clear(input);await user.type(input,url);await user.click(screen.getByRole("button",{name:"保存题目"}));
+  expect(listeningAddress(save.mock.calls[0][0])).toBe(url);
 });
 
-it("keeps a newer URL draft when local audio replaces a previously applied URL", async () => {
-  audioMocks();
-  const user = userEvent.setup();
-  const reference = question("listen").audioRef!;
-  mockApi.mockImplementation(async request => {
-    if (request.type === "import_audio_url") return { audio: { reference, duration: 3, lease: "url-audio" }, links: [] } as never;
-    if (request.type === "pick_audio") return { reference, duration: 3, lease: "file-audio" } as never;
-    if (request.type === "asset") return new ArrayBuffer(2) as never;
-    return null as never;
-  });
-  render(<QuestionEditor initial={question("listen")} busy={false} onClose={vi.fn()} onSave={vi.fn()} />);
-  const input = screen.getByRole("textbox", { name: "听力资源网址" });
-  await user.type(input, "https://example.com/applied.wav");
-  await user.click(screen.getByRole("button", { name: "从网址获取音频" }));
-  await waitFor(() => expect((screen.getByRole("button", { name: "保存题目" }) as HTMLButtonElement).disabled).toBe(false));
-  await user.clear(input);
-  await user.type(input, "https://example.com/new-draft.wav");
-  await user.click(screen.getByRole("button", { name: "选择听力音频" }));
-  await waitFor(() => expect((screen.getByRole("button", { name: "识别二维码图片" }) as HTMLButtonElement).disabled).toBe(false));
-  expect((input as HTMLInputElement).value).toBe("https://example.com/new-draft.wav");
-  expect((screen.getByRole("button", { name: "保存题目" }) as HTMLButtonElement).disabled).toBe(true);
-  expect(mockApi.mock.calls.filter(([request]) => request.type === "import_audio_url")).toHaveLength(1);
-});
-
-it("keeps QR selections tied to the current audio and applies a new URL only after fetching", async () => {
-  audioMocks();
-  const user = userEvent.setup();
-  const reference = question("listen").audioRef!;
-  let decoded = "https://example.com/applied.wav";
-  mockApi.mockImplementation(async request => {
-    if (request.type === "import_audio_url") return { audio: { reference, duration: 3, lease: request.url }, links: [] } as never;
-    if (request.type === "pick_audio_qr") return [{ url: decoded, label: "" }] as never;
-    if (request.type === "asset") return new ArrayBuffer(2) as never;
-    return null as never;
-  });
-  render(<QuestionEditor initial={question("listen")} busy={false} onClose={vi.fn()} onSave={vi.fn()} />);
-  const input = screen.getByRole("textbox", { name: "听力资源网址" });
-  const button = screen.getByRole("button", { name: "保存题目" }) as HTMLButtonElement;
-  await user.type(input, decoded);
-  await user.click(screen.getByRole("button", { name: "从网址获取音频" }));
-  await waitFor(() => expect(button.disabled).toBe(false));
-  await user.click(screen.getByRole("button", { name: "识别二维码图片" }));
-  await waitFor(() => expect(button.disabled).toBe(false));
-  decoded = "https://example.com/new-qr.wav";
-  await user.click(screen.getByRole("button", { name: "识别二维码图片" }));
-  await waitFor(() => expect((input as HTMLInputElement).value).toBe(decoded));
-  expect(button.disabled).toBe(true);
-  expect(mockApi.mock.calls.filter(([request]) => request.type === "import_audio_url")).toHaveLength(1);
-  await user.click(screen.getByRole("button", { name: "从网址获取音频" }));
-  await waitFor(() => expect(button.disabled).toBe(false));
-  expect(mockApi.mock.calls.filter(([request]) => request.type === "import_audio_url")).toHaveLength(2);
-});
-
-it("rejects late URL results across listening mode transitions without clearing the visible draft", async () => {
-  audioMocks();
-  const user = userEvent.setup();
-  const reference = question("listen").audioRef!;
-  let finish!:(value:never)=>void;
-  let calls = 0;
-  mockApi.mockImplementation(async request => {
-    if (request.type === "import_audio_url") return (++calls === 1 ? await new Promise(resolve => { finish = resolve; }) : { audio: { reference, duration: 3, lease: "current-url" }, links: [] }) as never;
-    if (request.type === "asset") return new ArrayBuffer(2) as never;
-    return null as never;
-  });
-  render(<QuestionEditor initial={question("listen")} busy={false} onClose={vi.fn()} onSave={vi.fn()} />);
-  await user.type(screen.getByRole("textbox", { name: "听力资源网址" }), "https://example.com/late.wav");
-  await user.click(screen.getByRole("button", { name: "从网址获取音频" }));
-  await user.selectOptions(screen.getByRole("combobox", { name: "答题方式" }), "short_answer");
-  await user.selectOptions(screen.getByRole("combobox", { name: "答题方式" }), "listening");
-  finish({ audio: { reference, duration: 3, lease: "late-url" }, links: [] } as never);
-  await waitFor(() => expect(mockApi).toHaveBeenCalledWith({ type: "release_audio", lease: "late-url" }));
-  const input = screen.getByRole("textbox", { name: "听力资源网址" });
-  expect((input as HTMLInputElement).value).toBe("https://example.com/late.wav");
-  expect(screen.queryByRole("button", { name: "移除音频" })).toBeNull();
-  expect((screen.getByRole("button", { name: "保存题目" }) as HTMLButtonElement).disabled).toBe(true);
-  await user.clear(input);
-  await user.type(input, "https://example.com/current.wav");
-  await user.click(screen.getByRole("button", { name: "从网址获取音频" }));
-  await waitFor(() => expect((screen.getByRole("button", { name: "保存题目" }) as HTMLButtonElement).disabled).toBe(false));
-  expect((input as HTMLInputElement).value).toBe("https://example.com/current.wav");
-  expect(calls).toBe(2);
-});
-
-it("selects audio from a web page and decodes an existing question image",async()=>{
-  const user=userEvent.setup();
-  const url="https://example.com/page";
-  const audio="https://cdn.example.com/audio.mp3";
-  mockApi.mockImplementation(async r=>{
-    if(r.type==="import_audio_url")return {audio:null,links:[{url:audio,label:"Track 1"}]} as never;
-    if(r.type==="decode_audio_qr")return [{url,label:""}] as never;
-    return null as never;
-  });
-  render(<QuestionEditor initial={{...question("listen"),audioRef:null}} images={[{hash:"a".repeat(64),label:"二维码"}]} busy={false} onClose={()=>{}} onSave={()=>{}}/>);
+it("finds page links and existing-image QR addresses without applying or playing them", async () => {
+  const user=userEvent.setup(), save=vi.fn(), url="https://example.com/track.wav";
+  mockApi.mockResolvedValue([{url,label:"Track"},{url:"https://example.com/two.wav",label:"Two"}] as never);
+  render(<QuestionEditor initial={{...question("listen"),audioRef:null}} images={[{hash:"a".repeat(64),label:"QR"}]} busy={false} onClose={()=>{}} onSave={save}/>);
+  await user.type(screen.getByLabelText("听力资源网址"),"https://example.com/page");
+  await user.click(screen.getByRole("button",{name:"查找网页中的播放地址"}));
+  await user.click(await screen.findByRole("button",{name:"Track · "+url}));
+  expect(screen.getByRole("button",{name:"保存题目"})).toHaveProperty("disabled",true);
   await user.click(screen.getByText("识别题目图片中的二维码"));
-  await user.click(screen.getByRole("button",{name:"识别图片 1 · 二维码"}));
-  expect(mockApi).toHaveBeenCalledWith({type:"decode_audio_qr",hash:"a".repeat(64)});
-  await user.click(screen.getByRole("button",{name:"从网址获取音频"}));
-  await user.click(await screen.findByRole("button",{name:"Track 1 · "+audio}));
-  expect((screen.getByRole("textbox",{name:"听力资源网址"}) as HTMLInputElement).value).toBe(audio);
-  expect(mockApi.mock.calls.filter(([r])=>r.type==="import_audio_url")).toHaveLength(1);
+  await user.click(screen.getByRole("button",{name:"识别图片 1 · QR"}));
+  await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"decode_audio_qr",hash:"a".repeat(64)}));
+  expect(mockApi.mock.calls.some(([r])=>r.type==="load_listening_audio")).toBe(false);
 });
 
-it("releases a download that finishes after closing the editor",async()=>{
-  const user=userEvent.setup();
-  let finish!:(value:never)=>void;
-  mockApi.mockImplementation(async r=>{
-    if(r.type==="import_audio_url")return await new Promise(resolve=>{finish=resolve;}) as never;
-    return null as never;
-  });
-  const view=render(<QuestionEditor initial={{...question("listen"),audioRef:null}} busy={false} onClose={()=>{}} onSave={()=>{}}/>);
-  await user.type(screen.getByRole("textbox",{name:"听力资源网址"}),"https://example.com/audio");
-  await user.click(screen.getByRole("button",{name:"从网址获取音频"}));
-  view.unmount();
-  finish({audio:{reference:question("listen").audioRef,duration:3,lease:question("listen").audioRef!.sha256},links:[]} as never);
-  await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"release_audio",lease:question("listen").audioRef!.sha256}));
+it.each(["cancel","failure"])("keeps the applied address after QR %s", async outcome => {
+  const user=userEvent.setup(), save=vi.fn(), url="https://example.com/old.wav";
+  if(outcome==="cancel")mockApi.mockResolvedValue(null as never);else mockApi.mockRejectedValue({code:"LOCAL_AUDIO_QR_INVALID"});
+  render(<QuestionEditor initial={{...question("listen"),audioRef:null,contentBlocks:listeningBlocks([],url)}} busy={false} onClose={()=>{}} onSave={save}/>);
+  await user.click(screen.getByRole("button",{name:"识别二维码图片"}));
+  await waitFor(()=>expect(screen.getByRole("button",{name:"保存题目"})).toHaveProperty("disabled",false));
+  expect(screen.getByLabelText("听力资源网址")).toHaveProperty("value",url);
+  await user.click(screen.getByRole("button",{name:"保存题目"}));expect(listeningAddress(save.mock.calls[0][0])).toBe(url);
 });
 
-it("shows a resource error without removing existing audio",async()=>{
-  audioMocks();
-  const user=userEvent.setup();
-  mockApi.mockImplementation(async r=>{
-    if(r.type==="import_audio_url")throw {code:"LOCAL_AUDIO_NO_LINKS"};
-    if(r.type==="asset")return new ArrayBuffer(2) as never;
-    return null as never;
-  });
-  render(<QuestionEditor initial={question("listen")} busy={false} onClose={()=>{}} onSave={()=>{}}/>);
-  await user.type(screen.getByRole("textbox",{name:"听力资源网址"}),"https://example.com/login");
-  await user.click(screen.getByRole("button",{name:"从网址获取音频"}));
-  expect((await screen.findByRole("alert")).textContent).toContain("未找到公开音频链接");
-  expect(screen.getByRole("button",{name:"移除音频"})).toBeTruthy();
+it("ignores late QR results across mode changes and removes the old address on removal", async () => {
+  const user=userEvent.setup(), save=vi.fn();let finish!:(value:unknown)=>void;
+  mockApi.mockImplementation(async ()=>await new Promise<unknown>(resolve=>{finish=resolve;}) as never);
+  render(<QuestionEditor initial={{...question("listen"),audioRef:null,contentBlocks:listeningBlocks([],"https://example.com/old.wav")}} busy={false} onClose={()=>{}} onSave={save}/>);
+  await user.click(screen.getByRole("button",{name:"识别二维码图片"}));
+  await user.selectOptions(screen.getByRole("combobox",{name:"答题方式"}),"short_answer");
+  finish([{url:"https://example.com/late.wav",label:""}]);
+  await waitFor(()=>expect(screen.getByRole("button",{name:"保存题目"})).toHaveProperty("disabled",false));
+  await user.selectOptions(screen.getByRole("combobox",{name:"答题方式"}),"listening");
+  expect(screen.getByLabelText("听力资源网址")).toHaveProperty("value","");
+  await user.type(screen.getByLabelText("听力资源网址"),"https://example.com/new.wav");
+  await user.click(screen.getByRole("button",{name:"应用播放地址"}));
+  await user.click(screen.getByRole("button",{name:"移除音频"}));
+  await user.click(screen.getByRole("button",{name:"保存题目"}));expect(listeningAddress(save.mock.calls[0][0])).toBeNull();
 });
 
-it("blocks save until the requested audio finishes and then saves the replacement",async()=>{
-  audioMocks();
-  const user=userEvent.setup();
-  const save=vi.fn();
-  let finish!:(value:never)=>void;
-  const reference={...question("listen").audioRef!,sha256:"f".repeat(64)};
-  mockApi.mockImplementation(async r=>{
-    if(r.type==="import_audio_url")return await new Promise(resolve=>{finish=resolve;}) as never;
-    if(r.type==="asset")return new ArrayBuffer(2) as never;
-    return null as never;
-  });
-  render(<QuestionEditor initial={question("listen")} busy={false} onClose={()=>{}} onSave={save}/>);
-  await user.type(screen.getByRole("textbox",{name:"听力资源网址"}),"https://example.com/replacement.wav");
-  await user.click(screen.getByRole("button",{name:"从网址获取音频"}));
-  const button=screen.getByRole("button",{name:"保存题目"}) as HTMLButtonElement;
-  expect(button.disabled).toBe(true);
-  await user.click(button);
-  expect(save).not.toHaveBeenCalled();
-  await user.keyboard("{Escape}");
-  await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "继续编辑" }));
-  expect(button.disabled).toBe(true);
-  expect((screen.getByRole("textbox", { name: "听力资源网址" }) as HTMLInputElement).value).toBe("https://example.com/replacement.wav");
-  expect(mockApi.mock.calls.filter(([request]) => request.type === "import_audio_url")).toHaveLength(1);
-  finish({audio:{reference,duration:3,lease:"replacement"},links:[]} as never);
-  await waitFor(()=>expect(button.disabled).toBe(false));
-  await user.click(button);
-  expect(save).toHaveBeenCalledWith(expect.objectContaining({audioRef:reference}),[]);
+it("loads online audio only after play and releases memory when the player closes", async () => {
+  const {play}=audioMocks(), url="https://example.com/listen.wav";
+  const view=render(<ListeningPlayer question={{...question("listen"),audioRef:null,contentBlocks:listeningBlocks([],url)}}/>);
+  expect(mockApi).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button",{name:"播放听力"}));
+  await waitFor(()=>expect(play).toHaveBeenCalledOnce());
+  expect(mockApi.mock.calls.map(([r])=>r.type)).toEqual(["load_listening_audio"]);
+  view.unmount();await waitFor(()=>expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:audio"));
 });
 
-it("releases separate leases when the same audio is selected twice",async()=>{
-  audioMocks();
-  let count=0;
-  const reference=question("listen").audioRef!;
+it("allows explicit retry after an online load failure without keeping failed audio in memory", async () => {
+  const {play}=audioMocks(); let loads=0;
   mockApi.mockImplementation(async r=>{
-    if(r.type==="pick_audio")return {reference,duration:3,lease:"lease-"+(++count)} as never;
-    if(r.type==="asset")return new ArrayBuffer(2) as never;
+    if(r.type==="load_listening_audio") { if(++loads===1)throw {code:"LOCAL_AUDIO_DOWNLOAD_FAILED"};return {bytes:new ArrayBuffer(2),mediaType:"audio/wav"} as never; }
     return null as never;
   });
-  const view=render(<QuestionEditor initial={{...question("listen"),audioRef:null}} busy={false} onClose={()=>{}} onSave={()=>{}}/>);
-  await userEvent.click(screen.getByRole("button",{name:"选择听力音频"}));
-  await screen.findByRole("button",{name:"移除音频"});
-  await userEvent.click(screen.getByRole("button",{name:"选择听力音频"}));
-  await waitFor(()=>expect(mockApi).toHaveBeenCalledWith({type:"release_audio",lease:"lease-1"}));
-  expect(mockApi).not.toHaveBeenCalledWith({type:"release_audio",lease:"lease-2"});
-  view.unmount();
-  expect(mockApi).toHaveBeenCalledWith({type:"release_audio",lease:"lease-2"});
+  render(<ListeningPlayer question={{...question("listen"),audioRef:null,contentBlocks:listeningBlocks([],"https://example.com/audio.wav")}}/>);
+  await userEvent.click(screen.getByRole("button",{name:"播放听力"}));await screen.findByRole("alert");
+  expect(loads).toBe(1);expect(play).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button",{name:"播放听力"}));await waitFor(()=>expect(play).toHaveBeenCalledOnce());
+  expect(loads).toBe(2);
+});
+
+it("ignores a late online load when the question changes and does not preload the replacement", async () => {
+  const {play}=audioMocks();let finish!:(value:unknown)=>void;
+  mockApi.mockImplementation(async ()=>await new Promise<unknown>(resolve=>{finish=resolve;}) as never);
+  const first={...question("listen"),audioRef:null,contentBlocks:listeningBlocks([],"https://example.com/first.wav")};
+  const view=render(<ListeningPlayer question={first}/>);
+  await userEvent.click(screen.getByRole("button",{name:"播放听力"}));
+  view.rerender(<ListeningPlayer question={{...first,id:"another",contentBlocks:listeningBlocks([],"https://example.com/second.wav")}}/>);
+  finish({bytes:new ArrayBuffer(2),mediaType:"audio/wav"});
+  await waitFor(()=>expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:audio"));
+  expect(mockApi.mock.calls.map(([r])=>r)).toEqual([{type:"load_listening_audio",url:"https://example.com/first.wav"}]);
+  expect(play).not.toHaveBeenCalled();
 });

@@ -2,7 +2,8 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { api, type PlaybackState, type Question, type Session } from "./api";
 import { t, useI18n } from "./i18n";
 import { Markdown } from "./Content";
-import { acquireAsset } from "./asset-urls";
+import { acquireAsset, acquireListeningAudio } from "./asset-urls";
+import { listeningAddress } from "../../shared/listening";
 import { materialLanguage } from "./english";
 import { Button } from "@/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
@@ -16,6 +17,7 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
   const [loading,setLoading]=useState(false);
   const [playRequested,setPlayRequested]=useState(false);
   const [loadAttempt,setLoadAttempt]=useState(0);
+  const [addressRequest,setAddressRequest]=useState<string|null>(null);
   const [error,setError]=useState(false);
   const [playing,setPlaying]=useState(false);
   const [busy,setBusy]=useState(false);
@@ -36,6 +38,7 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
   const restricted=live && session.kind !== "practice";
   const hash=q.audioRef?.sha256;
   const media=q.audioRef?.mediaType;
+  const address=listeningAddress(q), addressKey=JSON.stringify([sid,q.id,address]);
   const allowedPosition=useRef(start);
   const progressAt=useRef(0);
   useEffect(()=>{
@@ -46,17 +49,18 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
     observer.observe(section.current);
     return ()=>observer.disconnect();
   },[nearby]);
-  useEffect(()=>{intent.current++;setPlayRequested(false);},[sid,q.id,hash,media,live]);
+  useEffect(()=>{intent.current++;setPlayRequested(false);},[sid,q.id,hash,media,address,live]);
   useEffect(()=>{
     let active=true;
-    setSrc(null); setError(false); setLoading(!!hash && nearby);
-    const resource=hash && nearby ? acquireAsset(hash,media) : undefined;
+    const requested=address && addressRequest===addressKey;
+    setSrc(null); setError(false); setLoading(!!requested || !!hash && !address && nearby);
+    const resource=requested ? acquireListeningAudio(address) : hash && !address && nearby ? acquireAsset(hash,media) : undefined;
     if(resource) void resource.url.then(url=>{
       if(active) setSrc(url);
     }).catch(()=>{if(active){setError(true);setPlayRequested(false);}})
       .finally(()=>{if(active)setLoading(false);});
     return ()=>{active=false;resource?.release();};
-  },[hash,media,nearby,loadAttempt]);
+  },[hash,media,address,addressKey,addressRequest,nearby,loadAttempt]);
   const playWhenLoaded=useEffectEvent(()=>{
     if(playRequested){setPlayRequested(false);void toggle();}
   });
@@ -91,7 +95,7 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
   async function toggle() {
     const player=audio.current;
     if(!player || busy) return;
-    if(!src){setPlayRequested(true);setNearby(true);setLoadAttempt(value=>value+1);return;}
+    if(!src){setPlayRequested(true);setNearby(true);if(address)setAddressRequest(addressKey);setLoadAttempt(value=>value+1);return;}
     if(!Number.isFinite(player.duration)){setPlayRequested(true);return;}
     if(!player.paused){player.pause();return;}
     const generation=++intent.current;
@@ -143,8 +147,9 @@ export function ListeningPlayer({question:q,session}:{question:Question;session?
   return <section ref={section} className="space-y-3 rounded-lg border bg-card p-4" aria-label={t("听力播放器")}>
     <p className="text-sm font-medium">{t("听力题")}</p>
     <Markdown>{q.stem}</Markdown><Markdown>{q.instructions}</Markdown>
-    {!hash && <p role="note">{t("听力音频缺失，请在题目编辑中补充。")}</p>}
-    {hash && <>
+    {!hash && !address && <p role="note">{t("听力音频缺失，请在题目编辑中补充。")}</p>}
+    {address && <p className="break-all text-xs text-muted-foreground">{t("在线播放，不保存音频文件。")}</p>}
+    {(hash || address) && <>
       <audio lang={materialLanguage(q)} ref={audio} src={src || undefined} preload="metadata"
         onLoadedMetadata={()=>{if(audio.current)audio.current.currentTime=start;if(playRequested){setPlayRequested(false);void toggle();}}}
         onPlay={()=>setPlaying(true)} onPause={()=>{

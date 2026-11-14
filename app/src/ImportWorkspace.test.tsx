@@ -331,7 +331,7 @@ it("displays the source-specific Office ceiling alongside the configured general
   const user = userEvent.setup(); const http = fakeHTTP();
   http.server.intercept = url => url.includes("capabilities") ? json({ ...capabilities, sourceMaxBytes: 100 * 1024 * 1024, officeSourceMaxBytes: 25 * 1024 * 1024 }) : undefined;
   render(<App />); await connect(user);
-  expect(screen.getByText(/单文件 ≤ 100.0 MiB · Word \/ Excel ≤ 25.0 MiB/)).toBeTruthy();
+  expect(screen.getByText(/单文件 ≤ 100.0 MiB · Word \/ PPT ≤ 25.0 MiB · Excel ≤ 25.0 MiB/)).toBeTruthy();
   expect(http.calls.every(call => call.method === "GET")).toBe(true);
 });
 it("polling paused/partial checkpoints only reads; resume/retry/pause require explicit clicks", async () => {

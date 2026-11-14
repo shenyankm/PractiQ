@@ -1,5 +1,11 @@
 # Question-type import samples
 
+> Historical reproduction: committed fixture bytes remain unchanged. Generation
+> commands and runtime claims below describe the [original source](https://github.com/shenyankm/PractiQ/blob/a3bef2da8c818aaa889b1f27c72c4ce4f1617c7b/app/fixtures/ai-import/README.md),
+> not the current desktop toolchain. Current Node tests consume these frozen
+> inputs without Python, Rust or LibreOffice; see the migration ledger.
+
+
 Select **all-question-types.txt** in the independent service's import Web frontend to exercise all 16 user-facing question types in one document. Starting import explicitly calls the configured model; file selection alone does not. Download the resulting question-bank ZIP and append it in the practice app under Settings > Restore backup. The source contains 24 structured question rows: six composite parents and 18 answerable rows. Parent rows are material containers, not additional questions to score. The file contains supplied answers where stated and deliberately omits answers for two writing tasks. No real-person data or externally fetched content is included.
 
 The combined file concatenates these existing or focused regression inputs in this order. Expected structures and answers live in `server/evals/cases.json` under the listed case IDs. Use individual files to isolate a failed type; the combined file is for manual service extraction followed by offline practice acceptance and is not an extra default live-evaluation case.

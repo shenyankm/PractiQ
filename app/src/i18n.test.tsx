@@ -3,7 +3,7 @@ import { StrictMode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./transport";
 import { I18nProvider, contentLanguage, date, duration, formatLocale, message, MessageError, systemLocale, number, list, locale, t, translate, useI18n, type Locale } from "./i18n";
 import { en } from "./locales/en";
 import { zhTW } from "./locales/zh-TW";
@@ -16,7 +16,7 @@ import { toast } from "./notifications";
 import { Toaster } from "./components/ui/sonner";
 import fixture from "../fixtures/sample.json";
 
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => false }));
+vi.mock("./transport", () => ({ invoke: vi.fn() }));
 let saved: Locale | null = null;
 let failSave = false;
 let language: ReturnType<typeof useI18n>;

@@ -1,0 +1,91 @@
+{
+  "oracle": "Apache POI HSLF 5.5.1 on existing Java 17; verification only, never bundled",
+  "cases": [
+    {
+      "file": "hidden-slides.ppt",
+      "sha256": "c9750b59343246150c49f68df85f28249a9c87b4224a63434891f4c46c45e521",
+      "visibleSha256": "33e4c06a86c70a1875271637e900c32a691af07bb75d42956f5609e7e9d5962b",
+      "changedOffsets": [
+        10441
+      ],
+      "before": {
+        "slides": [
+          {
+            "number": 1,
+            "hidden": false,
+            "textSha256": "8dd0e1e3ba4b3c0ca096a782c8cfa39cce85d5bbda68cc39fa55ae445bacdc3a"
+          },
+          {
+            "number": 2,
+            "hidden": true,
+            "textSha256": "361a02e9f5a582b83161701af9bab193f197c89526ab1e9d00de9160a4cb914c"
+          }
+        ],
+        "streams": {
+          "\u0005DocumentSummaryInformation": "cd2f5648751fdc4f8c38ea4791f2f4801dc5e085437d4809fbe20cc0c0d3d382",
+          "\u0005SummaryInformation": "9e83bcb18f4a4d989710e321079cf5d47ede7ebf719db3ccef6b32e381280926",
+          "Current User": "39515685d67474fd561d1d6565a43a349e64e5c12f7e163bb5782f1f14920c8c",
+          "PowerPoint Document": "e88ae5e55a4a8181e25a2d82deb8bdabacc2cb73ee4eed15b0945064c96b3bad"
+        }
+      },
+      "after": {
+        "slides": [
+          {
+            "number": 1,
+            "hidden": false,
+            "textSha256": "8dd0e1e3ba4b3c0ca096a782c8cfa39cce85d5bbda68cc39fa55ae445bacdc3a"
+          },
+          {
+            "number": 2,
+            "hidden": false,
+            "textSha256": "361a02e9f5a582b83161701af9bab193f197c89526ab1e9d00de9160a4cb914c"
+          }
+        ],
+        "streams": {
+          "\u0005DocumentSummaryInformation": "cd2f5648751fdc4f8c38ea4791f2f4801dc5e085437d4809fbe20cc0c0d3d382",
+          "\u0005SummaryInformation": "9e83bcb18f4a4d989710e321079cf5d47ede7ebf719db3ccef6b32e381280926",
+          "Current User": "39515685d67474fd561d1d6565a43a349e64e5c12f7e163bb5782f1f14920c8c",
+          "PowerPoint Document": "b891f7295098bc29157559093483710b2fcb9221364fc0faa6f1aba91cd7493b"
+        }
+      }
+    },
+    {
+      "file": "hidden-slide-mini.ppt",
+      "sha256": "8fa059a2040bfedf67dd7ab470a0a97afe072f70ccf56e5cc45c7a312cd07b45",
+      "visibleSha256": "6e41d1dfa9e7e862793e9f84f616f6245355e8ee584cb2b62a702335de6c3452",
+      "changedOffsets": [
+        9615
+      ],
+      "before": {
+        "slides": [
+          {
+            "number": 1,
+            "hidden": true,
+            "textSha256": "7091f0195a93cfbcd54208e125f9a73bcc78559cb1bfdb7094ddf179a396bd0f"
+          }
+        ],
+        "streams": {
+          "\u0005DocumentSummaryInformation": "cd2f5648751fdc4f8c38ea4791f2f4801dc5e085437d4809fbe20cc0c0d3d382",
+          "\u0005SummaryInformation": "9e83bcb18f4a4d989710e321079cf5d47ede7ebf719db3ccef6b32e381280926",
+          "Current User": "a56bd1656db92f7fe546c1e3e7c0abb14f7e9b7a19ac0a7bc6e1f4867c1537f4",
+          "PowerPoint Document": "1f3f9ba4ff45b1e134cc26c3fe933fad1a232ab531a5cdf4d4e5135c7e9e986e"
+        }
+      },
+      "after": {
+        "slides": [
+          {
+            "number": 1,
+            "hidden": false,
+            "textSha256": "7091f0195a93cfbcd54208e125f9a73bcc78559cb1bfdb7094ddf179a396bd0f"
+          }
+        ],
+        "streams": {
+          "\u0005DocumentSummaryInformation": "cd2f5648751fdc4f8c38ea4791f2f4801dc5e085437d4809fbe20cc0c0d3d382",
+          "\u0005SummaryInformation": "9e83bcb18f4a4d989710e321079cf5d47ede7ebf719db3ccef6b32e381280926",
+          "Current User": "a56bd1656db92f7fe546c1e3e7c0abb14f7e9b7a19ac0a7bc6e1f4867c1537f4",
+          "PowerPoint Document": "cd98d7681656949404d10f2aa4ff0d2aa66fac96ab26abecd1bb3bd00545e38b"
+        }
+      }
+    }
+  ]
+}

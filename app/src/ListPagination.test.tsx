@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
 import { api, type Bank, type SessionSummary } from "./api";
 
-vi.mock("@tauri-apps/api/core", () => ({
+vi.mock("./transport", () => ({
   invoke: vi.fn(async (_command, args) => {
     const { type } = (args as {request:{type:string}}).request;
     switch (type) {
@@ -15,7 +15,6 @@ vi.mock("@tauri-apps/api/core", () => ({
       default: throw new Error(`Unexpected AI request: ${type}`);
     }
   }),
-  isTauri: () => false,
 }));
 vi.mock("./api", async () => ({...await vi.importActual("./api"),api:vi.fn()}));
 HTMLElement.prototype.hasPointerCapture = () => false;

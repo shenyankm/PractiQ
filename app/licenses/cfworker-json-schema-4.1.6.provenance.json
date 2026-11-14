@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "package": "@cfworker/json-schema",
+  "version": "4.1.6",
+  "artifactUrl": "https://registry.npmjs.org/@cfworker/json-schema/-/json-schema-4.1.6.tgz",
+  "artifactIntegrity": "sha512-YzVGTHXf4bzlyAL5KAvHYCdNbbt6zM5cYkAgxqxQPDQM6aZ4ShIIN5yJ+6q7YeonnevxT8k/LmD2tJi/jOiKkg==",
+  "registryGitHead": "1a0aa37471850c28a4673e12e871e010ea6c26e0",
+  "repository": {
+    "url": "git+https://github.com/cfworker/cfworker.git",
+    "type": "git"
+  },
+  "sourceFiles": [
+    {
+      "source": "https://raw.githubusercontent.com/cfworker/cfworker/1a0aa37471850c28a4673e12e871e010ea6c26e0/LICENSE.md",
+      "sha256": "376944252ab78ca6b41aee44ddea8894927ee67891e77e61eb9d59af63e35094",
+      "publishedMember": null
+    }
+  ],
+  "verification": "Upstream license retrieved at the exact npm registry gitHead; installed version and reviewed lockfile integrity match"
+}

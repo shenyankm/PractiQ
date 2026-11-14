@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "package": "saxes",
+  "version": "6.0.0",
+  "artifactUrl": "https://registry.npmjs.org/saxes/-/saxes-6.0.0.tgz",
+  "artifactIntegrity": "sha512-xAg7SOnEhrm5zI3puOOKyy1OMcMlIJZYNJY7xLBwSze0UjhPLnWfj2GF2EpT0jmzaJKIWKHLsaSSajf35bcYnA==",
+  "registryGitHead": "211fa0ebec9b628affc09219199639887174bfc3",
+  "repository": {
+    "url": "git+https://github.com/lddubeau/saxes.git",
+    "type": "git"
+  },
+  "sourceFiles": [
+    {
+      "source": "https://raw.githubusercontent.com/lddubeau/saxes/211fa0ebec9b628affc09219199639887174bfc3/LICENSE",
+      "sha256": "0fac2374380621b22e6b50451057721a9c52935b02d16d106a9f04897f061d0e",
+      "publishedMember": null
+    }
+  ],
+  "verification": "Upstream license retrieved at the exact npm registry gitHead; installed version and reviewed lockfile integrity match"
+}

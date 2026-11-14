@@ -1,75 +1,54 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Read first
-
-`AGENTS.md` is the authoritative repository guideline and is already loaded into context. Keep it in sync with changes to boundaries, workflows, or data formats; do not restate it here. This file adds the operational detail that is easy to get wrong: exact commands, single-test invocations, and the cross-file mental model.
+Read `AGENTS.md` for authoritative architecture, data/recovery boundaries and
+delivery rules. PractiQ is a single macOS Electron/TypeScript application with
+embedded Node AI workers, LangGraph.js, SQLite and local files.
 
 ## Commands
 
-The service, contract generation, and app package preparation need an existing Python **3.14+** interpreter. Do not create a project `.venv`; select the interpreter with `AI_PYTHON` (for example `AI_PYTHON=$(uv python find 3.14)`). Python 3.13 cannot even import several modules because they rely on PEP 649 deferred annotations.
+From the repository root:
 
 ```sh
-# service (from repo root; needs .env for dev)
-make install-locked AI_PYTHON=…     # locked runtime + dev deps
-make server-dev AI_PYTHON=…         # uvicorn on loopback, PostgreSQL + RabbitMQ
-make test / make test-server        # entire pytest suite
-make verify                         # lockfile, ruff, pyright, eval fixtures, coverage ≥90%, recovery probes, build
-make upgrade-db AI_PYTHON=…         # offline schema 1–5 → 9
-
-# run one service test (pytest-asyncio auto mode, pythonpath=src)
-cd server && PYTHONPATH=src "$AI_PYTHON" -m pytest tests/test_chunking.py -q
-cd server && PYTHONPATH=src "$AI_PYTHON" -m pytest tests/test_chunking.py::test_name -q
-
-# web frontend
-cd web && npx vitest run src/api.test.ts        # one unit test file
-
-# practice app
-make app-install / make app-dev / make app-check / make app-build
-cd app && npx vitest run src/paper.test.ts      # one frontend test file
-cd app/src-tauri && cargo test <name>           # one Rust test
-cd app && npm run check:ui                      # tsc + lint + vitest coverage (no Rust)
-cd app && npm run test:browser                  # Playwright (install chromium first, see README)
-
-# cross-component
-make test-e2e
+make install           # locked npm dependencies and Electron binary
+make dev               # renderer build, Electron and embedded workers
+make verify            # contracts, types, lint, coverage, CI/release tests, build
+make audit             # npm dependency audit
+make app-package-check # fresh app/DMG and independent installed-package checks
+make test-e2e          # browser and real Electron flows with local providers
 ```
 
-Notes:
+Focused checks from `app/`:
 
-- `make test` starts disposable PostgreSQL (16) and RabbitMQ containers for tests that request `disposable_databases`/broker fixtures. Pure tests must not start Docker. Set `TEST_DATABASE_URI` and `TEST_RABBITMQ_URI` + `TEST_RABBITMQ_MANAGEMENT_URL` to reuse external instances.
-- `make app-check` verifies generated contracts, fixtures, TS types/lint/tests, Rust fmt/tests/clippy; it does not run Playwright or collect frontend coverage.
-- The practice app supports macOS only; Linux remains a service/CI host.
-- Server tests must never call real model or Tencent services; reuse the fakes in `server/tests/support.py`.
+```sh
+npx vitest run src/NativeIpcContracts.test.ts
+npm run desktop:build
+npx vitest run --config desktop/vitest.config.ts desktop/backup.test.ts
+npm run test:electron
+```
 
-## Architecture (the parts that span files)
+Backend helpers consume compiled `.build/electron/` code. Serialize builds and
+checks using that directory. Do not repeat full passing suites without a new
+change, failure or concern. Node/npm and supported macOS system tools are the
+current toolchain; no Python, Cargo, Docker or independent service is needed.
 
-Three independently built components share one contract:
+## Cross-file map
 
-| Component | Role |
-| --- | --- |
-| `server/` | Python 3.14 + LangGraph document-import and grading service |
-| `app/` | Offline Tauri 2 practice app (React + Rust + SQLite), macOS |
-| `shared/` | TypeScript UI used by the App |
+- Renderer: `app/src/api.ts` → `transport.ts` → Electron typed preload/main IPC.
+- Practice: `app/desktop/store.ts`, `questions.ts`, `paper.ts`, `sessions.ts`,
+  `bank-packages.ts`, `backup.ts`, `legacy-settings.ts` and `learning.ts`.
+- AI: `document-api.ts`/AI worker → LangGraph.js runtime, document graphs,
+  SQLite checkpoints/Store, durable provider receipts and verified local files.
+- Contracts: `shared/ai-contracts.json` → `app/scripts/export-contracts.ts` →
+  generated types. Frozen wire/model/grading/IPC baselines are test inputs.
+- Packaging/release: `app/scripts/package-electron.ts`, `release.ts` and related
+  validators; final candidate/source/lock/license identity remains mandatory.
 
-**Service request flow.** `webapp.py` exposes same-origin personal-service routes without an access token; `task_api.py` commits a task, run, outbox row, and replay receipt in one PostgreSQL transaction (`requestId` + fingerprint identity). `runtime.py` publishes outbox rows to RabbitMQ and consumes deliveries; it executes the LangGraph graph with `durability='sync'`, one active run per thread, and enforces run deadlines and model-call budgets through the PostgreSQL Store. Resume replays checkpoints with `Command`; an uncertain paid submission is never replayed automatically (`TENCENT_SUBMISSION_UNKNOWN`, `MODEL_RESULT_UNKNOWN`). Visible state and allowed actions are derived in `task_api._task_state` from the latest checkpoint plus run flags.
+Historical `server/` deployment files, docs/evidence and ignored data stay
+preserved. Never restore the retired Rust/Python runtime or remove an entire old
+directory to clean tracked files. Old Keychain/env values and deployment volumes
+are not current provider configuration and must not be reinterpreted or deleted.
 
-**Graph pipeline.** `graphs/document.py` runs `_prepare` (verify source hash, split oversized inputs via `tencent_inputs.py`, submit/poll Tencent through `tencent.py`, or normalize Office through `office.py`/`office_service.py`, decode bundles with `tencent_bundle.py`) → per-unit vision or chunk model calls → `_merge` (in `graphs/chunking.py`, including `finalize_question_ids` and duplicate detection) → status/result assembly. `bank_export.py` packages a completed checkpoint as the desktop bank ZIP. Parsing extracts supplied answers/rubrics without solving. Explicit `generateAnswers=true` adds a bounded post-extraction supplementation step for missing answers/analysis, preserving supplied content and marking generated fields for review. Partial results keep review flags and resumability.
-
-**Storage.** `storage.py` is a local, content-addressed object store (`practiq-agent/sources/…`, `practiq-agent/artifacts/<source-sha>/<kind>/<index>-<sha>.<ext>`): every read re-verifies size and SHA-256, writes are atomic, and keys are path/symlink validated. PostgreSQL owns task/run/receipt rows, LangGraph checkpoints/Store, and grading receipts; relative `AI_STORAGE_DIR` resolves under `server/` and wheel installs require an absolute path.
-
-
-**Practice app.** TypeScript calls typed commands (`app/src/api.ts` → `request` / `ai_request` / `read_asset` in `app/src-tauri/src/lib.rs`), and Rust owns all SQLite/file work behind a single store mutex. Relevant modules: `store.rs` (schema 11, `v4/` data dir, asset GC), `questions.rs` (freeze/thaw, snapshots, trees), `exams.rs`/`sessions.rs` (papers, scoring, grading receipts), `bank_zip.rs` (service-compatible bank ZIPs), `backup.rs` (versioned full backups/restore), `settings.rs` (legacy backup connection settings and versioned restore sidecar), `ai.rs` (explicit backend grading), `cloud.rs` (shared import/grading backend origin in `v4/import-service-v1.json`), `cloud_import.rs` (checked JSON and resource import into SQLite without a ZIP). The bank ZIP contract is shared with the service: `server/src/practiq_ai/bank_export.py` and `app/src-tauri/src/bank_zip.rs` must stay mutually compatible (round-trip tests exist on both sides).
-
-**Key invariants** (details in `AGENTS.md`): no application access token or accounts/billing; passive reads, polling, export, and backup never call a model; paid work starts only from explicit user actions; app data directories (`v4/`) and schema 11 are fixed and older data is rejected rather than migrated; provider credentials stay in the backend environment; legacy native credentials remain untouched and out of backups; app packages contain no Python or LibreOffice.
-
-## Docs map
-
-Use `docs/README.md` as the index. Most useful entry points: `docs/guides/installation.md`, `docs/guides/import-tasks.md`, `docs/guides/question-bank-package.md`, `server/docs/document-tasks.md`, `server/docs/personal-use.md`, `server/docs/rabbitmq.md`, `server/docs/operations.md`, `app/docs/development-preview.md`.
-
-## Git and GitHub
-
-Conventional Commits `<type>(<scope>): <summary>` (types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`; imperative, ≤72 chars, no period). Issues must use the form in `.github/ISSUE_TEMPLATE/`; pull requests must use `.github/PULL_REQUEST_TEMPLATE.md` and complete their sections. See `CONTRIBUTING.md` for validation-to-change tables and label rules.
-
-The document-import workspace is embedded in the macOS App using `shared/cloud/` and the native bridge. There is no independent Web frontend or static hosting. Python remains an independent backend; the App defaults to its loopback address and exposes address editing under import Settings. No Python runtime is embedded in the macOS App.
+Use `docs/README.md`, `docs/guides/installation.md`, `docs/guides/import-tasks.md`,
+`docs/reference/question-model.md` and the migration ledger for current guidance.
+Record actual checks and remaining native/live-provider acceptance in the PR;
+use the repository contribution templates and Conventional Commits.

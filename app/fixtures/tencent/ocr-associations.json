@@ -1,0 +1,2707 @@
+[
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": [
+        {
+          "elementIndex": 7,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "expected": {
+      "page": {
+        "questions": [
+          {
+            "id": "page:1:1",
+            "parentId": null,
+            "questionKind": null,
+            "instructions": null,
+            "audioRef": null,
+            "audioStartSeconds": 0.0,
+            "audioEndSeconds": null,
+            "transcript": [],
+            "examPlayCount": 2,
+            "sourceLanguage": null,
+            "targetLanguage": null,
+            "writingGenre": null,
+            "minWords": null,
+            "maxWords": null,
+            "optionSourceId": null,
+            "passage": [],
+            "allowReuse": false,
+            "blankCount": null,
+            "stem": "Printed?",
+            "answerMode": "short_answer",
+            "questionTypeId": "imported-short",
+            "choiceVariant": null,
+            "matchingVariant": null,
+            "items": [],
+            "options": [],
+            "answerPayload": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null,
+            "analysis": null,
+            "contentBlocks": [
+              {
+                "label": null,
+                "partType": "text",
+                "questionId": null,
+                "role": null,
+                "textValue": "Printed?",
+                "markdownValue": null,
+                "latexValue": null,
+                "jsonValue": null
+              }
+            ],
+            "sourceText": "Printed?",
+            "confidence": 0.8,
+            "needsReview": true,
+            "missingFields": [
+              "answerPayload",
+              "analysis"
+            ]
+          }
+        ],
+        "groups": [],
+        "figures": [
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.0,
+              0.1,
+              0.5,
+              0.5
+            ]
+          },
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": null
+          },
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.5,
+              0.5,
+              1.0,
+              1.0
+            ]
+          }
+        ],
+        "figureIds": [
+          7,
+          2,
+          9
+        ]
+      },
+      "associations": [
+        {
+          "elementIndex": 7,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        },
+        {
+          "elementIndex": 2,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        },
+        {
+          "elementIndex": 9,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": [
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 7,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "expected": {
+      "page": {
+        "questions": [
+          {
+            "id": "page:1:1",
+            "parentId": null,
+            "questionKind": null,
+            "instructions": null,
+            "audioRef": null,
+            "audioStartSeconds": 0.0,
+            "audioEndSeconds": null,
+            "transcript": [],
+            "examPlayCount": 2,
+            "sourceLanguage": null,
+            "targetLanguage": null,
+            "writingGenre": null,
+            "minWords": null,
+            "maxWords": null,
+            "optionSourceId": null,
+            "passage": [],
+            "allowReuse": false,
+            "blankCount": null,
+            "stem": "Printed?",
+            "answerMode": "short_answer",
+            "questionTypeId": "imported-short",
+            "choiceVariant": null,
+            "matchingVariant": null,
+            "items": [],
+            "options": [],
+            "answerPayload": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null,
+            "analysis": null,
+            "contentBlocks": [
+              {
+                "label": null,
+                "partType": "text",
+                "questionId": null,
+                "role": null,
+                "textValue": "Printed?",
+                "markdownValue": null,
+                "latexValue": null,
+                "jsonValue": null
+              }
+            ],
+            "sourceText": "Printed?",
+            "confidence": 0.8,
+            "needsReview": true,
+            "missingFields": [
+              "answerPayload",
+              "analysis"
+            ]
+          }
+        ],
+        "groups": [],
+        "figures": [
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.0,
+              0.1,
+              0.5,
+              0.5
+            ]
+          },
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": null
+          },
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.5,
+              0.5,
+              1.0,
+              1.0
+            ]
+          }
+        ],
+        "figureIds": [
+          7,
+          2,
+          9
+        ]
+      },
+      "associations": [
+        {
+          "elementIndex": 7,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        },
+        {
+          "elementIndex": 2,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        },
+        {
+          "elementIndex": 9,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": [
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 7,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "expected": {
+      "page": {
+        "questions": [
+          {
+            "id": "page:1:1",
+            "parentId": null,
+            "questionKind": null,
+            "instructions": null,
+            "audioRef": null,
+            "audioStartSeconds": 0.0,
+            "audioEndSeconds": null,
+            "transcript": [],
+            "examPlayCount": 2,
+            "sourceLanguage": null,
+            "targetLanguage": null,
+            "writingGenre": null,
+            "minWords": null,
+            "maxWords": null,
+            "optionSourceId": null,
+            "passage": [],
+            "allowReuse": false,
+            "blankCount": null,
+            "stem": "Printed?",
+            "answerMode": "short_answer",
+            "questionTypeId": "imported-short",
+            "choiceVariant": null,
+            "matchingVariant": null,
+            "items": [],
+            "options": [],
+            "answerPayload": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null,
+            "analysis": null,
+            "contentBlocks": [
+              {
+                "label": null,
+                "partType": "text",
+                "questionId": null,
+                "role": null,
+                "textValue": "Printed?",
+                "markdownValue": null,
+                "latexValue": null,
+                "jsonValue": null
+              }
+            ],
+            "sourceText": "Printed?",
+            "confidence": 0.8,
+            "needsReview": true,
+            "missingFields": [
+              "answerPayload",
+              "analysis"
+            ]
+          }
+        ],
+        "groups": [],
+        "figures": [
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.0,
+              0.1,
+              0.5,
+              0.5
+            ]
+          },
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": null
+          },
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.5,
+              0.5,
+              1.0,
+              1.0
+            ]
+          }
+        ],
+        "figureIds": [
+          7,
+          2,
+          9
+        ]
+      },
+      "associations": [
+        {
+          "elementIndex": 7,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        },
+        {
+          "elementIndex": 2,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        },
+        {
+          "elementIndex": 9,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": [
+        {
+          "elementIndex": 7,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "error": true
+  },
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": [
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "error": true
+  },
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": [
+        {
+          "elementIndex": 77,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "error": true
+  },
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": [
+        {
+          "elementIndex": 7,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ],
+          "bbox": [
+            0,
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "error": true
+  },
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": [
+        {
+          "elementIndex": 7,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ],
+          "imageRef": {
+            "objectKey": "invented"
+          }
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "error": true
+  },
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": [
+        {
+          "elementIndex": true,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "error": true
+  },
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": [
+        {
+          "elementIndex": 7.5,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "error": true
+  },
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": [
+        {
+          "elementIndex": 7,
+          "description": "Figure",
+          "questionIndexes": [
+            1
+          ]
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "error": true
+  },
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": null
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "error": true
+  },
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": [
+        {
+          "elementIndex": 7,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        }
+      ],
+      "extra": "invalid"
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "error": true
+  },
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": [
+        {
+          "elementIndex": 7,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ],
+          "kind": "table",
+          "tableRows": []
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "expected": {
+      "page": {
+        "questions": [
+          {
+            "id": "page:1:1",
+            "parentId": null,
+            "questionKind": null,
+            "instructions": null,
+            "audioRef": null,
+            "audioStartSeconds": 0.0,
+            "audioEndSeconds": null,
+            "transcript": [],
+            "examPlayCount": 2,
+            "sourceLanguage": null,
+            "targetLanguage": null,
+            "writingGenre": null,
+            "minWords": null,
+            "maxWords": null,
+            "optionSourceId": null,
+            "passage": [],
+            "allowReuse": false,
+            "blankCount": null,
+            "stem": "Printed?",
+            "answerMode": "short_answer",
+            "questionTypeId": "imported-short",
+            "choiceVariant": null,
+            "matchingVariant": null,
+            "items": [],
+            "options": [],
+            "answerPayload": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null,
+            "analysis": null,
+            "contentBlocks": [
+              {
+                "label": null,
+                "partType": "text",
+                "questionId": null,
+                "role": null,
+                "textValue": "Printed?",
+                "markdownValue": null,
+                "latexValue": null,
+                "jsonValue": null
+              }
+            ],
+            "sourceText": "Printed?",
+            "confidence": 0.8,
+            "needsReview": true,
+            "missingFields": [
+              "answerPayload",
+              "analysis"
+            ]
+          }
+        ],
+        "groups": [],
+        "figures": [
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "table",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.0,
+              0.1,
+              0.5,
+              0.5
+            ]
+          },
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": null
+          },
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.5,
+              0.5,
+              1.0,
+              1.0
+            ]
+          }
+        ],
+        "figureIds": [
+          7,
+          2,
+          9
+        ]
+      },
+      "associations": [
+        {
+          "elementIndex": 7,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "table",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": []
+        },
+        {
+          "elementIndex": 2,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        },
+        {
+          "elementIndex": 9,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": [
+        {
+          "elementIndex": 7,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ],
+          "kind": "table",
+          "tableRows": [
+            [
+              "Answer",
+              "Value"
+            ],
+            [
+              "1",
+              "Secret"
+            ]
+          ]
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "expected": {
+      "page": {
+        "questions": [
+          {
+            "id": "page:1:1",
+            "parentId": null,
+            "questionKind": null,
+            "instructions": null,
+            "audioRef": null,
+            "audioStartSeconds": 0.0,
+            "audioEndSeconds": null,
+            "transcript": [],
+            "examPlayCount": 2,
+            "sourceLanguage": null,
+            "targetLanguage": null,
+            "writingGenre": null,
+            "minWords": null,
+            "maxWords": null,
+            "optionSourceId": null,
+            "passage": [],
+            "allowReuse": false,
+            "blankCount": null,
+            "stem": "Printed?",
+            "answerMode": "short_answer",
+            "questionTypeId": "imported-short",
+            "choiceVariant": null,
+            "matchingVariant": null,
+            "items": [],
+            "options": [],
+            "answerPayload": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null,
+            "analysis": null,
+            "contentBlocks": [
+              {
+                "label": null,
+                "partType": "text",
+                "questionId": null,
+                "role": null,
+                "textValue": "Printed?",
+                "markdownValue": null,
+                "latexValue": null,
+                "jsonValue": null
+              }
+            ],
+            "sourceText": "Printed?",
+            "confidence": 0.8,
+            "needsReview": true,
+            "missingFields": [
+              "answerPayload",
+              "analysis"
+            ]
+          }
+        ],
+        "groups": [],
+        "figures": [
+          {
+            "role": "answer",
+            "questionIndexes": [
+              0
+            ],
+            "kind": "table",
+            "tableRows": [
+              [
+                "Answer",
+                "Value"
+              ],
+              [
+                "1",
+                "Secret"
+              ]
+            ],
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.0,
+              0.1,
+              0.5,
+              0.5
+            ]
+          },
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": null
+          },
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.5,
+              0.5,
+              1.0,
+              1.0
+            ]
+          }
+        ],
+        "figureIds": [
+          7,
+          2,
+          9
+        ]
+      },
+      "associations": [
+        {
+          "elementIndex": 7,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "table",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": [
+            [
+              "Answer",
+              "Value"
+            ],
+            [
+              "1",
+              "Secret"
+            ]
+          ]
+        },
+        {
+          "elementIndex": 2,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        },
+        {
+          "elementIndex": 9,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": [
+        {
+          "elementIndex": 7,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ],
+          "kind": "table",
+          "tableRows": [
+            [
+              "Header",
+              "Value"
+            ],
+            [
+              "A"
+            ]
+          ]
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "expected": {
+      "page": {
+        "questions": [
+          {
+            "id": "page:1:1",
+            "parentId": null,
+            "questionKind": null,
+            "instructions": null,
+            "audioRef": null,
+            "audioStartSeconds": 0.0,
+            "audioEndSeconds": null,
+            "transcript": [],
+            "examPlayCount": 2,
+            "sourceLanguage": null,
+            "targetLanguage": null,
+            "writingGenre": null,
+            "minWords": null,
+            "maxWords": null,
+            "optionSourceId": null,
+            "passage": [],
+            "allowReuse": false,
+            "blankCount": null,
+            "stem": "Printed?",
+            "answerMode": "short_answer",
+            "questionTypeId": "imported-short",
+            "choiceVariant": null,
+            "matchingVariant": null,
+            "items": [],
+            "options": [],
+            "answerPayload": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null,
+            "analysis": null,
+            "contentBlocks": [
+              {
+                "label": null,
+                "partType": "text",
+                "questionId": null,
+                "role": null,
+                "textValue": "Printed?",
+                "markdownValue": null,
+                "latexValue": null,
+                "jsonValue": null
+              }
+            ],
+            "sourceText": "Printed?",
+            "confidence": 0.8,
+            "needsReview": true,
+            "missingFields": [
+              "answerPayload",
+              "analysis"
+            ]
+          }
+        ],
+        "groups": [],
+        "figures": [
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "table",
+            "tableRows": null,
+            "extractedText": "Header\tValue\nA",
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.0,
+              0.1,
+              0.5,
+              0.5
+            ]
+          },
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": null
+          },
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.5,
+              0.5,
+              1.0,
+              1.0
+            ]
+          }
+        ],
+        "figureIds": [
+          7,
+          2,
+          9
+        ]
+      },
+      "associations": [
+        {
+          "elementIndex": 7,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "table",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": [
+            [
+              "Header",
+              "Value"
+            ],
+            [
+              "A"
+            ]
+          ]
+        },
+        {
+          "elementIndex": 2,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        },
+        {
+          "elementIndex": 9,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "questions": [
+        {
+          "stem": "Printed?",
+          "sourceText": "Printed?",
+          "answerMode": "short_answer",
+          "questionTypeId": "imported-short",
+          "options": [],
+          "contentBlocks": [
+            {
+              "partType": "text",
+              "textValue": "Printed?"
+            }
+          ],
+          "confidence": 0.8,
+          "needsReview": false,
+          "id": "page:1:1"
+        }
+      ],
+      "figures": [
+        {
+          "elementIndex": 7,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ],
+          "kind": "table",
+          "tableRows": [
+            [
+              "A",
+              "B"
+            ],
+            [
+              "x",
+              "y"
+            ]
+          ]
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        },
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": [
+            0
+          ]
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "expected": {
+      "page": {
+        "questions": [
+          {
+            "id": "page:1:1",
+            "parentId": null,
+            "questionKind": null,
+            "instructions": null,
+            "audioRef": null,
+            "audioStartSeconds": 0.0,
+            "audioEndSeconds": null,
+            "transcript": [],
+            "examPlayCount": 2,
+            "sourceLanguage": null,
+            "targetLanguage": null,
+            "writingGenre": null,
+            "minWords": null,
+            "maxWords": null,
+            "optionSourceId": null,
+            "passage": [],
+            "allowReuse": false,
+            "blankCount": null,
+            "stem": "Printed?",
+            "answerMode": "short_answer",
+            "questionTypeId": "imported-short",
+            "choiceVariant": null,
+            "matchingVariant": null,
+            "items": [],
+            "options": [],
+            "answerPayload": null,
+            "sourceScore": null,
+            "scoringRubric": null,
+            "scoreSourceText": null,
+            "analysis": null,
+            "contentBlocks": [
+              {
+                "label": null,
+                "partType": "text",
+                "questionId": null,
+                "role": null,
+                "textValue": "Printed?",
+                "markdownValue": null,
+                "latexValue": null,
+                "jsonValue": null
+              }
+            ],
+            "sourceText": "Printed?",
+            "confidence": 0.8,
+            "needsReview": true,
+            "missingFields": [
+              "answerPayload",
+              "analysis"
+            ]
+          }
+        ],
+        "groups": [],
+        "figures": [
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "table",
+            "tableRows": [
+              [
+                "A",
+                "B"
+              ],
+              [
+                "x",
+                "y"
+              ]
+            ],
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.0,
+              0.1,
+              0.5,
+              0.5
+            ]
+          },
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": null
+          },
+          {
+            "role": null,
+            "questionIndexes": [
+              0
+            ],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.5,
+              0.5,
+              1.0,
+              1.0
+            ]
+          }
+        ],
+        "figureIds": [
+          7,
+          2,
+          9
+        ]
+      },
+      "associations": [
+        {
+          "elementIndex": 7,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "table",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": [
+            [
+              "A",
+              "B"
+            ],
+            [
+              "x",
+              "y"
+            ]
+          ]
+        },
+        {
+          "elementIndex": 2,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        },
+        {
+          "elementIndex": 9,
+          "questionIndexes": [
+            0
+          ],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "questions": [],
+      "figures": []
+    },
+    "inventory": [],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "expected": {
+      "page": {
+        "questions": [],
+        "groups": [],
+        "figures": [],
+        "figureIds": []
+      },
+      "associations": []
+    }
+  },
+  {
+    "input": {
+      "questions": [],
+      "figures": [
+        {
+          "elementIndex": 7,
+          "description": "Figure",
+          "questionIndexes": []
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": []
+        },
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": []
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "expected": {
+      "page": {
+        "questions": [],
+        "groups": [],
+        "figures": [
+          {
+            "role": null,
+            "questionIndexes": [],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.0,
+              0.1,
+              0.5,
+              0.5
+            ]
+          },
+          {
+            "role": null,
+            "questionIndexes": [],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": null
+          },
+          {
+            "role": null,
+            "questionIndexes": [],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.5,
+              0.5,
+              1.0,
+              1.0
+            ]
+          }
+        ],
+        "figureIds": [
+          7,
+          2,
+          9
+        ]
+      },
+      "associations": [
+        {
+          "elementIndex": 7,
+          "questionIndexes": [],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        },
+        {
+          "elementIndex": 2,
+          "questionIndexes": [],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        },
+        {
+          "elementIndex": 9,
+          "questionIndexes": [],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        }
+      ]
+    }
+  },
+  {
+    "input": {
+      "questions": [],
+      "figures": []
+    },
+    "inventory": [],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "expected": {
+      "page": {
+        "questions": [],
+        "groups": [],
+        "figures": [],
+        "figureIds": []
+      },
+      "associations": []
+    }
+  },
+  {
+    "input": {
+      "questions": [],
+      "figures": [
+        {
+          "elementIndex": 7,
+          "description": "Figure",
+          "questionIndexes": []
+        },
+        {
+          "elementIndex": 2,
+          "description": "Figure",
+          "questionIndexes": []
+        },
+        {
+          "elementIndex": 9,
+          "description": "Figure",
+          "questionIndexes": []
+        }
+      ]
+    },
+    "inventory": [
+      {
+        "elementIndex": 7,
+        "bbox": [
+          0,
+          0.1,
+          0.5,
+          0.5
+        ]
+      },
+      {
+        "elementIndex": 2,
+        "bbox": null
+      },
+      {
+        "elementIndex": 9,
+        "bbox": [
+          0.5,
+          0.5,
+          1,
+          1
+        ]
+      }
+    ],
+    "scope": {
+      "index": 0,
+      "expectedNodeCount": null,
+      "presence": null
+    },
+    "primary": null,
+    "expected": {
+      "page": {
+        "questions": [],
+        "groups": [],
+        "figures": [
+          {
+            "role": null,
+            "questionIndexes": [],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.0,
+              0.1,
+              0.5,
+              0.5
+            ]
+          },
+          {
+            "role": null,
+            "questionIndexes": [],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": null
+          },
+          {
+            "role": null,
+            "questionIndexes": [],
+            "kind": "image",
+            "tableRows": null,
+            "extractedText": null,
+            "label": null,
+            "description": "Figure",
+            "bbox": [
+              0.5,
+              0.5,
+              1.0,
+              1.0
+            ]
+          }
+        ],
+        "figureIds": [
+          7,
+          2,
+          9
+        ]
+      },
+      "associations": [
+        {
+          "elementIndex": 7,
+          "questionIndexes": [],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        },
+        {
+          "elementIndex": 2,
+          "questionIndexes": [],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        },
+        {
+          "elementIndex": 9,
+          "questionIndexes": [],
+          "role": null,
+          "kind": "image",
+          "description": "Figure",
+          "label": null,
+          "extractedText": null,
+          "tableRows": null
+        }
+      ]
+    }
+  }
+]

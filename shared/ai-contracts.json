@@ -1,0 +1,5940 @@
+{
+  "definitions": {
+    "ArtifactReference": {
+      "additionalProperties": false,
+      "properties": {
+        "objectKey": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Objectkey",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "mediaType": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Mediatype",
+          "type": "string"
+        },
+        "sizeBytes": {
+          "minimum": 0,
+          "title": "Sizebytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "objectKey",
+        "sha256",
+        "mediaType",
+        "sizeBytes"
+      ],
+      "title": "ArtifactReference",
+      "type": "object"
+    },
+    "AudioReference": {
+      "additionalProperties": false,
+      "properties": {
+        "objectKey": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Objectkey",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "mediaType": {
+          "pattern": "^audio/(mpeg|mp4|aac|wav)$",
+          "title": "Mediatype",
+          "type": "string"
+        },
+        "sizeBytes": {
+          "exclusiveMinimum": 0,
+          "maximum": 26214400,
+          "title": "Sizebytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "objectKey",
+        "sha256",
+        "mediaType",
+        "sizeBytes"
+      ],
+      "title": "AudioReference",
+      "type": "object"
+    },
+    "ChoiceAnswerPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "correct": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Correct",
+          "type": "array"
+        }
+      },
+      "required": [
+        "correct"
+      ],
+      "title": "ChoiceAnswerPayload",
+      "type": "object"
+    },
+    "ContentBlock": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "partType": {
+          "enum": [
+            "text",
+            "formula",
+            "image",
+            "table",
+            "list",
+            "html",
+            "markdown",
+            "chart",
+            "diagram",
+            "blank",
+            "qr_code"
+          ],
+          "title": "Parttype",
+          "type": "string"
+        },
+        "questionId": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Questionid"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        },
+        "textValue": {
+          "anyOf": [
+            {
+              "maxLength": 120000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Textvalue"
+        },
+        "markdownValue": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Markdownvalue"
+        },
+        "latexValue": {
+          "anyOf": [
+            {
+              "maxLength": 20000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Latexvalue"
+        },
+        "jsonValue": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Jsonvalue"
+        }
+      },
+      "required": [
+        "partType"
+      ],
+      "title": "ContentBlock",
+      "type": "object"
+    },
+    "DocumentGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "instructions": {
+          "anyOf": [
+            {
+              "maxLength": 20000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Instructions"
+        },
+        "questionIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "title": "Questionids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "title",
+        "questionIds"
+      ],
+      "title": "DocumentGroup",
+      "type": "object"
+    },
+    "DocumentParseResult": {
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "const": 3,
+          "title": "Schemaversion",
+          "type": "integer"
+        },
+        "questions": {
+          "items": {
+            "$ref": "#/$defs/ParsedQuestion"
+          },
+          "maxItems": 1000,
+          "title": "Questions",
+          "type": "array"
+        },
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/DocumentGroup"
+          },
+          "maxItems": 1000,
+          "title": "Groups",
+          "type": "array"
+        },
+        "visualElements": {
+          "items": {
+            "$ref": "#/$defs/DocumentVisual"
+          },
+          "maxItems": 1000,
+          "title": "Visualelements",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "title": "Warnings",
+          "type": "array"
+        },
+        "confidenceScore": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Confidencescore",
+          "type": "number"
+        },
+        "missingFields": {
+          "description": "Document-level missing content; per-question omissions are in questions[].missingFields. Empty does not prove completeness.",
+          "items": {
+            "enum": [
+              "questions",
+              "media"
+            ],
+            "type": "string"
+          },
+          "title": "Missingfields",
+          "type": "array"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "questions",
+        "groups",
+        "visualElements",
+        "warnings",
+        "confidenceScore"
+      ],
+      "title": "DocumentParseResult",
+      "type": "object"
+    },
+    "DocumentProcessing": {
+      "additionalProperties": false,
+      "properties": {
+        "chunks": {
+          "$ref": "#/$defs/UnitCounts"
+        },
+        "visuals": {
+          "$ref": "#/$defs/UnitCounts"
+        },
+        "truncated": {
+          "title": "Truncated",
+          "type": "boolean"
+        },
+        "failures": {
+          "items": {
+            "$ref": "#/$defs/UnitFailure"
+          },
+          "maxItems": 2000,
+          "title": "Failures",
+          "type": "array"
+        },
+        "questionSources": {
+          "items": {
+            "$ref": "#/$defs/DocumentQuestionSource"
+          },
+          "title": "Questionsources",
+          "type": "array"
+        },
+        "quality": {
+          "$ref": "#/$defs/ExportQuality"
+        }
+      },
+      "required": [
+        "chunks",
+        "visuals",
+        "truncated",
+        "failures"
+      ],
+      "title": "DocumentProcessing",
+      "type": "object"
+    },
+    "DocumentQualityIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "questionId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Questionid",
+          "type": "string"
+        },
+        "code": {
+          "enum": [
+            "SOURCE_TEXT_NOT_FOUND",
+            "AMBIGUOUS_OVERLAP",
+            "OVERLAP_CONFLICT",
+            "MISSING_FIELDS",
+            "NEEDS_REVIEW"
+          ],
+          "title": "Code",
+          "type": "string"
+        }
+      },
+      "required": [
+        "questionId",
+        "code"
+      ],
+      "title": "DocumentQualityIssue",
+      "type": "object"
+    },
+    "DocumentQuestionSource": {
+      "additionalProperties": false,
+      "properties": {
+        "questionId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "title": "Questionid",
+          "type": "string"
+        },
+        "stage": {
+          "enum": [
+            "document_parse",
+            "vision_parse"
+          ],
+          "title": "Stage",
+          "type": "string"
+        },
+        "unitIndex": {
+          "minimum": 0,
+          "title": "Unitindex",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "questionId",
+        "stage",
+        "unitIndex"
+      ],
+      "title": "DocumentQuestionSource",
+      "type": "object"
+    },
+    "DocumentVisual": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Content role; answer-bearing visuals use answer and are hidden during unsubmitted exams.",
+          "title": "Role"
+        },
+        "kind": {
+          "enum": [
+            "image",
+            "table",
+            "chart",
+            "diagram",
+            "qr_code"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "description": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "extractedText": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extractedtext"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "bbox": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bbox"
+        },
+        "cropBbox": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Actual source crop bounds when verified Tencent label boxes extend the original bbox; model coordinates remain unchanged.",
+          "title": "Cropbbox"
+        },
+        "imageRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sourceRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Complete source page image for visual verification; may include printed answers."
+        },
+        "documentOnly": {
+          "default": false,
+          "description": "Retain unparsed source imagery without attaching it to bank questions.",
+          "title": "Documentonly",
+          "type": "boolean"
+        },
+        "questionIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "title": "Questionids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "description"
+      ],
+      "title": "DocumentVisual",
+      "type": "object"
+    },
+    "ExportQuality": {
+      "additionalProperties": false,
+      "properties": {
+        "reviewRequired": {
+          "default": false,
+          "title": "Reviewrequired",
+          "type": "boolean"
+        },
+        "reviewQuestionCount": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Reviewquestioncount",
+          "type": "integer"
+        },
+        "issues": {
+          "items": {
+            "$ref": "#/$defs/DocumentQualityIssue"
+          },
+          "title": "Issues",
+          "type": "array"
+        }
+      },
+      "title": "ExportQuality",
+      "type": "object"
+    },
+    "FillBlankAnswerPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "answers": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Answers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "answers"
+      ],
+      "title": "FillBlankAnswerPayload",
+      "type": "object"
+    },
+    "MatchPair": {
+      "additionalProperties": false,
+      "properties": {
+        "left": {
+          "title": "Left",
+          "type": "integer"
+        },
+        "right": {
+          "title": "Right",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "left",
+        "right"
+      ],
+      "title": "MatchPair",
+      "type": "object"
+    },
+    "MatchingAnswerPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "matches": {
+          "items": {
+            "$ref": "#/$defs/MatchPair"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Matches",
+          "type": "array"
+        }
+      },
+      "required": [
+        "matches"
+      ],
+      "title": "MatchingAnswerPayload",
+      "type": "object"
+    },
+    "OrderingAnswerPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "order": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Order",
+          "type": "array"
+        }
+      },
+      "required": [
+        "order"
+      ],
+      "title": "OrderingAnswerPayload",
+      "type": "object"
+    },
+    "ParsedItem": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "side": {
+          "anyOf": [
+            {
+              "enum": [
+                "left",
+                "right"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Side"
+        },
+        "content": {
+          "anyOf": [
+            {
+              "maxLength": 20000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content"
+        }
+      },
+      "title": "ParsedItem",
+      "type": "object"
+    },
+    "ParsedOption": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "content": {
+          "anyOf": [
+            {
+              "maxLength": 20000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content"
+        }
+      },
+      "title": "ParsedOption",
+      "type": "object"
+    },
+    "ParsedQuestion": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Id"
+        },
+        "parentId": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parentid"
+        },
+        "questionKind": {
+          "anyOf": [
+            {
+              "enum": [
+                "listening",
+                "reading",
+                "word_bank",
+                "cloze",
+                "grammar_fill",
+                "sentence_selection",
+                "paragraph_matching",
+                "translation",
+                "writing"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Questionkind"
+        },
+        "instructions": {
+          "anyOf": [
+            {
+              "maxLength": 20000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Instructions"
+        },
+        "audioRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AudioReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "audioStartSeconds": {
+          "default": 0,
+          "maximum": 86400,
+          "minimum": 0,
+          "title": "Audiostartseconds",
+          "type": "number"
+        },
+        "audioEndSeconds": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 86400,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Audioendseconds"
+        },
+        "transcript": {
+          "items": {
+            "$ref": "#/$defs/ContentBlock"
+          },
+          "maxItems": 1000,
+          "title": "Transcript",
+          "type": "array"
+        },
+        "examPlayCount": {
+          "default": 2,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Examplaycount",
+          "type": "integer"
+        },
+        "sourceLanguage": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sourcelanguage"
+        },
+        "targetLanguage": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Targetlanguage"
+        },
+        "writingGenre": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Writinggenre"
+        },
+        "minWords": {
+          "anyOf": [
+            {
+              "maximum": 100000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minwords"
+        },
+        "maxWords": {
+          "anyOf": [
+            {
+              "maximum": 100000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maxwords"
+        },
+        "optionSourceId": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Optionsourceid"
+        },
+        "passage": {
+          "items": {
+            "$ref": "#/$defs/ContentBlock"
+          },
+          "maxItems": 1000,
+          "title": "Passage",
+          "type": "array"
+        },
+        "allowReuse": {
+          "default": false,
+          "title": "Allowreuse",
+          "type": "boolean"
+        },
+        "blankCount": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blankcount"
+        },
+        "stem": {
+          "anyOf": [
+            {
+              "maxLength": 120000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stem"
+        },
+        "answerMode": {
+          "anyOf": [
+            {
+              "enum": [
+                "choice",
+                "true_false",
+                "fill_blank",
+                "short_answer",
+                "ordering",
+                "matching",
+                "reading",
+                "word_bank",
+                "cloze",
+                "listening",
+                "gap_fill"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answermode"
+        },
+        "questionTypeId": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Questiontypeid"
+        },
+        "choiceVariant": {
+          "anyOf": [
+            {
+              "enum": [
+                "single",
+                "multiple"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Choicevariant"
+        },
+        "matchingVariant": {
+          "anyOf": [
+            {
+              "enum": [
+                "one_to_one",
+                "many_to_one"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Matchingvariant"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/ParsedItem"
+          },
+          "maxItems": 100,
+          "title": "Items",
+          "type": "array"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/ParsedOption"
+          },
+          "maxItems": 100,
+          "title": "Options",
+          "type": "array"
+        },
+        "answerPayload": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ChoiceAnswerPayload"
+            },
+            {
+              "$ref": "#/$defs/TrueFalseAnswerPayload"
+            },
+            {
+              "$ref": "#/$defs/FillBlankAnswerPayload"
+            },
+            {
+              "$ref": "#/$defs/ShortAnswerPayload"
+            },
+            {
+              "$ref": "#/$defs/OrderingAnswerPayload"
+            },
+            {
+              "$ref": "#/$defs/MatchingAnswerPayload"
+            },
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Extract only an answer explicitly supplied by the source; never solve the question. Use null when absent.",
+          "title": "Answerpayload"
+        },
+        "sourceScore": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1000000,
+              "multipleOf": 0.01,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sourcescore"
+        },
+        "scoringRubric": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scoringrubric"
+        },
+        "scoreSourceText": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scoresourcetext"
+        },
+        "analysis": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Analysis"
+        },
+        "contentBlocks": {
+          "items": {
+            "$ref": "#/$defs/ContentBlock"
+          },
+          "maxItems": 1000,
+          "title": "Contentblocks",
+          "type": "array"
+        },
+        "sourceText": {
+          "anyOf": [
+            {
+              "maxLength": 120000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Literal source text for locating this question; do not summarize or paraphrase.",
+          "title": "Sourcetext"
+        },
+        "confidence": {
+          "default": 0,
+          "description": "Reliability of extraction, not confidence that the answer is correct.",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "needsReview": {
+          "default": true,
+          "description": "True when extraction is uncertain; missing fields also force review during validation.",
+          "title": "Needsreview",
+          "type": "boolean"
+        },
+        "missingFields": {
+          "items": {
+            "enum": [
+              "stem",
+              "questionTypeId",
+              "answerMode",
+              "choiceVariant",
+              "matchingVariant",
+              "options",
+              "items",
+              "answerPayload",
+              "analysis",
+              "sourceText",
+              "media",
+              "material"
+            ],
+            "type": "string"
+          },
+          "title": "Missingfields",
+          "type": "array"
+        }
+      },
+      "title": "ParsedQuestion",
+      "type": "object"
+    },
+    "ShortAnswerPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "text": {
+          "maxLength": 120000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "ShortAnswerPayload",
+      "type": "object"
+    },
+    "TrueFalseAnswerPayload": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "title": "Value",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "TrueFalseAnswerPayload",
+      "type": "object"
+    },
+    "UnitCounts": {
+      "additionalProperties": false,
+      "properties": {
+        "total": {
+          "minimum": 0,
+          "title": "Total",
+          "type": "integer"
+        },
+        "succeeded": {
+          "minimum": 0,
+          "title": "Succeeded",
+          "type": "integer"
+        },
+        "skipped": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Skipped",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "succeeded"
+      ],
+      "title": "UnitCounts",
+      "type": "object"
+    },
+    "UnitFailure": {
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "enum": [
+            "document_parse",
+            "vision_parse",
+            "vision_describe",
+            "visual_crop"
+          ],
+          "title": "Stage",
+          "type": "string"
+        },
+        "index": {
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "code": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "retriesRemaining": {
+          "default": 0,
+          "maximum": 2,
+          "minimum": 0,
+          "title": "Retriesremaining",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "stage",
+        "index",
+        "code",
+        "retryable"
+      ],
+      "title": "UnitFailure",
+      "type": "object"
+    },
+    "DocumentAnswerEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "selection": {
+          "$ref": "#/$defs/DocumentAnswerSource"
+        },
+        "sourceSha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sourcesha256",
+          "type": "string"
+        },
+        "fileName": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename"
+        },
+        "sourceText": {
+          "anyOf": [
+            {
+              "maxLength": 120000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sourcetext"
+        }
+      },
+      "required": [
+        "selection",
+        "sourceSha256"
+      ],
+      "title": "DocumentAnswerEvidence",
+      "type": "object"
+    },
+    "DocumentAnswerSource": {
+      "additionalProperties": false,
+      "properties": {
+        "taskId": {
+          "format": "uuid",
+          "title": "Taskid",
+          "type": "string"
+        },
+        "checkpointId": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Checkpointid",
+          "type": "string"
+        },
+        "questionIndex": {
+          "minimum": 0,
+          "title": "Questionindex",
+          "type": "integer"
+        },
+        "replaceExisting": {
+          "default": false,
+          "title": "Replaceexisting",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "taskId",
+        "checkpointId",
+        "questionIndex"
+      ],
+      "title": "DocumentAnswerSource",
+      "type": "object"
+    },
+    "DocumentCorrections": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpointId": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Checkpointid",
+          "type": "string"
+        },
+        "edits": {
+          "items": {
+            "$ref": "#/$defs/DocumentQuestionCorrection"
+          },
+          "maxItems": 500,
+          "title": "Edits",
+          "type": "array"
+        }
+      },
+      "required": [
+        "checkpointId"
+      ],
+      "title": "DocumentCorrections",
+      "type": "object"
+    },
+    "DocumentQuestionCorrection": {
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "format": "uuid",
+          "title": "Requestid",
+          "type": "string"
+        },
+        "questionIndex": {
+          "minimum": 0,
+          "title": "Questionindex",
+          "type": "integer"
+        },
+        "question": {
+          "$ref": "#/$defs/ParsedQuestion"
+        },
+        "savedAt": {
+          "title": "Savedat",
+          "type": "string"
+        },
+        "answerEvidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DocumentAnswerEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "requestId",
+        "questionIndex",
+        "question",
+        "savedAt"
+      ],
+      "title": "DocumentQuestionCorrection",
+      "type": "object"
+    },
+    "DocumentReference": {
+      "additionalProperties": false,
+      "properties": {
+        "objectKey": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Objectkey",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "mediaType": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Mediatype",
+          "type": "string"
+        },
+        "sizeBytes": {
+          "minimum": 0,
+          "title": "Sizebytes",
+          "type": "integer"
+        },
+        "sourceType": {
+          "enum": [
+            "csv",
+            "image",
+            "text",
+            "markdown",
+            "pdf",
+            "doc",
+            "docx",
+            "ppt",
+            "pptx",
+            "xls",
+            "xlsx"
+          ],
+          "title": "Sourcetype",
+          "type": "string"
+        },
+        "fileName": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename"
+        }
+      },
+      "required": [
+        "objectKey",
+        "sha256",
+        "mediaType",
+        "sizeBytes",
+        "sourceType"
+      ],
+      "title": "DocumentReference",
+      "type": "object"
+    },
+    "ParsedGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "instructions": {
+          "anyOf": [
+            {
+              "maxLength": 20000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Instructions"
+        },
+        "questionIndexes": {
+          "description": "Zero-based positions in this fragment's questions, not printed question numbers.",
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 1000,
+          "title": "Questionindexes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "title",
+        "questionIndexes"
+      ],
+      "title": "ParsedGroup",
+      "type": "object"
+    },
+    "ReviewUnit": {
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "enum": [
+            "result",
+            "vision_parse",
+            "document_parse"
+          ],
+          "title": "Stage",
+          "type": "string"
+        },
+        "index": {
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "questions": {
+          "items": {
+            "$ref": "#/$defs/ParsedQuestion"
+          },
+          "title": "Questions",
+          "type": "array"
+        },
+        "groups": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/ParsedGroup"
+              },
+              {
+                "$ref": "#/$defs/DocumentGroup"
+              }
+            ]
+          },
+          "title": "Groups",
+          "type": "array"
+        },
+        "visualElements": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/VisualElement"
+              },
+              {
+                "$ref": "#/$defs/DocumentVisual"
+              }
+            ]
+          },
+          "title": "Visualelements",
+          "type": "array"
+        },
+        "sourceRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evidenceRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "originalPageRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sourcePage": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sourcepage"
+        }
+      },
+      "required": [
+        "stage",
+        "index",
+        "questions",
+        "groups"
+      ],
+      "title": "ReviewUnit",
+      "type": "object"
+    },
+    "VisualElement": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Content role; answer-bearing visuals use answer and are hidden during unsubmitted exams.",
+          "title": "Role"
+        },
+        "kind": {
+          "enum": [
+            "image",
+            "table",
+            "chart",
+            "diagram",
+            "qr_code"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "description": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "extractedText": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extractedtext"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "bbox": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bbox"
+        },
+        "cropBbox": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Actual source crop bounds when verified Tencent label boxes extend the original bbox; model coordinates remain unchanged.",
+          "title": "Cropbbox"
+        },
+        "imageRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sourceRef": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Complete source page image for visual verification; may include printed answers."
+        },
+        "questionIndexes": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 1000,
+          "title": "Questionindexes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "description"
+      ],
+      "title": "VisualElement",
+      "type": "object"
+    },
+    "DocumentParserJob": {
+      "additionalProperties": false,
+      "properties": {
+        "queryRequestId": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Queryrequestid"
+        },
+        "errorCode": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9_.]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Errorcode"
+        },
+        "statusUpdatedAt": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Statusupdatedat"
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Taskid"
+        },
+        "requestId": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Requestid"
+        },
+        "status": {
+          "enum": [
+            "STAGING",
+            "SUBMITTING",
+            "REJECTED",
+            "Created",
+            "Processing",
+            "Success",
+            "Failed",
+            "Unknown"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "successPageCount": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Successpagecount"
+        },
+        "failedPageCount": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Failedpagecount"
+        },
+        "resultSaved": {
+          "title": "Resultsaved",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "status",
+        "resultSaved"
+      ],
+      "title": "DocumentParserJob",
+      "type": "object"
+    },
+    "ModelCallUsage": {
+      "additionalProperties": false,
+      "properties": {
+        "callKey": {
+          "format": "uuid",
+          "title": "Callkey",
+          "type": "string"
+        },
+        "modelId": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Modelid",
+          "type": "string"
+        },
+        "inputTokens": {
+          "minimum": 0,
+          "title": "Inputtokens",
+          "type": "integer"
+        },
+        "outputTokens": {
+          "minimum": 0,
+          "title": "Outputtokens",
+          "type": "integer"
+        },
+        "callKind": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Callkind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "callKey",
+        "modelId",
+        "inputTokens",
+        "outputTokens",
+        "callKind"
+      ],
+      "title": "ModelCallUsage",
+      "type": "object"
+    },
+    "TaskModelBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "minimum": 0,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "reserved": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reserved"
+        }
+      },
+      "required": [
+        "limit",
+        "reserved"
+      ],
+      "title": "TaskModelBudget",
+      "type": "object"
+    },
+    "TaskProgress": {
+      "additionalProperties": false,
+      "properties": {
+        "visuals": {
+          "$ref": "#/$defs/TaskUnitProgress"
+        },
+        "chunks": {
+          "$ref": "#/$defs/TaskUnitProgress"
+        }
+      },
+      "required": [
+        "visuals",
+        "chunks"
+      ],
+      "title": "TaskProgress",
+      "type": "object"
+    },
+    "TaskUnitProgress": {
+      "additionalProperties": false,
+      "properties": {
+        "total": {
+          "minimum": 0,
+          "title": "Total",
+          "type": "integer"
+        },
+        "succeeded": {
+          "minimum": 0,
+          "title": "Succeeded",
+          "type": "integer"
+        },
+        "failed": {
+          "minimum": 0,
+          "title": "Failed",
+          "type": "integer"
+        },
+        "remaining": {
+          "minimum": 0,
+          "title": "Remaining",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "succeeded",
+        "failed",
+        "remaining"
+      ],
+      "title": "TaskUnitProgress",
+      "type": "object"
+    },
+    "DocumentTaskSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "threadId": {
+          "format": "uuid",
+          "title": "Threadid",
+          "type": "string"
+        },
+        "fileName": {
+          "title": "Filename",
+          "type": "string"
+        },
+        "documentRole": {
+          "default": "questions",
+          "enum": [
+            "questions",
+            "answers"
+          ],
+          "title": "Documentrole",
+          "type": "string"
+        },
+        "createdAt": {
+          "title": "Createdat",
+          "type": "string"
+        },
+        "expiresAt": {
+          "title": "Expiresat",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "PENDING",
+            "RUNNING",
+            "PAUSING",
+            "PAUSED",
+            "INTERRUPTED",
+            "CANCELLED",
+            "FAILED",
+            "WAITING_REVIEW",
+            "COMPLETED",
+            "EXPIRED"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "SUCCEEDED",
+                "PARTIAL"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Status"
+        },
+        "checkpointId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Checkpointid"
+        },
+        "questionCount": {
+          "minimum": 0,
+          "title": "Questioncount",
+          "type": "integer"
+        },
+        "reviewCount": {
+          "minimum": 0,
+          "title": "Reviewcount",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "threadId",
+        "fileName",
+        "createdAt",
+        "expiresAt",
+        "state",
+        "status",
+        "checkpointId",
+        "questionCount",
+        "reviewCount"
+      ],
+      "title": "DocumentTaskSummary",
+      "type": "object"
+    },
+    "DocumentReparseSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpointId": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Checkpointid",
+          "type": "string"
+        },
+        "units": {
+          "items": {
+            "$ref": "#/$defs/FailedUnit"
+          },
+          "maxItems": 2000,
+          "minItems": 1,
+          "title": "Units",
+          "type": "array"
+        }
+      },
+      "required": [
+        "checkpointId",
+        "units"
+      ],
+      "title": "DocumentReparseSelection",
+      "type": "object"
+    },
+    "FailedUnit": {
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "enum": [
+            "vision_parse",
+            "vision_describe",
+            "document_parse"
+          ],
+          "title": "Stage",
+          "type": "string"
+        },
+        "index": {
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "stage",
+        "index"
+      ],
+      "title": "FailedUnit",
+      "type": "object"
+    },
+    "LocalUpload": {
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "const": "PUT",
+          "default": "PUT",
+          "title": "Method",
+          "type": "string"
+        },
+        "url": {
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        }
+      },
+      "required": [
+        "url",
+        "headers"
+      ],
+      "title": "LocalUpload",
+      "type": "object"
+    },
+    "ImportBudgetCapacity": {
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "minimum": 0,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "unitCalls": {
+          "exclusiveMinimum": 0,
+          "title": "Unitcalls",
+          "type": "integer"
+        },
+        "contextUnitCalls": {
+          "exclusiveMinimum": 0,
+          "title": "Contextunitcalls",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "limit",
+        "unitCalls",
+        "contextUnitCalls"
+      ],
+      "title": "ImportBudgetCapacity",
+      "type": "object"
+    },
+    "ImportSettings": {
+      "additionalProperties": false,
+      "properties": {
+        "deduplicateQuestions": {
+          "default": false,
+          "title": "Deduplicatequestions",
+          "type": "boolean"
+        },
+        "generateAnswers": {
+          "default": false,
+          "title": "Generateanswers",
+          "type": "boolean"
+        },
+        "tencentConcurrency": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Tencentconcurrency",
+          "type": "integer"
+        },
+        "readRetryCount": {
+          "maximum": 5,
+          "minimum": 0,
+          "title": "Readretrycount",
+          "type": "integer"
+        },
+        "retryBaseSeconds": {
+          "maximum": 10,
+          "minimum": 0.5,
+          "title": "Retrybaseseconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "tencentConcurrency",
+        "readRetryCount",
+        "retryBaseSeconds"
+      ],
+      "title": "ImportSettings",
+      "type": "object"
+    },
+    "GradeCriterion": {
+      "additionalProperties": false,
+      "properties": {
+        "criterion": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Criterion",
+          "type": "string"
+        },
+        "scoreCents": {
+          "maximum": 100000000,
+          "minimum": 0,
+          "title": "Scorecents",
+          "type": "integer"
+        },
+        "maxCents": {
+          "maximum": 100000000,
+          "minimum": 1,
+          "title": "Maxcents",
+          "type": "integer"
+        },
+        "referenceQuote": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Referencequote",
+          "type": "string"
+        },
+        "answerQuote": {
+          "maxLength": 20000,
+          "title": "Answerquote",
+          "type": "string"
+        },
+        "reason": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "criterion",
+        "scoreCents",
+        "maxCents",
+        "referenceQuote",
+        "answerQuote",
+        "reason"
+      ],
+      "title": "GradeCriterion",
+      "type": "object"
+    },
+    "DocumentAnswerMatch": {
+      "additionalProperties": false,
+      "properties": {
+        "questionIndex": {
+          "minimum": 0,
+          "title": "Questionindex",
+          "type": "integer"
+        },
+        "candidates": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 2000,
+          "title": "Candidates",
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "unique",
+            "ambiguous",
+            "unmatched",
+            "has_answer"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "questionIndex",
+        "status"
+      ],
+      "title": "DocumentAnswerMatch",
+      "type": "object"
+    },
+    "DocumentBankImport": {
+      "additionalProperties": false,
+      "description": "A saved snapshot imported by the App without an archive container.",
+      "properties": {
+        "title": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "SUCCEEDED",
+            "PARTIAL"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "result": {
+          "$ref": "#/$defs/DocumentParseResult"
+        },
+        "processing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DocumentProcessing"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "title",
+        "status",
+        "result",
+        "processing"
+      ],
+      "title": "DocumentBankImport",
+      "type": "object"
+    },
+    "BankImportDiagnostic": {
+      "additionalProperties": false,
+      "description": "Portable extraction diagnostics scoped to one imported snapshot, without task state.",
+      "properties": {
+        "questionIds": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "title": "Questionids",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "SUCCEEDED",
+                "PARTIAL"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Status"
+        },
+        "processing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DocumentProcessing"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "questionIds",
+        "status",
+        "processing"
+      ],
+      "title": "BankImportDiagnostic",
+      "type": "object"
+    },
+    "DocumentTaskReview": {
+      "additionalProperties": false,
+      "properties": {
+        "document": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DocumentReference"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "threadId": {
+          "format": "uuid",
+          "title": "Threadid",
+          "type": "string"
+        },
+        "checkpointId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Checkpointid"
+        },
+        "state": {
+          "enum": [
+            "PENDING",
+            "RUNNING",
+            "PAUSING",
+            "PAUSED",
+            "INTERRUPTED",
+            "CANCELLED",
+            "FAILED",
+            "WAITING_REVIEW",
+            "COMPLETED",
+            "EXPIRED"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "phase": {
+          "title": "Phase",
+          "type": "string"
+        },
+        "units": {
+          "items": {
+            "$ref": "#/$defs/ReviewUnit"
+          },
+          "title": "Units",
+          "type": "array"
+        },
+        "failures": {
+          "items": {
+            "$ref": "#/$defs/UnitFailure"
+          },
+          "title": "Failures",
+          "type": "array"
+        },
+        "quality": {
+          "$ref": "#/$defs/ExportQuality"
+        },
+        "questionSources": {
+          "items": {
+            "$ref": "#/$defs/DocumentQuestionSource"
+          },
+          "title": "Questionsources",
+          "type": "array"
+        },
+        "corrections": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DocumentCorrections"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "threadId",
+        "checkpointId",
+        "state",
+        "phase",
+        "units",
+        "failures",
+        "quality",
+        "questionSources"
+      ],
+      "title": "DocumentTaskReview",
+      "type": "object"
+    },
+    "DocumentTaskDetail": {
+      "additionalProperties": false,
+      "description": "Existing task GET response; nullable fields are always present on the wire.",
+      "properties": {
+        "threadId": {
+          "format": "uuid",
+          "title": "Threadid",
+          "type": "string"
+        },
+        "runId": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Runid"
+        },
+        "parentThreadId": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parentthreadid"
+        },
+        "modelConfigured": {
+          "title": "Modelconfigured",
+          "type": "boolean"
+        },
+        "resumeCompatible": {
+          "title": "Resumecompatible",
+          "type": "boolean"
+        },
+        "fileName": {
+          "title": "Filename",
+          "type": "string"
+        },
+        "pages": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "integer"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pages"
+        },
+        "documentRole": {
+          "default": "questions",
+          "enum": [
+            "questions",
+            "answers"
+          ],
+          "title": "Documentrole",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "PENDING",
+            "RUNNING",
+            "PAUSING",
+            "PAUSED",
+            "INTERRUPTED",
+            "CANCELLED",
+            "FAILED",
+            "WAITING_REVIEW",
+            "COMPLETED",
+            "EXPIRED"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "pending",
+            "prepare",
+            "vision",
+            "chunk",
+            "vision_review",
+            "chunk_review",
+            "answer_generation",
+            "result_review",
+            "result",
+            "completed"
+          ],
+          "title": "Phase",
+          "type": "string"
+        },
+        "checkpointId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Checkpointid"
+        },
+        "updatedAt": {
+          "title": "Updatedat",
+          "type": "string"
+        },
+        "expiresAt": {
+          "title": "Expiresat",
+          "type": "string"
+        },
+        "allowedActions": {
+          "items": {
+            "enum": [
+              "pause",
+              "interrupt",
+              "resume",
+              "retry_failed",
+              "accept_partial"
+            ],
+            "type": "string"
+          },
+          "title": "Allowedactions",
+          "type": "array"
+        },
+        "failures": {
+          "items": {
+            "$ref": "#/$defs/UnitFailure"
+          },
+          "title": "Failures",
+          "type": "array"
+        },
+        "blocking": {
+          "items": {},
+          "title": "Blocking",
+          "type": "array"
+        },
+        "progress": {
+          "$ref": "#/$defs/TaskProgress"
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "SUCCEEDED",
+                "PARTIAL"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Status"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DocumentParseResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "modelBudget": {
+          "$ref": "#/$defs/TaskModelBudget"
+        },
+        "processing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DocumentProcessing"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "usage": {
+          "items": {
+            "$ref": "#/$defs/ModelCallUsage"
+          },
+          "title": "Usage",
+          "type": "array"
+        },
+        "unknownUsageCalls": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Unknownusagecalls",
+          "type": "array"
+        },
+        "canExportCompleted": {
+          "default": false,
+          "title": "Canexportcompleted",
+          "type": "boolean"
+        },
+        "parserJobs": {
+          "items": {
+            "$ref": "#/$defs/DocumentParserJob"
+          },
+          "maxItems": 300,
+          "title": "Parserjobs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "threadId",
+        "runId",
+        "parentThreadId",
+        "modelConfigured",
+        "resumeCompatible",
+        "fileName",
+        "state",
+        "phase",
+        "checkpointId",
+        "updatedAt",
+        "expiresAt",
+        "allowedActions",
+        "failures",
+        "blocking",
+        "progress",
+        "status",
+        "result",
+        "modelBudget",
+        "processing",
+        "usage",
+        "unknownUsageCalls"
+      ],
+      "title": "DocumentTaskDetail",
+      "type": "object"
+    },
+    "DocumentTaskHead": {
+      "additionalProperties": false,
+      "properties": {
+        "threadId": {
+          "format": "uuid",
+          "title": "Threadid",
+          "type": "string"
+        },
+        "runId": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Runid"
+        },
+        "state": {
+          "enum": [
+            "PENDING",
+            "RUNNING",
+            "PAUSING",
+            "PAUSED",
+            "INTERRUPTED",
+            "CANCELLED",
+            "FAILED",
+            "WAITING_REVIEW",
+            "COMPLETED",
+            "EXPIRED"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "checkpointId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Checkpointid"
+        },
+        "updatedAt": {
+          "title": "Updatedat",
+          "type": "string"
+        },
+        "modelConfigured": {
+          "title": "Modelconfigured",
+          "type": "boolean"
+        },
+        "resumeCompatible": {
+          "title": "Resumecompatible",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "threadId",
+        "runId",
+        "state",
+        "checkpointId",
+        "updatedAt",
+        "modelConfigured",
+        "resumeCompatible"
+      ],
+      "title": "DocumentTaskHead",
+      "type": "object"
+    },
+    "DocumentTaskList": {
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/DocumentTaskSummary"
+          },
+          "title": "Items",
+          "type": "array"
+        },
+        "hasMore": {
+          "title": "Hasmore",
+          "type": "boolean"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nextcursor"
+        }
+      },
+      "required": [
+        "items",
+        "hasMore"
+      ],
+      "title": "DocumentTaskList",
+      "type": "object"
+    },
+    "DocumentTaskCreate": {
+      "additionalProperties": false,
+      "properties": {
+        "pages": {
+          "anyOf": [
+            {
+              "items": {
+                "minimum": 1,
+                "type": "integer"
+              },
+              "maxItems": 2000,
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pages"
+        },
+        "documentRole": {
+          "default": "questions",
+          "enum": [
+            "questions",
+            "answers"
+          ],
+          "title": "Documentrole",
+          "type": "string"
+        },
+        "requestId": {
+          "format": "uuid",
+          "title": "Requestid",
+          "type": "string"
+        },
+        "graphId": {
+          "default": "document_parser",
+          "enum": [
+            "document_parser",
+            "text_csv_parser",
+            "pdf_parser"
+          ],
+          "title": "Graphid",
+          "type": "string"
+        },
+        "document": {
+          "$ref": "#/$defs/DocumentReference"
+        },
+        "failurePolicy": {
+          "default": "return_partial",
+          "enum": [
+            "return_partial",
+            "review"
+          ],
+          "title": "Failurepolicy",
+          "type": "string"
+        },
+        "parentThreadId": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parentthreadid"
+        },
+        "officeMode": {
+          "anyOf": [
+            {
+              "enum": [
+                "pdf",
+                "text"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Officemode"
+        },
+        "deduplicateQuestions": {
+          "default": false,
+          "title": "Deduplicatequestions",
+          "type": "boolean"
+        },
+        "generateAnswers": {
+          "default": false,
+          "title": "Generateanswers",
+          "type": "boolean"
+        },
+        "reparseSelection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DocumentReparseSelection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "requestId",
+        "document"
+      ],
+      "title": "DocumentTaskCreate",
+      "type": "object"
+    },
+    "DocumentTaskControl": {
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "format": "uuid",
+          "title": "Requestid",
+          "type": "string"
+        },
+        "action": {
+          "enum": [
+            "pause",
+            "interrupt",
+            "resume",
+            "retry_failed",
+            "accept_partial"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "runId": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runid"
+        },
+        "checkpointId": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Checkpointid"
+        },
+        "units": {
+          "items": {
+            "$ref": "#/$defs/FailedUnit"
+          },
+          "maxItems": 2000,
+          "title": "Units",
+          "type": "array"
+        }
+      },
+      "required": [
+        "requestId",
+        "action"
+      ],
+      "title": "DocumentTaskControl",
+      "type": "object"
+    },
+    "DocumentTaskReparse": {
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "format": "uuid",
+          "title": "Requestid",
+          "type": "string"
+        },
+        "selection": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DocumentReparseSelection"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "requestId"
+      ],
+      "title": "DocumentTaskReparse",
+      "type": "object"
+    },
+    "DocumentTaskReceipt": {
+      "additionalProperties": false,
+      "properties": {
+        "threadId": {
+          "format": "uuid",
+          "title": "Threadid",
+          "type": "string"
+        },
+        "requestId": {
+          "format": "uuid",
+          "title": "Requestid",
+          "type": "string"
+        },
+        "runId": {
+          "format": "uuid",
+          "title": "Runid",
+          "type": "string"
+        },
+        "accepted": {
+          "const": true,
+          "title": "Accepted",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "threadId",
+        "requestId",
+        "runId",
+        "accepted"
+      ],
+      "title": "DocumentTaskReceipt",
+      "type": "object"
+    },
+    "DocumentUploadRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceType": {
+          "enum": [
+            "image",
+            "text",
+            "markdown",
+            "pdf",
+            "doc",
+            "docx",
+            "ppt",
+            "pptx",
+            "xls",
+            "xlsx"
+          ],
+          "title": "Sourcetype",
+          "type": "string"
+        },
+        "fileName": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename"
+        },
+        "mediaType": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mediatype"
+        },
+        "sizeBytes": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sizebytes"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sha256"
+        }
+      },
+      "required": [
+        "sourceType"
+      ],
+      "title": "DocumentUploadRequest",
+      "type": "object"
+    },
+    "DocumentUploadResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "document": {
+          "$ref": "#/$defs/DocumentReference"
+        },
+        "upload": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocalUpload"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "document",
+        "upload"
+      ],
+      "title": "DocumentUploadResponse",
+      "type": "object"
+    },
+    "ImportCapabilities": {
+      "additionalProperties": false,
+      "properties": {
+        "sourceTypes": {
+          "items": {
+            "enum": [
+              "image",
+              "text",
+              "markdown",
+              "pdf",
+              "doc",
+              "docx",
+              "ppt",
+              "pptx",
+              "xls",
+              "xlsx"
+            ],
+            "type": "string"
+          },
+          "title": "Sourcetypes",
+          "type": "array"
+        },
+        "sourceMaxBytes": {
+          "exclusiveMinimum": 0,
+          "title": "Sourcemaxbytes",
+          "type": "integer"
+        },
+        "officeSourceMaxBytes": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Officesourcemaxbytes"
+        },
+        "officeAvailable": {
+          "title": "Officeavailable",
+          "type": "boolean"
+        },
+        "officeModes": {
+          "items": {
+            "enum": [
+              "pdf",
+              "text"
+            ],
+            "type": "string"
+          },
+          "title": "Officemodes",
+          "type": "array"
+        },
+        "modelConfigured": {
+          "title": "Modelconfigured",
+          "type": "boolean"
+        },
+        "modelBudget": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ImportBudgetCapacity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "parserConfigured": {
+          "default": false,
+          "title": "Parserconfigured",
+          "type": "boolean"
+        },
+        "parserInputMaxBytes": {
+          "default": 8388608,
+          "maximum": 157286400,
+          "minimum": 4,
+          "title": "Parserinputmaxbytes",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sourceTypes",
+        "sourceMaxBytes",
+        "officeAvailable",
+        "officeModes",
+        "modelConfigured"
+      ],
+      "title": "ImportCapabilities",
+      "type": "object"
+    },
+    "ImportSettingsSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "format": "uuid",
+          "title": "Revision",
+          "type": "string"
+        },
+        "settings": {
+          "$ref": "#/$defs/ImportSettings"
+        }
+      },
+      "required": [
+        "revision",
+        "settings"
+      ],
+      "title": "ImportSettingsSnapshot",
+      "type": "object"
+    },
+    "GradeResult": {
+      "additionalProperties": false,
+      "properties": {
+        "scoreCents": {
+          "anyOf": [
+            {
+              "maximum": 100000000,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Scorecents"
+        },
+        "maxCents": {
+          "maximum": 100000000,
+          "minimum": 1,
+          "title": "Maxcents",
+          "type": "integer"
+        },
+        "reason": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "reviewReasons": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Reviewreasons",
+          "type": "array"
+        },
+        "criteria": {
+          "items": {
+            "$ref": "#/$defs/GradeCriterion"
+          },
+          "maxItems": 50,
+          "title": "Criteria",
+          "type": "array"
+        },
+        "assessmentMaxCents": {
+          "anyOf": [
+            {
+              "maximum": 100000000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Assessmentmaxcents"
+        }
+      },
+      "required": [
+        "scoreCents",
+        "maxCents",
+        "reason",
+        "evidence",
+        "reviewReasons"
+      ],
+      "title": "GradeResult",
+      "type": "object"
+    },
+    "DocumentCorrectionSave": {
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "format": "uuid",
+          "title": "Requestid",
+          "type": "string"
+        },
+        "checkpointId": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Checkpointid",
+          "type": "string"
+        },
+        "expectedRevision": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Expectedrevision"
+        },
+        "questionIndex": {
+          "minimum": 0,
+          "title": "Questionindex",
+          "type": "integer"
+        },
+        "question": {
+          "$ref": "#/$defs/ParsedQuestion"
+        },
+        "answerSource": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DocumentAnswerSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "requestId",
+        "checkpointId",
+        "expectedRevision",
+        "questionIndex",
+        "question"
+      ],
+      "title": "DocumentCorrectionSave",
+      "type": "object"
+    },
+    "DocumentAnswerMatches": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpointId": {
+          "title": "Checkpointid",
+          "type": "string"
+        },
+        "answerTaskId": {
+          "format": "uuid",
+          "title": "Answertaskid",
+          "type": "string"
+        },
+        "answerCheckpointId": {
+          "title": "Answercheckpointid",
+          "type": "string"
+        },
+        "matches": {
+          "items": {
+            "$ref": "#/$defs/DocumentAnswerMatch"
+          },
+          "title": "Matches",
+          "type": "array"
+        }
+      },
+      "required": [
+        "checkpointId",
+        "answerTaskId",
+        "answerCheckpointId",
+        "matches"
+      ],
+      "title": "DocumentAnswerMatches",
+      "type": "object"
+    },
+    "DocumentAnswerProposal": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpointId": {
+          "title": "Checkpointid",
+          "type": "string"
+        },
+        "answerSource": {
+          "$ref": "#/$defs/DocumentAnswerSource"
+        },
+        "question": {
+          "$ref": "#/$defs/ParsedQuestion"
+        },
+        "corrections": {
+          "$ref": "#/$defs/DocumentCorrections"
+        }
+      },
+      "required": [
+        "checkpointId",
+        "answerSource",
+        "question",
+        "corrections"
+      ],
+      "title": "DocumentAnswerProposal",
+      "type": "object"
+    },
+    "UnitParseResult": {
+      "additionalProperties": false,
+      "properties": {
+        "questions": {
+          "items": {
+            "$ref": "#/$defs/ParsedQuestion"
+          },
+          "maxItems": 1000,
+          "title": "Questions",
+          "type": "array"
+        },
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/ParsedGroup"
+          },
+          "maxItems": 1000,
+          "title": "Groups",
+          "type": "array"
+        }
+      },
+      "title": "UnitParseResult",
+      "type": "object"
+    },
+    "OcrFigureAssociation": {
+      "additionalProperties": false,
+      "properties": {
+        "elementIndex": {
+          "minimum": 0,
+          "title": "Elementindex",
+          "type": "integer"
+        },
+        "questionIndexes": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 1000,
+          "title": "Questionindexes",
+          "type": "array"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        },
+        "kind": {
+          "default": "image",
+          "description": "Classify visible content: table for rows/columns, chart for plotted data, diagram for schematic relationships, qr_code for QR codes, image for other pictures.",
+          "enum": [
+            "image",
+            "table",
+            "chart",
+            "diagram",
+            "qr_code"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "extractedText": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extractedtext"
+        },
+        "tableRows": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "maxItems": 1000,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tablerows"
+        }
+      },
+      "required": [
+        "elementIndex",
+        "description"
+      ],
+      "title": "OcrFigureAssociation",
+      "type": "object"
+    },
+    "OcrPageParseResult": {
+      "additionalProperties": false,
+      "properties": {
+        "questions": {
+          "items": {
+            "$ref": "#/$defs/ParsedQuestion"
+          },
+          "maxItems": 1000,
+          "title": "Questions",
+          "type": "array"
+        },
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/ParsedGroup"
+          },
+          "maxItems": 1000,
+          "title": "Groups",
+          "type": "array"
+        },
+        "figures": {
+          "items": {
+            "$ref": "#/$defs/OcrFigureAssociation"
+          },
+          "maxItems": 1000,
+          "title": "Figures",
+          "type": "array"
+        }
+      },
+      "title": "OcrPageParseResult",
+      "type": "object"
+    },
+    "PageFigure": {
+      "properties": {
+        "role": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Use answer if any part contains supplied answers, solutions, analysis or scoring rubrics; otherwise material.",
+          "title": "Role"
+        },
+        "questionIndexes": {
+          "description": "Indexes in this response questions array; empty only for genuinely unassociated figures.",
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 1000,
+          "title": "Questionindexes",
+          "type": "array"
+        },
+        "kind": {
+          "default": "image",
+          "description": "Classify visible content: table for rows/columns, chart for plotted data, diagram for schematic relationships, qr_code for QR codes, image for other pictures.",
+          "enum": [
+            "image",
+            "table",
+            "chart",
+            "diagram",
+            "qr_code"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "tableRows": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "maxItems": 1000,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Simple table only: first row is headers, then ALL data rows, each cell a raw string with inline $LaTeX$. Equal column counts; empty cells remain empty strings. Null for merged/multilevel tables that cannot be faithfully represented.",
+          "title": "Tablerows"
+        },
+        "extractedText": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For tables: complete GFM Markdown table including headers and every cell; for merged/multilevel cells use faithful readable text without inventing a flattened table. For other figures: visible text or null.",
+          "title": "Extractedtext"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "description": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "bbox": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 4,
+              "minItems": 4,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Fixed Tencent bounds, or null for linked native-workbook images without page coordinates. Never invent coordinates.",
+          "title": "Bbox"
+        }
+      },
+      "required": [
+        "description",
+        "bbox"
+      ],
+      "title": "PageFigure",
+      "type": "object"
+    },
+    "PageParseResult": {
+      "additionalProperties": false,
+      "properties": {
+        "questions": {
+          "items": {
+            "$ref": "#/$defs/ParsedQuestion"
+          },
+          "maxItems": 1000,
+          "title": "Questions",
+          "type": "array"
+        },
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/ParsedGroup"
+          },
+          "maxItems": 1000,
+          "title": "Groups",
+          "type": "array"
+        },
+        "figures": {
+          "items": {
+            "$ref": "#/$defs/PageFigure"
+          },
+          "maxItems": 1000,
+          "title": "Figures",
+          "type": "array"
+        }
+      },
+      "title": "PageParseResult",
+      "type": "object"
+    },
+    "GeneratedAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "answerPayload": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answerpayload"
+        },
+        "analysis": {
+          "anyOf": [
+            {
+              "maxLength": 100000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Analysis"
+        }
+      },
+      "title": "GeneratedAnswer",
+      "type": "object"
+    },
+    "DesktopArtifactReply": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "reference": {
+          "$ref": "#/$defs/ArtifactReference"
+        },
+        "bytes": {
+          "type": "string",
+          "contentEncoding": "base64",
+          "maxLength": 209715200
+        }
+      },
+      "required": [
+        "reference",
+        "bytes"
+      ]
+    },
+    "DesktopDocumentRequest": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "create",
+              "type": "string"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "value": {
+              "$ref": "#/$defs/DocumentTaskCreate"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "control",
+              "type": "string"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "threadId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "value": {
+              "$ref": "#/$defs/DocumentTaskControl"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "threadId",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "list",
+              "type": "string"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "",
+                "PENDING",
+                "RUNNING",
+                "PAUSING",
+                "PAUSED",
+                "INTERRUPTED",
+                "CANCELLED",
+                "FAILED",
+                "WAITING_REVIEW",
+                "COMPLETED",
+                "EXPIRED",
+                "active"
+              ]
+            },
+            "cursor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "offset",
+            "limit",
+            "state"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "detail",
+              "type": "string"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "threadId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "threadId"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "head",
+              "type": "string"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "threadId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "threadId"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "preview",
+              "type": "string"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "threadId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "includeResult": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "threadId",
+            "includeResult"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "artifact",
+              "type": "string"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "threadId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "reference": {
+              "$ref": "#/$defs/ArtifactReference"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "threadId",
+            "reference"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "capabilities"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "type",
+            "revision"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "import_settings"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "type",
+            "revision"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "save_import_settings"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "value": {
+              "$ref": "#/$defs/ImportSettingsSnapshot"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "bank"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "value": {
+              "$ref": "#/$defs/DesktopDocumentBankSelection"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "import_bank"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "value": {
+              "$ref": "#/$defs/DesktopDocumentBankSelection"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "corrections"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "threadId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "threadId"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "save_correction"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "threadId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "value": {
+              "$ref": "#/$defs/DocumentCorrectionSave"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "threadId",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "answer_matches"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "threadId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "checkpointId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "answerTaskId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "threadId",
+            "checkpointId",
+            "answerTaskId"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "answer_proposal"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "threadId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "checkpointId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "questionIndex": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "answerSource": {
+              "$ref": "#/$defs/DocumentAnswerSource"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "threadId",
+            "checkpointId",
+            "questionIndex",
+            "answerSource"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "reparse",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/$defs/DocumentTaskReparse"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "threadId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "type",
+            "value",
+            "revision",
+            "threadId"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "source_status"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "threadId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "threadId"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "repair_source"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "threadId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "value": {
+              "$ref": "#/$defs/DesktopSourceRepairRequest"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "threadId",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "delete"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "threadId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "threadId"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "export_bank_zip"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "value": {
+              "$ref": "#/$defs/DesktopDocumentBankSelection"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "maintenance_preview"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "type",
+            "revision"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "cleanup_state"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "value": {
+              "$ref": "#/$defs/DesktopMaintenanceRequest"
+            }
+          },
+          "required": [
+            "type",
+            "revision",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "cost_report"
+            },
+            "revision": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "threadId": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "required": [
+            "type",
+            "revision"
+          ]
+        }
+      ],
+      "title": "DesktopDocumentRequest"
+    },
+    "DesktopDocumentReply": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "create",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/$defs/DocumentTaskReceipt"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "control",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/$defs/DocumentTaskReceipt"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "list",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/$defs/DocumentTaskList"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "detail",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/$defs/DocumentTaskDetail"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "head",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/$defs/DocumentTaskHead"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "preview",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/$defs/DocumentTaskReview"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "artifact",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/$defs/DesktopArtifactReply"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "capabilities"
+            },
+            "value": {
+              "$ref": "#/$defs/ImportCapabilities"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "import_settings"
+            },
+            "value": {
+              "$ref": "#/$defs/ImportSettingsSnapshot"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "save_import_settings"
+            },
+            "value": {
+              "$ref": "#/$defs/ImportSettingsSnapshot"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "bank"
+            },
+            "value": {
+              "$ref": "#/$defs/DocumentBankImport"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "import_bank"
+            },
+            "value": {
+              "$ref": "#/$defs/DesktopBankImportReceipt"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "corrections"
+            },
+            "value": {
+              "$ref": "#/$defs/DocumentCorrections"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "save_correction"
+            },
+            "value": {
+              "$ref": "#/$defs/DocumentCorrections"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "answer_matches"
+            },
+            "value": {
+              "$ref": "#/$defs/DocumentAnswerMatches"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "answer_proposal"
+            },
+            "value": {
+              "$ref": "#/$defs/DocumentAnswerProposal"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "reparse",
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/$defs/DocumentTaskReceipt"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "source_status"
+            },
+            "value": {
+              "$ref": "#/$defs/DesktopSourceStatus"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "repair_source"
+            },
+            "value": {
+              "$ref": "#/$defs/DesktopSourceRepairResult"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "delete"
+            },
+            "value": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "threadId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "deleted": {
+                  "const": true,
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "threadId",
+                "deleted"
+              ]
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "export_bank_zip"
+            },
+            "value": {
+              "$ref": "#/$defs/DesktopBankZipReceipt"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "maintenance_preview"
+            },
+            "value": {
+              "$ref": "#/$defs/DesktopMaintenancePreview"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "cleanup_state"
+            },
+            "value": {
+              "$ref": "#/$defs/DesktopMaintenanceReceipt"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "cost_report"
+            },
+            "value": {
+              "$ref": "#/$defs/DesktopCostReport"
+            }
+          },
+          "required": [
+            "type",
+            "value"
+          ]
+        }
+      ],
+      "title": "DesktopDocumentReply"
+    },
+    "DesktopAiPreferences": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "provider": {
+              "type": "string",
+              "enum": [
+                "dashscope",
+                "deepseek",
+                "moonshot",
+                "openai"
+              ]
+            },
+            "baseUrl": {
+              "type": "string",
+              "maxLength": 2048
+            },
+            "modelId": {
+              "type": "string",
+              "maxLength": 255
+            },
+            "maxOutputTokens": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 131072
+            },
+            "timeoutSeconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 600
+            }
+          },
+          "required": [
+            "provider",
+            "baseUrl",
+            "modelId",
+            "maxOutputTokens",
+            "timeoutSeconds"
+          ]
+        },
+        "import": {
+          "$ref": "#/$defs/ImportSettings"
+        },
+        "maxCalls": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "runTimeoutSeconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "tencentCos": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "bucket": {
+              "type": "string",
+              "maxLength": 84
+            },
+            "region": {
+              "type": "string",
+              "maxLength": 63
+            }
+          },
+          "required": [
+            "enabled",
+            "bucket",
+            "region"
+          ]
+        },
+        "cost": {
+          "$ref": "#/$defs/DesktopCostPreferences"
+        }
+      },
+      "required": [
+        "model",
+        "import",
+        "maxCalls",
+        "tencentCos"
+      ]
+    },
+    "DesktopAiSettingsView": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "preferences": {
+          "$ref": "#/$defs/DesktopAiPreferences"
+        },
+        "configured": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "modelApiKey": {
+              "type": "boolean"
+            },
+            "tencentSecretId": {
+              "type": "boolean"
+            },
+            "tencentSecretKey": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "modelApiKey",
+            "tencentSecretId",
+            "tencentSecretKey"
+          ]
+        }
+      },
+      "required": [
+        "revision",
+        "preferences",
+        "configured"
+      ]
+    },
+    "DesktopAiSettingsSave": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "preferences": {
+          "$ref": "#/$defs/DesktopAiPreferences"
+        },
+        "secrets": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "modelApiKey": {
+              "type": "string",
+              "maxLength": 8192
+            },
+            "tencentSecretId": {
+              "type": "string",
+              "maxLength": 8192
+            },
+            "tencentSecretKey": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          },
+          "required": []
+        }
+      },
+      "required": [
+        "revision",
+        "preferences"
+      ]
+    },
+    "DesktopDocumentBankSelection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "threadId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "checkpointId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "scope": {
+          "type": "string",
+          "enum": [
+            "full",
+            "completed"
+          ]
+        },
+        "revisionId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "questionIndexes": {
+          "anyOf": [
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 2000,
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "threadId",
+        "checkpointId",
+        "scope"
+      ]
+    },
+    "DesktopBankImportReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "bankId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000
+        }
+      },
+      "required": [
+        "bankId",
+        "count"
+      ]
+    },
+    "DesktopSourceStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "threadId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "document": {
+          "$ref": "#/$defs/DocumentReference"
+        },
+        "taskVersion": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "missing",
+            "corrupt"
+          ]
+        },
+        "errorCode": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "OBJECT_NOT_FOUND",
+                "DOCUMENT_SIZE_MISMATCH",
+                "DOCUMENT_CHECKSUM_MISMATCH"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "canRepair": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "threadId",
+        "document",
+        "taskVersion",
+        "status",
+        "errorCode",
+        "canRepair"
+      ]
+    },
+    "DesktopSourceRepairRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expectedVersion": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "requestId",
+        "expectedVersion"
+      ]
+    },
+    "DesktopSourceRepairResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "threadId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "verified",
+            "repaired",
+            "cancelled"
+          ]
+        },
+        "quarantineId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "threadId",
+        "requestId",
+        "status",
+        "quarantineId"
+      ]
+    },
+    "DesktopBankZipReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "threadId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "checkpointId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "saved": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "threadId",
+        "checkpointId",
+        "saved"
+      ],
+      "title": "DesktopBankZipReceipt"
+    },
+    "DesktopMaintenanceRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "previewId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "requestId",
+        "previewId"
+      ]
+    },
+    "DesktopMaintenanceCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "threadId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "expired",
+            "deletion",
+            "orphan"
+          ]
+        },
+        "fileName": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "threadId",
+        "kind",
+        "fileName"
+      ]
+    },
+    "DesktopMaintenanceReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "previewId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "cleaned": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        }
+      },
+      "required": [
+        "requestId",
+        "previewId",
+        "cleaned"
+      ]
+    },
+    "DesktopMaintenancePreview": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "previewId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "expiresAt": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 32
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DesktopMaintenanceCandidate"
+          },
+          "maxItems": 100
+        },
+        "hasMore": {
+          "type": "boolean"
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "canClean": {
+          "type": "boolean"
+        },
+        "pending": {
+          "type": "array",
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "requestId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "previewId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "completed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "total": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100
+              }
+            },
+            "required": [
+              "requestId",
+              "previewId",
+              "completed",
+              "total"
+            ]
+          }
+        }
+      },
+      "required": [
+        "previewId",
+        "expiresAt",
+        "candidates",
+        "hasMore",
+        "skipped",
+        "canClean",
+        "pending"
+      ]
+    },
+    "DesktopCostPreferences": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "currency": {
+          "type": "string",
+          "maxLength": 3
+        },
+        "taskLimitMicros": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dailyLimitMicros": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inputMicrosPerMillion": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outputMicrosPerMillion": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tencentMicrosPerPage": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "enabled",
+        "currency",
+        "taskLimitMicros",
+        "dailyLimitMicros",
+        "inputMicrosPerMillion",
+        "outputMicrosPerMillion",
+        "tencentMicrosPerPage"
+      ]
+    },
+    "DesktopCostTotal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "reservedMicros": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "currency",
+        "reservedMicros"
+      ]
+    },
+    "DesktopCostReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {
+          "type": "integer",
+          "const": 1
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "reservedMicros": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "scope": {
+          "type": "string",
+          "pattern": "^(task|grading):[a-f0-9-]{36}$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "model",
+            "tencent"
+          ]
+        },
+        "pricingHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "targetHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "day": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        }
+      },
+      "required": [
+        "version",
+        "currency",
+        "reservedMicros",
+        "scope",
+        "kind",
+        "pricingHash",
+        "targetHash",
+        "day"
+      ]
+    },
+    "DesktopCostReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "currency": {
+          "type": "string",
+          "maxLength": 3
+        },
+        "utcDay": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "day": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DesktopCostTotal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "task": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DesktopCostTotal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "taskLimitMicros": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "dailyLimitMicros": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recent": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DesktopCostReceipt"
+          },
+          "maxItems": 20
+        }
+      },
+      "required": [
+        "enabled",
+        "currency",
+        "utcDay",
+        "day",
+        "task",
+        "taskLimitMicros",
+        "dailyLimitMicros",
+        "recent"
+      ]
+    },
+    "DesktopListeningLink": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        },
+        "label": {
+          "type": "string",
+          "maxLength": 160
+        }
+      },
+      "required": [
+        "url",
+        "label"
+      ]
+    },
+    "DesktopListeningRequest": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "pick_audio_qr"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "decode_audio_qr"
+            },
+            "hash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "type",
+            "hash"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "listening_links"
+            },
+            "url": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "type",
+            "url"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "load_listening_audio"
+            },
+            "url": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 8192
+            }
+          },
+          "required": [
+            "type",
+            "url"
+          ]
+        }
+      ]
+    }
+  },
+  "wireModels": [
+    "DocumentBankImport",
+    "BankImportDiagnostic",
+    "DocumentTaskSummary",
+    "DocumentTaskReview",
+    "DocumentTaskDetail",
+    "DocumentTaskHead",
+    "DocumentTaskList",
+    "DocumentTaskCreate",
+    "DocumentTaskControl",
+    "DocumentTaskReparse",
+    "DocumentTaskReceipt",
+    "DocumentUploadRequest",
+    "DocumentUploadResponse",
+    "ImportCapabilities",
+    "ImportSettingsSnapshot",
+    "GradeResult",
+    "DocumentCorrectionSave",
+    "DocumentCorrections",
+    "DocumentAnswerMatches",
+    "DocumentAnswerProposal"
+  ],
+  "exports": {
+    "result": "DocumentParseResult",
+    "processing": "DocumentProcessing",
+    "bankImportDiagnostic": "BankImportDiagnostic",
+    "taskSummary": "DocumentTaskSummary",
+    "taskReview": "DocumentTaskReview",
+    "taskDetail": "DocumentTaskDetail",
+    "gradeResult": "GradeResult",
+    "bankImport": "DocumentBankImport"
+  },
+  "metadata": {
+    "questionKindModes": {
+      "listening": "listening",
+      "reading": "reading",
+      "word_bank": "word_bank",
+      "cloze": "cloze",
+      "grammar_fill": "gap_fill",
+      "sentence_selection": "word_bank",
+      "paragraph_matching": "matching",
+      "translation": "short_answer",
+      "writing": "short_answer"
+    },
+    "documentSourceTypes": [
+      "csv",
+      "image",
+      "text",
+      "markdown",
+      "pdf",
+      "doc",
+      "docx",
+      "ppt",
+      "pptx",
+      "xls",
+      "xlsx"
+    ],
+    "officeModes": [
+      "pdf",
+      "text"
+    ],
+    "importSourceTypes": [
+      "image",
+      "text",
+      "markdown",
+      "pdf",
+      "doc",
+      "docx",
+      "ppt",
+      "pptx",
+      "xls",
+      "xlsx"
+    ],
+    "compositeModes": [
+      "cloze",
+      "gap_fill",
+      "listening",
+      "reading",
+      "word_bank"
+    ],
+    "filterModes": [
+      "",
+      "choice",
+      "cloze",
+      "fill_blank",
+      "gap_fill",
+      "grammar_fill",
+      "listening",
+      "matching",
+      "multiple",
+      "ordering",
+      "paragraph_matching",
+      "reading",
+      "sentence_selection",
+      "short_answer",
+      "single",
+      "translation",
+      "true_false",
+      "word_bank",
+      "writing"
+    ]
+  },
+  "desktopModels": [
+    "OcrFigureAssociation",
+    "OcrPageParseResult",
+    "PageFigure",
+    "PageParseResult",
+    "GeneratedAnswer"
+  ],
+  "nativeModels": [
+    "DesktopArtifactReply",
+    "DesktopDocumentRequest",
+    "DesktopDocumentReply",
+    "DesktopAiPreferences",
+    "DesktopAiSettingsView",
+    "DesktopAiSettingsSave",
+    "DesktopDocumentBankSelection",
+    "DesktopBankImportReceipt",
+    "DesktopSourceStatus",
+    "DesktopSourceRepairRequest",
+    "DesktopSourceRepairResult",
+    "DesktopBankZipReceipt",
+    "DesktopMaintenanceRequest",
+    "DesktopMaintenanceCandidate",
+    "DesktopMaintenanceReceipt",
+    "DesktopMaintenancePreview",
+    "DesktopCostPreferences",
+    "DesktopCostTotal",
+    "DesktopCostReceipt",
+    "DesktopCostReport",
+    "DesktopListeningLink",
+    "DesktopListeningRequest"
+  ]
+}

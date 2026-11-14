@@ -1,6 +1,10 @@
 # PractiQ documentation
 
-PractiQ has a macOS practice app with an embedded import workspace and an independent Python backend for macOS. Start with the current guides below; dated reports describe only their recorded source and evidence, including retired Windows/Android targets.
+PractiQ is one macOS Electron application with an embedded import workspace,
+Node AI workers, LangGraph.js and local SQLite/file storage. Start with the
+current guides below. Historical service documentation and dated reports
+describe only their recorded source and evidence, including retired architectures
+and Windows/Android targets.
 
 ## Directory map
 
@@ -19,14 +23,20 @@ PractiQ has a macOS practice app with an embedded import workspace and an indepe
 
 | Task | Guide |
 | --- | --- |
-| Install the practice app or the AI service | [Installation guide](guides/installation.md) |
+| Install the app and configure optional embedded AI | [Installation guide](guides/installation.md) |
 | Understand what the app does | [English overview](../README.md), [简体中文概览](../README.zh-CN.md) |
 | Practise, submit answers and review scores | [Practice guide](guides/practice-guide.md) |
 | Start, control and review AI imports | [Import tasks](guides/import-tasks.md) |
 | Import/share bank ZIPs or restore personal study data | [Question-bank packages and backups](guides/question-bank-package.md) |
 | Explore UI scenarios without native storage or model calls | [Development preview](../app/docs/development-preview.md) |
 
-## Integrate and operate the service
+## Historical service references
+
+These guides document the retired independent Python/PostgreSQL/RabbitMQ design.
+They remain available to interpret old deployments, backups and evidence; they
+are not current installation commands. Preserve existing volumes and credentials.
+Current import controls are in the [user guide](guides/import-tasks.md); strict
+schemas live in `shared/ai-contracts.json` and typed Electron bridge definitions.
 
 | Task | Guide |
 | --- | --- |
@@ -41,7 +51,8 @@ PractiQ has a macOS practice app with an embedded import workspace and an indepe
 | Validate fixtures and measure extraction/grading quality | [Evaluation](../server/docs/evaluation.md) |
 | Check checkpoint compatibility after a change | [Resume compatibility](../server/docs/resume-compatibility.md) |
 
-The API guide owns task payloads and controls; the user import guide explains the corresponding actions. The question model owns data versions and relationships; the JSON/rendering reference owns detailed field and type mappings.
+The question model owns current data versions and relationships; the
+JSON/rendering reference owns detailed field and type mappings.
 
 ## Product, data and acceptance
 
@@ -71,6 +82,13 @@ The API guide owns task payloads and controls; the user import guide explains th
 
 Fixture provenance and reproduction belong beside their inputs: [service-export](../app/fixtures/service-export/README.md), [AI-import corpus](../app/fixtures/ai-import/README.md), [Office fixtures](../app/fixtures/office/README.md), [SaaS-export](../app/fixtures/saas-export/README.md), and [rich-content fixtures](../app/fixtures/rich-content/README.md). Package notices are documented in [app licenses](../app/licenses/README.md).
 
-Historical descriptions of desktop AI import, embedded Python/LibreOffice, Linux app builds, earlier schemas, Agent Server, Redis or cloud object storage refer to retired versions. The current service uses PostgreSQL and RabbitMQ; SQLite belongs to offline App storage. Model substitutes, successful CI and old installer builds do not establish live-model, clean-machine, participant or signing acceptance. Follow current guides for setup; old commands may refer to removed scripts.
+Historical descriptions of Python/LibreOffice, PostgreSQL/RabbitMQ, Linux app
+builds, earlier schemas, Agent Server, Redis or cloud object storage refer to
+retired versions. Current practice and AI state use separate SQLite databases.
+Model substitutes, successful CI and old installer builds do not establish
+live-model, clean-machine, participant or signing acceptance. Follow current
+guides for setup; old commands may refer to removed scripts. The
+[migration ledger](maintainers/electron-migration.md) records current evidence
+and unfinished acceptance.
 
 Superseded review/fix journals and the duplicate theme-preview guide were removed; their source remains in Git history. On October 17, 2026, UI acceptance and local test screenshots were removed except for the three images used by the root English and Chinese README files. Application icons, test fixtures, source-document images, parsing artifacts and performance reports are retained. The [historical screenshot manifest](evidence/screenshots-removed-20261017.sha256) records all 88 removed tracked screenshot paths and SHA-256 values; recover those files from Git commit `6a0ea50`. Other historical manifests also retain original screenshot entries; those entries do not mean the images remain available in the checkout. Ignored `server/reports/checks/`, temporary files and expired Actions artifacts may be unavailable in a fresh checkout; recorded filenames and hashes identify prior evidence, not downloadable files or current passes.

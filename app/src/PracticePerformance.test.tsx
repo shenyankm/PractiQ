@@ -7,10 +7,10 @@ import { afterEach, expect, it, vi } from "vitest";
 import { Practice } from "./Practice";
 import { api, blankQuestion, type Session } from "./api";
 import { I18nProvider, useI18n } from "./i18n";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "./transport";
 
 vi.mock("./api", async () => ({ ...await vi.importActual<typeof import("./api")>("./api"), api: vi.fn() }));
-vi.mock("@tauri-apps/api/core", () => ({ invoke: vi.fn(), isTauri: () => false }));
+vi.mock("./transport", () => ({ invoke: vi.fn() }));
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 function workload(count: number, itemReads: () => void): Session {

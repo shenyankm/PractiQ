@@ -150,7 +150,7 @@ for (const width of [1280, 360]) {
     expect(await page.evaluate(() => globalThis.auditImports)).toBe(1);
   });
 
-  test(`manual grading drafts survive cloud configuration failures at ${width}px`, async ({ page }, testInfo) => {
+  test(`manual grading drafts survive embedded model configuration failures at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 800 });
     await inject(page, `
       // This scenario supplies a reference for the current question; the stock
@@ -163,7 +163,7 @@ for (const width of [1280, 360]) {
       }
       if (command === 'ai_request') {
         globalThis.auditGradingCalls = (globalThis.auditGradingCalls || 0) + 1;
-        throw { code: 'LOCAL_SERVICE_URL_REQUIRED' };
+        throw { code: 'LOCAL_MODEL_KEY_REQUIRED' };
       }
     `);
     await page.goto('/');
@@ -187,7 +187,13 @@ for (const width of [1280, 360]) {
     await expect(reason).toHaveValue('Checked rubric');
     expect(await page.evaluate(() => globalThis.auditGradingCalls)).toBe(1);
     await page.getByRole('button', { name: '配置 AI 服务', exact: true }).click();
-    await expect(page.getByLabel('AI 服务地址', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('AI 服务地址', { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('模型 API 地址', { exact: true })).toBeVisible();
+    await page.getByLabel('模型 ID', { exact: true }).fill('unsaved-model');
+    await page.getByRole('button', { name: '返回评分', exact: true }).click();
+    await expect(page.getByRole('alert').filter({hasText:'请先保存 AI 设置或取消修改。'})).toBeVisible();
+    await expect(page.getByLabel('模型 ID', { exact: true })).toHaveValue('unsaved-model');
+    await page.getByRole('button', { name: '取消', exact: true }).click();
     await page.screenshot({ path: testInfo.outputPath(`personal-grading-settings-${width}.png`) });
     await page.getByRole('button', { name: '返回评分', exact: true }).click();
     await expect(score).toHaveValue('2');

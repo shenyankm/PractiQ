@@ -1,6 +1,6 @@
 # Final-package acceptance record
 
-Tracks [#91](https://github.com/shenyankm/PractiQ/issues/91). The current app target is macOS 14+ on Apple Silicon. The independent service and Web frontend retain their separate deployment and acceptance boundaries. Historical cross-platform evidence below is not current support or release acceptance. No final signing, clean-machine or live-model acceptance is recorded by this worksheet.
+Tracks [#91](https://github.com/shenyankm/PractiQ/issues/91). The current release target is macOS 14+ on Apple Silicon, using one Electron application with embedded TypeScript/Node AI workers. Historical service and cross-platform evidence below is not current support or release acceptance. No final signing, clean-machine or live-model acceptance is recorded by this worksheet.
 
 The [November 4 grading checks](../evidence/2026-11-04-grading/README.md) add local macOS native grading, Keychain, restart and backup/restore evidence using synthetic data and a loopback model substitute. The GUI candidate uses an isolated application identifier; its hashes and the separately inspected standard installer are recorded independently. These checks do not turn the release matrix below into signed, clean-machine or real-model acceptance.
 
@@ -10,14 +10,14 @@ Use one clean main commit and retain its SHA in every platform record. Signing, 
 
 | Field | Required value / current evidence |
 | --- | --- |
-| Source SHA / tag / client version | Pending; six npm/Tauri/Cargo version entries must match the tag |
-| Client package schema / mode | Retain `schemaVersion: 2`, `packageMode: desktop-practice` and `desktopVersion` on all platforms; actual native version must match |
-| Independent AI service source version | Separate version from tagged source; client artifacts do not deploy that service |
+| Source SHA / tag / application version | Pending; npm application and both lockfile root versions must match the tag |
+| Release candidate schema / mode | `packageSchemaVersion: 1`, `packageMode: electron-desktop`; build metadata version 1 and actual native/full versions must match |
+| Embedded AI version | Same application version; LangGraph.js, SQLite and local files |
 | Build URL / OS / architecture / date | Original immutable CI build candidate plus independent provenance review |
 | Installer path / bytes / SHA-256 | Calculate after all signing, notarization, stapling and packaging |
 | Signing / identity / verification command | Pending; record unsigned explicitly when applicable |
-| Client package evidence | Native version, engine absence, metadata, Cargo/npm licenses, and byte-exact embedded notices |
-| Service deployment / import / grading evidence | Separate service identity, configured Office engine and authorized live checks |
+| Application package evidence | Native/full versions, absence of retired runtimes, renderer/workers matching rebuilt source, npm licenses, and exact notices |
+| Embedded import / grading evidence | Frozen application identity, Tencent/model provider configuration and authorized live checks |
 | Reviewed release evidence / downloads | Pending; download sizes and hashes must match SHA256SUMS |
 
 ## Platform evidence matrix
@@ -26,29 +26,29 @@ Use **Passed**, **Failed**, **Blocked**, or **Not run**, with evidence or a reas
 
 | Flow | macOS 14+ arm64 |
 | --- | --- |
-| Actual final installer: native version, no Python/Office/AI worker, notices | Not run |
+| Actual final installer: native version, embedded TS workers, no retired runtimes, notices | Not run |
 | Signing/notarization or publisher signature verification | Not run |
 | Clean installation, upgrade, uninstall | Not run |
 | Native file selection and authorized ZIP/audio access | Not run |
-| Service token and direct-model API key set/read/delete in macOS Keychain, no backup leakage | Not run |
+| Provider credential set/read/delete through macOS-protected encrypted storage, no backup leakage | Not run |
 | Listening playback using an authorized public audio fixture | Not run |
 | ZIP append import; offline practice and submission | Not run |
-| Explicit grading/retry through independent service and direct model API; absent evidence stays ungraded | Not run |
+| Explicit grading/retry through embedded AI; absent evidence stays ungraded | Not run |
 | Failed/unknown direct-grading receipt survives restart; changed endpoint/model requires explicit regrading | Not run |
 | Grading connection settings backup/restore excludes credentials and preserves practice snapshots | Not run |
-| Offline practice with service unavailable; no import worker spawned | Not run |
+| Offline practice without provider access; passive actions make no paid calls | Not run |
 | Full backup restore after replacement confirmation | Not run |
 | Old data directories untouched; unsupported backup rejected | Not run |
 
 Record the exact macOS runtime and native Keychain/file-picker behavior. Use synthetic study data and never publish credentials, databases or backups. Real grading requires explicit provider authorization and a budget; otherwise mark it **Blocked**.
 
-Record independent-service acceptance separately: deployed source/image identity, App upload selection with no model request, explicit Start import, Tencent receipts for every supported source type, legacy XLS (at every size) and oversized Office PDF preparation using the configured engine, task progress/review/retry, ZIP export and client ZIP append import. Record direct-grading endpoint/model and prompt/receipt identity separately from service-mode evidence; a passing service call does not validate the direct client path. Service Office fidelity and dependency licenses require their own evidence. Client package checks cannot establish those results, and moving conversion to the service does not waive fidelity requirements.
+Record embedded AI acceptance separately: application/execution identity, passive source selection, explicit Start import, Tencent receipts for every supported type, Office limits with PDF-export guidance, task progress/review/retry, ZIP export and append import. Record grading endpoint/model and prompt/receipt identity, bounded call budgets and unknown-result recovery. Package checks do not establish recognition or live-model accuracy. New listening content must retain playback addresses without persisting recordings; historical audio and backup references remain supported.
 
 ## Execute gates against final bytes
 
-Use the [draft workflow](../../.github/workflows/release.yml) after selecting a committed candidate and matching existing annotated tag; dispatch on that same tag as described in the [release policy](../maintainers/releases.md#draft-workflow). Verify unchanged CI draft attachments against the candidate's Actions provenance before any final-byte replacement. Signing or restaging changes the attachment identity and requires separately reviewed final-byte evidence; the original attestation cannot cover replacement bytes. Install the candidate's locked client dependencies, native Cargo toolchain and existing Python 3.14+ build/check interpreter. Python is a build/check tool and is never shipped. Supplemental notices, lockfiles and check scripts must come from that candidate's clean checkout.
+Use the [draft workflow](../../.github/workflows/release.yml) after selecting a committed main candidate and existing annotated tag; dispatch on that same tag. Verify unchanged attachments against the candidate's Actions provenance before any final-byte replacement. Signing or restaging changes attachment identity and requires separately reviewed final-byte evidence. Install the candidate's locked Node dependencies with `make app-install`; release tooling uses Node 22.18+ and macOS system utilities. Notices, lockfiles and scripts must come from that clean checkout.
 
-For CI artifacts, `release.py stage --tag ...` selects exactly one newly built native installer. It makes a private read-only snapshot and checks those exact bytes. macOS uses a read-only DMG mount. Those checks verify native version, run `check-bundle.py` and `check_licenses.py`, and compare generated notices with the embedded `THIRD-PARTY.txt`. Mounted and extracted resource directories must be real directories contained in that installer payload. Resource links must be relative, resolve inside the bundle and identify existing bytes; macOS `Info.plist` must be a regular file and name the expected `CFBundleExecutable`. The desktop native application must be a nonempty regular file with real parent directories inside its payload.
+For CI artifacts, `node app/scripts/release.ts stage --tag ... --package ... --acceptance ... --output ... --reports ...` selects the newly built Electron DMG and its automated package receipt. It makes a private read-only snapshot and mount, checks native/full versions, recompiles renderer/workers for exact comparison, audits retired-runtime absence and compares generated notices/licenses. Resource directories must be real and contained; links must be relative, resolve inside the bundle and identify existing bytes. `Info.plist` and the executable must be regular files with real contained parents. The receipt must bind the exact DMG and pass native practice, restore/restart, codecs/PDFium and protected-credential checks; synthetic receipts do not establish release acceptance.
 
 ## Review and publication handoff
 
@@ -58,14 +58,13 @@ Run from a dedicated clean candidate checkout. Checks run on macOS against the a
 set -eu
 CANDIDATE_SHA=your_candidate_full_sha_here
 TAG=your_selected_candidate_tag
-AI_PYTHON=/absolute/path/to/python3.14
 FINAL_INSTALLER=/absolute/path/to/exact/final-installer.dmg
 FINAL_INPUTS=/absolute/path/to/fresh/final-inputs
 FINAL_REPORTS=/absolute/path/to/fresh/final-reports-macos
 BUILD_CANDIDATE=/absolute/path/to/original-release-macos/candidate.json
 test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
 test -z "$(git status --porcelain --untracked-files=all)"
-"$AI_PYTHON" app/scripts/release.py stage --tag "$TAG" \
+node app/scripts/release.ts stage --tag "$TAG" \
   --installer "$FINAL_INSTALLER" --reports "$FINAL_REPORTS" \
   --build-candidate "$BUILD_CANDIDATE" \
   --output "$FINAL_INPUTS/release-macos"
@@ -73,7 +72,7 @@ test -z "$(git status --porcelain --untracked-files=all)"
 
 The staging command creates fresh report/output directories and rejects existing destinations; parent directories may already exist.
 
-Explicit staging makes a private read-only DMG snapshot and derives contained resources from it. The regular native executable and its parent directories must belong to that payload; Info.plist must identify the expected application, complete version and prerelease identity. Mach-O checks require a bounded actual arm64 executable and POSIX execute permission. The schema-2 practice-client metadata and engine-absence checks remain mandatory. Source-bound Cargo/npm inventories must have complete license texts, and newly generated notices must match the embedded bytes.
+Explicit staging checks a private read-only DMG snapshot. The executable and its real parents must belong to that payload; Info.plist must retain the complete prerelease identity. Mach-O checks bind actual bounded executable slices and execute permissions to the declared architecture. Electron build metadata, source hashes, runtime inventory and retired-engine absence remain mandatory. Source-bound npm metadata/licenses and regenerated notices must match embedded bytes. Original automated package acceptance remains evidence of the original build; re-signing requires independent final-byte acceptance.
 
 The original candidate and complete selected payload remain bound through every gate and final asset handoff; failure retains diagnostics without publishing incomplete assets.
 
@@ -94,7 +93,7 @@ Clean-machine report:
   "artifactSha256": "<exact-final-installer-64-hex-sha256>",
   "tag": "<candidate-tag>",
   "commit": "<exact-candidate-source-commit>",
-  "components": {"desktop": "<desktop-version>", "aiServiceSource": "<independent-service-source-version>"},
+  "components": {"desktop": "<application-version>"},
   "os": "macos",
   "architecture": "<arm64-or-x64>",
   "status": "<passed-or-failed>",
@@ -112,12 +111,12 @@ Live-model report, prepared only after separately authorized real-model checks:
   "artifactSha256": "<exact-final-installer-64-hex-sha256>",
   "tag": "<candidate-tag>",
   "commit": "<exact-candidate-source-commit>",
-  "components": {"desktop": "<desktop-version>", "aiServiceSource": "<independent-service-source-version>"},
+  "components": {"desktop": "<application-version>"},
   "os": "macos",
   "architecture": "<arm64-or-x64>",
   "status": "<passed-or-failed>",
   "reviewedBy": "<actual-reviewer-identity>",
-  "verificationResults": ["<actual separately deployed service parsing and explicit client grading results and human review>"]
+  "verificationResults": ["<actual embedded parsing, explicit grading and representative human review>"]
 }
 ```
 
@@ -125,17 +124,28 @@ Each file is at most 1 MiB. Only the required fields shown and optional `verific
 
 Staging retains the raw records privately in the fresh reports directory and creates sanitized public copies as `evidence/clean-machine-report.json` and `evidence/live-model-report.json`. `cleanMachineAcceptance` and `liveModelAcceptance` become `externally_reported_passed` or `externally_reported_failed` according to the corresponding bound report; a missing report remains `pending`. Assembly revalidates the schema, identity, fixed contained report path, status and archived bytes. The release remains a draft with independent signing and acceptance review pending, including when both reports declare success. If final signing/repackaging changes the installer bytes or candidate identity, the prior reports cannot be reused for that different artifact.
 
-After the macOS arm64 package gate passes, copy source-aligned independent service verification reports into `FINAL_INPUTS/service-checks`. Assemble into a new directory:
+After the package gate passes, download the same-candidate `embedded-ai-checks`
+artifact into `FINAL_INPUTS/embedded-ai-checks`. Preserve its extracted layout:
+`app/.build/reports/desktop.xml` and `coverage/desktop/` containing
+`coverage-summary.json`, `cobertura-coverage.xml` and `lcov.info`. Assemble into a
+new directory:
 
 ```sh
 FINAL_ASSETS=/absolute/path/to/fresh/final-assets
-"$AI_PYTHON" app/scripts/release.py assemble --tag "$TAG" \
+node app/scripts/release.ts assemble --tag "$TAG" \
   --inputs "$FINAL_INPUTS" --output "$FINAL_ASSETS"
 ```
 
-Assembly requires schema 2 practice-client candidates in one mode: all original CI candidates or all explicitly restaged final-byte candidates. It rejects mixed modes, old embedded-engine candidates, drifted source/versions, changed installers, missing evidence and altered notices before creating output. Other platform artifacts cannot fill this release target. Assembly uses a private output directory and verifies copied installer size/hash plus every archived candidate, platform report and service report against its captured identity before handing off output. It regenerates `release-manifest.json`, `release-evidence.zip` and `SHA256SUMS.txt`; these are local draft assets, not publication or final-release acceptance under #91.
+Assembly requires exactly one schema-1 `electron-desktop` macOS candidate,
+original or explicitly restaged. It rejects old package modes, source/version
+drift, changed installers, missing/failed evidence and altered notices. Embedded
+AI evidence needs nonempty successful JUnit, required coverage thresholds and
+consistent JSON/Cobertura/LCOV counts. Every archived candidate/report and the
+copied installer are rehashed before output publication. Public CI reports
+redact local paths and retain original/public hashes in the manifest. The
+generated manifest, evidence ZIP and checksums remain local draft assets.
 
-Complete the [release template](../../.github/RELEASE_TEMPLATE.md) with actual per-platform signing, installation, grading and independent service evidence. Verify every downloaded attachment against its size/hash. Link the chosen main candidate and immutable evidence before closing #91. Test-version deferrals must remain explicit under the [release policy](../maintainers/releases.md). This worksheet supplies no signing credentials, target systems or live-model acceptance.
+Complete the [release template](../../.github/RELEASE_TEMPLATE.md) with actual signing, installation, embedded import and grading evidence. Verify every downloaded attachment against its size/hash. Link the chosen main candidate and immutable evidence before closing #91. Test-version deferrals remain explicit under the [release policy](../maintainers/releases.md). This worksheet supplies no signing credentials, target systems or live-model acceptance.
 
 Feature delivery follows the issue-specific implementation, test, CI and review gates in [#130](https://github.com/shenyankm/PractiQ/issues/130) and [#131](https://github.com/shenyankm/PractiQ/issues/131), independently of #91 final-release acceptance. The independent-service implementation was delivered by [merged PR #132](https://github.com/shenyankm/PractiQ/pull/132); follow [PR #133](https://github.com/shenyankm/PractiQ/pull/133) for Android implementation and validation status. Closing an implementation issue does not establish signed final installers, clean-machine acceptance or live-model quality, and does not authorize model calls or publication.
 

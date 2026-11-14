@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { EnglishFields } from "./EnglishFields";
+import { listeningBlocks } from "../../shared/listening";
 import { kindModes, questionKinds } from "./english";
 import { AnswerInput } from "./AnswerInput";
 const nullableQuestionFields = new Set<keyof Question>([
@@ -96,6 +97,7 @@ export function QuestionEditor({
     setChildren([]);
     patch({
       questionKind:null, audioRef:null,transcript:[],audioStartSeconds:0,audioEndSeconds:null,examPlayCount:2,sourceLanguage:null,targetLanguage:null,writingGenre:null,minWords:null,maxWords:null,
+      contentBlocks:listeningBlocks(q.contentBlocks,null),
       passage: [], optionSourceId: null, allowReuse:false, blankCount:value === "fill_blank" ? 1 : null,
       answerMode: value,
       questionTypeId: modeNames()[value],

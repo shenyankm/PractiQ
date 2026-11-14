@@ -7,8 +7,8 @@ import { Markdown } from "./Content";
 import { canInteract, answerReady, type Question, type Session } from "./api";
 import { Practice } from "./Practice";
 import { ExamResults } from "./ExamResults";
-import { invoke } from "@tauri-apps/api/core";
-vi.mock("@tauri-apps/api/core", () => ({invoke:vi.fn()}));
+import { invoke } from "./transport";
+vi.mock("./transport", () => ({invoke:vi.fn()}));
 import fixture from "../fixtures/sample.json";
 import { api } from "./api";
 vi.mock("./api", async () => {

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "package": "js-tiktoken",
+  "version": "1.0.21",
+  "artifactUrl": "https://registry.npmjs.org/js-tiktoken/-/js-tiktoken-1.0.21.tgz",
+  "artifactIntegrity": "sha512-biOj/6M5qdgx5TKjDnFT1ymSpM5tbd3ylwDtrQvFQSu0Z7bBYko2dF+W/aUkXUPuk6IVpRxk/3Q2sHOzGlS36g==",
+  "registryGitHead": "4c8b748e07992c00386f3180af5c574b27b65139",
+  "repository": {
+    "url": "git+https://github.com/dqbd/tiktoken.git",
+    "type": "git"
+  },
+  "sourceFiles": [
+    {
+      "source": "https://raw.githubusercontent.com/dqbd/tiktoken/4c8b748e07992c00386f3180af5c574b27b65139/LICENSE",
+      "sha256": "418cb499b436128d653d79941333a5437b7be2ea9213dcc2f04d15d5d2c51d86",
+      "publishedMember": null
+    }
+  ],
+  "verification": "Upstream license retrieved at the exact npm registry gitHead; installed version and reviewed lockfile integrity match"
+}
