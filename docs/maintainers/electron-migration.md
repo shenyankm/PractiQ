@@ -54,7 +54,7 @@ must remain visible until its original regression scenarios run on TypeScript.
 | Tencent-only recognition and conservative text/figure proofs | `tencent_inputs.py`, `tencent_bundle.py`, `tencent_staging.py`, document graphs | TC3 signing, immutable submission intents, known-job polling/read retries, immutable raw result caching, invalid-result history and explicit known-job redownload; bounded decoding, native table/XML/image associations, conservative label crops, byte-exact text proofs, historical OCR/page association/enrichment validators and opt-in private COS V5 staging with immutable upload intents and validated-result cleanup | Complete multi-format splitting/scheduling, source-page crop generation and assembly acceptance |
 | Bounded Office/media work, hidden content, cleanup and engine identity | `office.py`, `office_service.py`, extractors | CFB/OOXML input preflight, direct Tencent Office graphs, hidden-sheet and binary/OOXML hidden-slide metadata snapshots, declared slide order/count diagnostics, native PDF/image splitting, shared queued helper admission/cleanup and engine receipts | Larger Excel/desktop-cap policy, real provider fidelity and current-package resource acceptance |
 | Supplied answers and grounded scoring stay intact | document graphs, `grading.py`, Rust session handling | TypeScript subjective grading with the original evidence corpus, score scaling and manual/self overrides; supplied-field/count/stem proofs, text/OCR field fidelity, explicit missing-answer supplementation and paid-correction regression corpora | Complete multi-format assembly and multilingual live-provider fidelity acceptance |
-| Existing data and restoration survive failures | Rust store/backup/settings/recovery code | Schema-11/version-4 Node implementation, process-kill restoration tests, bidirectional Rust/TS backup probe, all-table existing-user-data comparison on private copies using the installed Electron Node runtime, independent DMG installation and backup/restore/restart | Actual native dialog interaction and final cutover |
+| Existing data and restoration survive failures | Rust store/backup/settings/recovery code | Schema-11/version-4 Node implementation, process-kill restoration tests, bidirectional Rust/TS backup probe, all-table existing-user-data comparison on private copies using the installed Electron Node runtime, independent DMG installation and backup/restore/restart; actual macOS open/save panels, replacement confirmation, recovery-copy comparison and restart | Current-source package acceptance and final cutover |
 
 No row authorizes an additional local recognition fallback or automatic retry of
 an uncertain provider mutation. Historical data, credentials and deployment
@@ -2275,3 +2275,34 @@ guards are unchanged. The existing CI regression checks require the desktop
 suite and both installed-package checks in that macOS job. The temporary Python
 reference test also narrows a known positive reservation before comparing it,
 preserving the separately tested nullable/unknown reservation contract.
+
+## Native file dialogs and preview resource parity
+
+On 2026-11-14 the current development Electron runtime was exercised with real
+macOS open/save panels through native accessibility, without dialog substitutes.
+Only fresh temporary profiles and project-authored source/ZIP fixtures were used.
+Document selection remained passive; cancelling a second selection retained the
+first source. Native ZIP selection imported 20 root questions (26 stored rows)
+and two verified resources. A backup was saved through the native save panel.
+Cancelling the replacement confirmation retained both banks; confirmed restoration
+removed a subsequently added temporary bank. All practice tables and resource
+bytes exactly matched the backup. The automatic recovery ZIP retained the two-bank
+pre-restore state. Quitting and reopening retained one bank and 20 root questions.
+AI task, document-task and paid-call tables remained empty throughout this flow.
+
+The real interactions exposed two omissions, now covered by regressions:
+cancelling the source picker cleared existing selections, and ZIP previews could
+not read their verified in-memory images/audio before import. Empty picker results
+now leave selection state intact. Resource reads reuse the active preview inventory
+before committed assets, matching the Rust behavior. Replacing the preview revokes
+its uncommitted resources; invalid hashes still fail. Preview creates no practice
+rows or asset files. A second fresh profile displayed the image before confirming
+import, with its empty practice database and absent asset directory checked again
+after cancellation and quit.
+
+The 5,780-test desktop suite and complete Electron smoke pass. Evidence remains
+local under `app/.build/evidence/native-dialog-`: the acceptance JSON, three native
+screenshots, full desktop/Electron logs and the reproduced pre-fix resource failure
+(`preview-resources-before.log`). These results close the earlier native-dialog
+gap; they do not certify the final DMG, live providers, large Excel compatibility,
+CI/release cutover or old-runtime removal.
