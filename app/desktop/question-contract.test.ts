@@ -1,15 +1,35 @@
 import { expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { answerSourceConflict, grade, hasAnswer, validateQuestion, validateTree } from "./question-contract.js";
-import { parseJson, validateDocument } from "./document-contract.js";
+import { parseJson, validateDocument, validateParsedDocument } from "./document-contract.js";
+import { contractSource } from "./contracts.js";
+import { BoundedZip } from "./zip.js";
 
-const fixtures = JSON.parse(readFileSync(new URL("../fixtures/contracts.json", import.meta.url), "utf8")) as { name: string; input: { questions: unknown[] }; valid: boolean; missingFields: string[] }[];
+const fixtures = JSON.parse(readFileSync(new URL("../fixtures/contracts.json", import.meta.url), "utf8")) as { name: string; input: { questions: unknown[] }; valid: boolean; missingFields: string[]; expectedQuestion?: Record<string, unknown> }[];
 it.each(fixtures)("matches the shared document contract corpus: $name", fixture => {
   if (fixture.valid) {
     const result = validateDocument(fixture.input);
     const q = (result.questions as { missingFields: string[] }[])[0];
     expect(q.missingFields).toEqual(fixture.missingFields);
   } else expect(() => validateDocument(fixture.input)).toThrow();
+});
+it.each(fixtures)("preserves the Python parse contract expectations: $name", fixture => {
+  if (!fixture.valid) { expect(() => validateParsedDocument(fixture.input)).toThrow(); return; }
+  const question = (validateParsedDocument(fixture.input).questions as Record<string, unknown>[])[0];
+  expect(question.missingFields).toEqual(fixture.missingFields);
+  for (const [key, value] of Object.entries(fixture.expectedQuestion ?? {})) expect(question[key], key).toEqual(value);
+});
+it.each(["sample.json", "rich-content/expected.json", "composite.json", "english.json"])("validates the shared %s parse fixture", path => {
+  expect(() => validateParsedDocument(parseJson(readFileSync(new URL(`../fixtures/${path}`, import.meta.url))))).not.toThrow();
+});
+it.each(["all-types.zip", "all-types-no-recordings.zip"])("retains every answer mode in %s", async path => {
+  const zip = await BoundedZip.open(new URL(`../fixtures/${path}`, import.meta.url).pathname, { archiveBytes: 300 * 1024 * 1024, expandedBytes: 288 * 1024 * 1024 + 65536, entries: 10000 });
+  try {
+    const document = validateParsedDocument(parseJson(await zip.read("questions.json", 32 * 1024 * 1024)));
+    const schema = contractSource.definitions.ParsedQuestion.properties!.answerMode;
+    const modes = schema.anyOf!.find(value => value.type === "string")!.enum;
+    expect(new Set((document.questions as Record<string, unknown>[]).map(question => question.answerMode))).toEqual(new Set(modes));
+  } finally { zip.close(); }
 });
 it.each(fixtures.slice(0, 9))("preserves existing $name question normalization", fixture => {
   const questions = validateTree(fixture.input.questions);

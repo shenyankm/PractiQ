@@ -67,6 +67,7 @@ export function validateParsedQuestion(input: unknown): Question { return valida
 function validateQuestionWithRules(input: unknown, source: boolean): Question {
   check(input !== null && typeof input === "object" && !Array.isArray(input), "Question must be an object");
   const q = object(structuredClone(input)), trim = source ? sourceTrim : practiceTrim, fold = source ? sourceCasefold : (value: string) => value.toLowerCase();
+  if (source) for (const [key, schema] of Object.entries(contractSource.definitions.ParsedQuestion.properties!)) if (!Object.hasOwn(q, key) && Object.hasOwn(schema, "default")) q[key] = structuredClone(schema.default);
   normalizeQuestionText(q, trim);
   for (const key of ["items", "options", "contentBlocks", "missingFields", "passage", "transcript"]) q[key] ??= [];
   for (const [key, value] of Object.entries({ audioStartSeconds: 0, examPlayCount: 2, allowReuse: false, confidence: 0, needsReview: true })) if (!Object.hasOwn(q, key)) q[key] = value;
