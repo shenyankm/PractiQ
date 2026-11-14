@@ -56,7 +56,7 @@ failures include two demonstrated desktop height mismatches, then corrected test
 fixtures for translated labels/fake backup paths and valid narrow wrapping.
 
 The final check totals, source/screenshot hashes and retained raw logs are listed
-in the [acceptance record](../../../server/reports/agent-pipeline-20261017-acceptance.json).
+in the [acceptance record](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/server/reports/agent-pipeline-20261017-acceptance.json).
 App types/lint/coverage passed with 415 tests and one intentionally disabled
 editor microbenchmark (`PRACTIQ_EDITOR_BENCH`). The complete final App browser
 repeat passed 83 tests with two workers, zero skips/flaky/unexpected results.

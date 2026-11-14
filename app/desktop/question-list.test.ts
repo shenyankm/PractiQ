@@ -79,3 +79,15 @@ it("computes achievable counts without splitting composite groups", () => {
   expect(feasibleCounts([0, 1001])).toEqual([]);
   expect(feasibleCounts(Array(2000).fill(1))).toHaveLength(1000);
 });
+
+it("keeps bounded mixed-group counts equivalent to exhaustive subsets", () => {
+  for (let seed = 0; seed < 128; seed++) {
+    const weights = Array.from({ length: 8 }, (_, i) => (seed * (i + 3) + i * i) % 9), before = [...weights];
+    let sums = new Set([0]);
+    for (const weight of weights) sums = new Set([...sums, ...[...sums].map(sum => sum + weight)]);
+    expect(feasibleCounts(weights)).toEqual([...sums].filter(sum => sum > 0 && sum <= 1000).sort((a, b) => a - b));
+    expect(weights).toEqual(before);
+  }
+  expect(feasibleCounts([...Array(5000).fill(2), 3])).toEqual(Array.from({ length: 999 }, (_, i) => i + 2));
+  expect(feasibleCounts([0, 400, 400, 400, 700, 1001])).toEqual([400, 700, 800]);
+});

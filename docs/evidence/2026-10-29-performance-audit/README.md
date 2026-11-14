@@ -49,10 +49,10 @@ pair and two coordinated quiet pairs; each variant has nine samples per workload
 
 Detailed methods, controls, hashes and reproduction:
 
-- [Source planning](source-presence.md), [raw samples](source-presence.json).
+- [Source planning](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/evidence/2026-10-29-performance-audit/source-presence.md), [raw samples](source-presence.json).
 - [Practice UI](frontend.md), [baseline samples](practice-before.json),
   [candidate samples](practice-after.json).
-- [Native paper selection](../../../app/docs/performance-native.md),
+- [Native paper selection](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/app/docs/performance-native.md),
   [all native samples](native.json).
 - [Table decode samples](tencent-tables.json), reproduced from the repository root:
 

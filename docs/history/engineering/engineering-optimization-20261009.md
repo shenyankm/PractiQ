@@ -29,10 +29,10 @@ The [raw journal evidence](../../evidence/2026-10-09-engineering/README.md) incl
 | Web initial JS/CSS, including static imports | 332,043 bytes; gzip 102,754, unchanged | Complete asset reduction is separate from initial network load |
 | Web full static resources | 2,059,410 → 1,240,096 bytes | WOFF/TTF duplicates removed; required WOFF2 faces and notices retained; [font evidence](../performance/performance-web-fonts-20261009.md) |
 | Service Web clean-build command, paired median/range | 1.333 s (1.328–1.336) → 0.815 s (0.799–0.821) | One duplicate build removed; dependencies and OS caches warm |
-| Service Web incremental command, paired median/range | 1.347 s (1.336–1.401) → 0.800 s (0.795–0.834) | Same output hashes; [build-once evidence](../performance/performance-build-once-20261009.md) |
+| Service Web incremental command, paired median/range | 1.347 s (1.336–1.401) → 0.800 s (0.795–0.834) | Same output hashes; [build-once evidence](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/history/performance/performance-build-once-20261009.md) |
 | Hosted Service quality job, same head three attempts each | Baseline 624/607/584 s; candidate 599/594/437 s | Median 607 → 594 s, ranges overlap: no overall CI speed claim; caches/runners/network vary |
 | 25 MiB Office-entry SHA-256 duration | Median 9.398 → 9.425 ms | No hashing speed gain |
-| Maximum 1 ms heartbeat gap during that hash | Median 9.987 → 1.238 ms | Event-loop responsiveness in this probe; [payload evidence](../performance/performance-payload-check-20261009.md); no conversion-throughput or tail-latency claim |
+| Maximum 1 ms heartbeat gap during that hash | Median 9.987 → 1.238 ms | Event-loop responsiveness in this probe; [payload evidence](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/history/performance/performance-payload-check-20261009.md); no conversion-throughput or tail-latency claim |
 | App initial JS/CSS, including static imports | 620,696 bytes; gzip 191,647 | Unchanged app source; inventory only |
 | App full static resources | 1,638,348 bytes; 19 WOFF2 assets total 256,168 bytes | Six builds have identical asset hashes; no app size optimization claimed |
 | App clean frontend build / incremental samples | 2.677/0.736/0.732 s; 0.715/0.885/0.703 s | Fresh output vs immediate reuse, OS/dependency caches warm; no improvement claim |

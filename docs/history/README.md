@@ -8,37 +8,26 @@ These records preserve the result of a particular source revision, workload and 
 | --- | --- |
 | [Import correction workbench, November 6](import/workbench-20261106.md) | Source comparison, human revision history, optimistic saves and explicit revised ZIP export |
 | [PNG type labels, November 6](import/type-labels-20261106.md) | New-response correction for missing known type labels; saved null compatibility, call budgets and same-source live workflow acceptance |
-| [Extractor startup, October 16](../extractor-startup-20261016.md) | Reduced worker imports; original timeout remains unresolved |
 | [Native import acceptance, 2026-09-29](import/ai-import-acceptance-20260929.md) | Former desktop import flow; small real-model sample and failures |
 | [Ten-format acceptance](import/ai-import-all-formats-acceptance-20260929.zh-CN.md) and [repair/retest](import/ai-import-repairs-20260929.zh-CN.md) | Original live results; complete acceptance remained 0/10 |
 | [Implementation review, 2026-09-29](import/review-implementation-20260929.md) | Historical implementation and validation scope |
 
 ## Performance
 
+Retired Rust/Python performance narratives and their top-level reports were
+removed on November 14, 2026. Git history retains those versions. Raw historical
+evidence, live-quality records and frontend reports remain; none certifies the
+current Electron runtime. See the [current audit](../../app/docs/performance-desktop.md).
+
 | Record | Scope |
 | --- | --- |
-| [Twenty rounds, November 7](performance/twenty-rounds-20261107.md) | Twelve retained service CPU optimizations, eight reverted candidates, isolated measurements, unchanged-output and recovery boundaries |
-| [OCR review, November 5](performance/ocr-review-20261105.md) | Twenty optimization/control experiments, eight local changes, output-equivalent CPU/ZIP measurements; live 2/3 strict content gates and final substitute/native acceptance |
-| [Ten rounds, November 5](performance/ten-rounds-20261105.md) | Seven retained source/answer validation optimizations, three reverted experiments, paired CPU/output evidence and passive projection controls |
 | [Unified workflow, November 2](performance/workflow-20261102.md) | Production Web, real Tencent/model and downloaded ZIP through native practice/restore; 3/3 functional chains, 2/3 strict content gates |
-| [Read paths, October 30](performance/read-paths-20261030.md) | Chunk planning responsiveness, validated HTTP models, metadata previews and saved practice statistics; rejected OCR concurrency, paired evidence and validation |
 | [Cross-component audit, October 29](../evidence/2026-10-29-performance-audit/README.md) | Source-presence ranges, native-table captions, answer-card drafts and manual paper selection; equivalent outputs, bounded measurements and local validation |
-| [Answer-source validation, October 29](performance/answer-evidence-20261029.md) | Call-local candidate index, reused/skipped parsing, literal/ambiguity regressions, isolated paired measurements and sandbox validation limits |
-| [Runtime optimizations, October 25](performance/runtime-optimizations-20261025.md) | Ten review items: buffer lifetimes, event-loop work, bounded artifact/export reads, Tencent client reuse and native SQL; paired probes and local acceptance |
-| [Cross-component optimizations, October 22](performance/performance-optimizations-20261022.md) | All 16 recommendations, deterministic work counts, bounded native timings, recovery/browser/package acceptance and exclusions |
-| [October 3](performance/performance-implementation-20261003.md) and [October 5](performance/performance-implementation-20261005.md) | Separate measured workloads and source baselines |
 | [Web fonts, October 9](performance/performance-web-fonts-20261009.md) | Static assets and repeated build samples; no initial-load or image-size claim |
-| [Web and service, October 15](performance/performance-web-server-20261015.md) | Shared-option search, duplicate-association indexing and artifact membership; synthetic measurements and limits |
-| [App, October 15](performance/performance-app-20261015.md) | Snapshot and draft-context copies; paired output hashes and local timings |
-| [Rust, October 17](performance/performance-rust-20261017.md) | Full native source review and measured immutable-snapshot copy removal |
-| [Rust selected references](performance/rust-selected-reference-index.md) | Requested-row-only snapshot reference index; paired release samples and local App acceptance |
-| [Python shared options](performance/python-shared-option-validation.md) | One option-pool serialization per validation call; equivalent outputs and paired CPU measurements |
-| [Python, October 17](performance/performance-python-20261017.md) | Source-frame lookup and passive result projection; paired local measurements |
-| [Agent pipeline, October 17](performance/agent-pipeline-20261017.md) | Independent dispatch notifications, bounded storage workers, pause admission and persistence deadlines |
+| [Editor snapshots, October 10](performance/editor-snapshots-20261010.md) | Frontend normalized snapshot reuse and dirty-state correctness |
+| [Answer display, October 20](performance/performance-typescript-20261020.md) | Frontend item lookup work and preserved answer rendering |
+| [Word counting, October 20](performance/typescript-words-round2-20261020.md) | Frontend Unicode word-count traversal and bounded allocations |
 | [Grading arrays, October 9](performance/performance-grading-arrays-20261009.md) | Fixed real-model anchors and avoided correction calls; no full parser-quality claim |
-| [Payload checks, October 9](performance/performance-payload-check-20261009.md) | Shared storage/Office size-checksum validation and event-loop probes |
-| [Web build-once, October 9](performance/performance-build-once-20261009.md) | One duplicate build removed; no overall CI-speed claim |
-| [Store contention](performance/store-contention-20261010.md) and [editor snapshots](performance/editor-snapshots-20261010.md) | Synthetic fixed-source workloads; no hardware responsiveness guarantee |
 
 ## Engineering and packaging
 

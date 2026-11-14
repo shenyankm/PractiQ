@@ -4,6 +4,7 @@
     "../../.github/scripts/*.ts",
     "release*.ts",
     "bump-version.ts",
+    "benchmark-performance.ts",
     "electron-smoke.ts",
     "package-electron.ts",
     "verify-electron-package.ts",

@@ -1,6 +1,6 @@
 # Twenty service CPU experiments
 
-The [report](../../history/performance/twenty-rounds-20261107.md) distinguishes
+The [report](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/history/performance/twenty-rounds-20261107.md) distinguishes
 20 independent candidate edits from repeated samples and the final replay.
 Twelve candidates remain; eight were reverted. All inputs are synthetic. No
 production/user database, model, Tencent or payment call is part of a probe.

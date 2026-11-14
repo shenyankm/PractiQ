@@ -42,7 +42,7 @@ The ten issues #94–#102 and #110 received separate merged PRs. This ledger rec
 | #102 | [#125](https://github.com/shenyankm/PractiQ/pull/125) | Generated task detail contracts; service/UI/native/browser checks |
 | #110 | [#126](https://github.com/shenyankm/PractiQ/pull/126) | Single self-assessment command; strict legacy field rejection, submit/result/snapshot regressions; UI/native/browser checks |
 
-Later performance and UI work is recorded in [the October 3 record](../history/performance/performance-implementation-20261003.md), [the October 5 record](../history/performance/performance-implementation-20261005.md) and [PR #157](https://github.com/shenyankm/PractiQ/pull/157). Their checks belong to their recorded source; they cannot certify a later release candidate.
+Later performance and UI work is recorded in [the October 3 record](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/history/performance/performance-implementation-20261003.md), [the October 5 record](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/history/performance/performance-implementation-20261005.md) and [PR #157](https://github.com/shenyankm/PractiQ/pull/157). Their checks belong to their recorded source; they cannot certify a later release candidate.
 
 ## Evidence rules
 

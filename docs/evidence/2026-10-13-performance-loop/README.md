@@ -14,17 +14,17 @@ Values below are each round's accepted paired baseline and retained candidate, i
 
 | Round / evidence layer | Fixed workload / metric | Baseline | Retained candidate | Supported result |
 | --- | --- | ---: | ---: | --- |
-| [1](round1.md), release Rust calculation | 100k roots, uniform 3-leaf feasible counts | 88.781 | 0.025 | Exact uniform multiples; >99.9% calculation reduction |
-| [1](round1.md), release Rust calculation | 100k roots, uniform 10-leaf feasible counts | 87.503 | 0.023 | >99.9% calculation reduction |
-| [2](round2.md), release Rust calculation | 100k alternating 2/3-leaf feasible counts | 93.282 | 0.460 | >99% reduction after all possible states are populated |
-| [3](round3.md), local Python merge | 1,000 rich page-question records, warm merge | 47.871 | 39.040 | 18.4% reduction; text-overlap control unchanged within noise |
+| [1](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/evidence/2026-10-13-performance-loop/round1.md), release Rust calculation | 100k roots, uniform 3-leaf feasible counts | 88.781 | 0.025 | Exact uniform multiples; >99.9% calculation reduction |
+| [1](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/evidence/2026-10-13-performance-loop/round1.md), release Rust calculation | 100k roots, uniform 10-leaf feasible counts | 87.503 | 0.023 | >99.9% calculation reduction |
+| [2](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/evidence/2026-10-13-performance-loop/round2.md), release Rust calculation | 100k alternating 2/3-leaf feasible counts | 93.282 | 0.460 | >99% reduction after all possible states are populated |
+| [3](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/evidence/2026-10-13-performance-loop/round3.md), local Python merge | 1,000 rich page-question records, warm merge | 47.871 | 39.040 | 18.4% reduction; text-overlap control unchanged within noise |
 | [4](round4.md), instrumented production Chromium JavaScript | Diagnostic stringify total across ten unrelated filters | 42.8 | 1.2 | Repeated work removed; calls 31 → 1 |
 | [4](round4.md), production Chromium with synthetic GETs | Fresh-context task open | 831.6 | 831.6 | No reliable opening gain |
 | [4](round4.md), production Chromium with synthetic GETs | Natural poll to two animation frames | 21.8 | 7.1 | Scheduling-limited observation; four pairs faster, one slightly slower |
-| [5](round5.md), complete release Rust/SQLite method | 100k roots, ordered quota preview of 1,000 leaves | 311.142 | 188.398 | 39.4% complete native-method reduction |
-| [6](round6.md), server local export + async heartbeat | 1,000 questions, no resources: warm maximum event-loop stall | 113.180 | 34.654 | 69.4% stall reduction; throughput gain not established |
-| [6](round6.md), server local export + async heartbeat | Same bank plus one 9.44 MB PNG: warm maximum stall | 106.256 | 38.030 | 64.2% stall reduction; throughput gain not established |
-| [7](round7.md), complete release Rust/SQLite method | 10k questions, 100 × 1k-question immutable snapshots, 100k attempts: warm restore | 2073.556 | 1797.628 | 13.3% complete native restore reduction |
+| [5](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/evidence/2026-10-13-performance-loop/round5.md), complete release Rust/SQLite method | 100k roots, ordered quota preview of 1,000 leaves | 311.142 | 188.398 | 39.4% complete native-method reduction |
+| [6](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/evidence/2026-10-13-performance-loop/round6.md), server local export + async heartbeat | 1,000 questions, no resources: warm maximum event-loop stall | 113.180 | 34.654 | 69.4% stall reduction; throughput gain not established |
+| [6](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/evidence/2026-10-13-performance-loop/round6.md), server local export + async heartbeat | Same bank plus one 9.44 MB PNG: warm maximum stall | 106.256 | 38.030 | 64.2% stall reduction; throughput gain not established |
+| [7](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/evidence/2026-10-13-performance-loop/round7.md), complete release Rust/SQLite method | 10k questions, 100 × 1k-question immutable snapshots, 100k attempts: warm restore | 2073.556 | 1797.628 | 13.3% complete native restore reduction |
 
 The retained production changes are:
 
@@ -51,7 +51,7 @@ Native restore checks all 32 application tables with typed full-row hashes immed
 ## Rejected and unsuccessful experiments
 
 - **Round 5, first variant:** consuming `roots` with `into_iter` improved ordered quota work but the repeated count-20 control regressed 7.3% (165.520 → 177.540 ms). It was rejected. The retained variant preserves the original root-vector lifetime and borrows it. Raw results are `round5/`, `round5-control-repeat/` and the final `round5b/`; [round5a-rejected.patch](round5a-rejected.patch) preserves the rejected edit. No compiler/runtime mechanism is inferred from timing alone.
-- **[Round 8](round8.md):** preallocating the existing metadata map had no confirmed gain. Complete 100k ordered count-20 preview slowed 171.306 → 201.900 ms (+17.9%); random slowed 172.932 → 194.911 ms (+12.7%). Outputs and seven paper regressions passed, but performance acceptance failed. Only this round's production edit was reverted; [round8-candidate.patch](round8-candidate.patch) and all five pairs remain.
+- **[Round 8](https://github.com/shenyankm/PractiQ/blob/d7c05fecafcbe9a41f7feabd43e498a0c6d7a588/docs/evidence/2026-10-13-performance-loop/round8.md):** preallocating the existing metadata map had no confirmed gain. Complete 100k ordered count-20 preview slowed 171.306 → 201.900 ms (+17.9%); random slowed 172.932 → 194.911 ms (+12.7%). Outputs and seven paper regressions passed, but performance acceptance failed. Only this round's production edit was reverted; [round8-candidate.patch](round8-candidate.patch) and all five pairs remain.
 - The initial editor invocation used the wrong working directory and failed alias resolution; the corrected app-directory run passed. The first round-4 browser attempt served stale assets and is excluded; use `round4-web-valid.json`, repaired verified `round4-assets.json` and `round4-comparison.json`. Its initial test typing/build failure was fixed before valid production runs. The first export localization fixture contained forbidden fields and is excluded. Failed logs are retained; none substitutes for accepted measurements.
 
 ## Why the loop stopped and what remains
