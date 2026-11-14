@@ -93,8 +93,10 @@ jobs:
           version: '0.12.13'
           enable-cache: true
           cache-dependency-glob: server/uv.lock
-      - name: Use Ubuntu archive mirror
-        run: printf '%s\n' 'https://mirrors.edge.kernel.org/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
+      - name: Configure Ubuntu archive fallback
+        run: |
+          printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' 'https://azure.archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt > /dev/null
+          printf '%s\n' 'Acquire::Retries "3";' 'Acquire::http::Timeout "15";' 'Acquire::https::Timeout "15";' | sudo tee /etc/apt/apt.conf.d/80-retries > /dev/null
       - name: Install PDF fallback fonts
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
       - name: Install locked dependencies

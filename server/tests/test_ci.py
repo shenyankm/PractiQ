@@ -13,6 +13,22 @@ import pytest
 import yaml
 
 
+@pytest.mark.parametrize("workflow", ["app", "server"])
+def test_ubuntu_dependency_setup_retains_mirror_fallback_and_bounded_retries(workflow: str) -> None:
+    root = Path(__file__).parents[2]
+    jobs = yaml.safe_load((root / f".github/workflows/{workflow}.yml").read_text())["jobs"]
+    setup = next(step for job in jobs.values() for step in job.get("steps", [])
+                 if "/etc/apt/apt-mirrors.txt" in step.get("run", ""))
+    script = setup["run"]
+    mirrors = re.findall(r"https://[a-z.]+/ubuntu/", script)
+    assert len(set(mirrors)) >= 2
+    assert "mirrors.edge.kernel.org" not in script
+    assert 'Acquire::Retries "3";' in script
+    for transport in ("http", "https"):
+        assert f'Acquire::{transport}::Timeout "15";' in script
+    assert not setup.get("continue-on-error", False)
+
+
 def test_locked_dependency_auditor_starts():
     result = subprocess.run(
         [sys.executable, "-m", "pip_audit", "--help"],
