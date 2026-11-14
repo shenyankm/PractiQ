@@ -198,7 +198,7 @@ CI selects work using [shared path rules](.github/scripts/ci-scope.ts):
 | Changed paths | Heavy CI jobs |
 | --- | --- |
 | Executable code, contracts, fixtures, dependencies or unknown paths | Both workflows: UI/browser/release checks, embedded runtime coverage and macOS package checks |
-| Release notes configuration or release template | App workflow |
+| Release notes configuration or release template | Both workflows |
 | Any workflow YAML, shared CI actions, scope selector, rulesets, or dependency-update configuration | Both workflows; cross-check selectors and privileged workflow safeguards |
 | Documentation, issue/PR templates, or label catalog | Skip heavy Service/App jobs; manually verify local links and command syntax, parse changed YAML/JSON, and check form fields and labels against the catalog |
 
@@ -206,6 +206,8 @@ Manual dispatch and release calls run all checks. The final `Service CI` and
 `Desktop CI` names remain stable for branch protection; both always verify
 deliberate skips and failures. The [Embedded AI](.github/workflows/server.yml)
 and [App](.github/workflows/app.yml) workflows define commands and retained reports.
+App quality owns the shared npm dependency audit and builds the desktop runtime
+once through `test:tooling` before running the release-tool regressions.
 
 ## Submit a pull request
 
