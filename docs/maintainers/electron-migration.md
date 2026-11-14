@@ -31,7 +31,7 @@ Each item requires executable evidence before the old implementation is removed.
   objective marking, manual overrides, history, and retry workflows.
 - [ ] Verified content-addressed images/audio, native file tickets, bounded
   archive import/export, duplicate detection, version-4 backups and restoration.
-- [ ] TypeScript-owned strict contracts and parity with committed IPC/AI fixtures.
+- [x] TypeScript-owned strict contracts and parity with committed IPC/AI fixtures.
 - [ ] Embedded AI settings and OS-protected credentials, absent from backups/logs.
 - [ ] SQLite AI tasks, LangGraph.js checkpoints/Store, usage budgets, durable call receipts,
   pause/cancel/resume, explicit retries, partial export, and shutdown recovery.
@@ -2628,3 +2628,35 @@ Remote Embedded AI run `43575412608` at `2ffa892a` passed its coverage, audit an
 protected `Service CI` gate. Its App workflow was still running when these local
 changes were prepared. New-source remote/native package acceptance and removal
 of the historical runtime source remain pending.
+
+## Native IPC reference execution and interpreter bootstrap regression
+
+`native-ipc-parity.test.ts` now executes the original bank/session sequence in
+temporary Node SQLite state and compares every frozen pagination, unknown/graded
+session, manual override and restore field with `app/fixtures/native-ipc.json`.
+Only generated IDs/cache keys and the temporary recovery path are normalized;
+no payload fields are omitted. Historical response values are retained state,
+not new provider responses bypassing the current quotation/criteria validator.
+The test also verifies exact legacy sidecar round trips, preservation of an
+opaque historical grade-request row across backup/restore and rejection of its
+target for current grading without inserting another request. This focused test
+passes; current embedded AI settings intentionally replace the old connection UI.
+
+Remote Embedded AI run `43576871701` at `93ef2c8e` passed. App run `43576871636`
+failed in the reference-dependency bootstrap before any App checks: the moved
+command lost the former Makefile's absolute Python-path resolution, so `uv pip`
+looked for a virtual environment for the bare executable name. The workflow now
+resolves the existing `python` before calling uv. A regression executes the
+actual workflow shell fragment with a substitute uv, reproduces the old failure,
+and verifies all three calls receive the exact interpreter path (including
+spaces), locked export flags and temporary-file cleanup. All 26 CI guards pass
+after the fix. No project virtual environment is created. Current-head remote
+App acceptance remains pending.
+
+After adding native IPC parity, the full local backend run passes 5,894 tests
+across 90 files, with 91.65% statements, 92.95% lines, 92.35% functions and 87.42%
+branches. Its JUnit and all coverage formats are retained; the earlier focused
+probe is not substituted for that full report. Historical ignored artifacts and
+local state remain present under both old source directories; retirement must
+remove explicit tracked runtime files only, preserving their ignore files and
+all unrelated contents.

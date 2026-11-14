@@ -11,9 +11,17 @@ normalized. Payload field names, nulls and values remain native output.
 
 `app/src/NativeIpcContracts.test.ts` checks its TypeScript compatibility and reads
 the same payloads through the frontend API. It runs through `make app-check` and
-desktop CI. Current SQLite worker and Electron smoke tests separately exercise
-actual command responses and state transitions; the frozen fixture is not
-regenerated to conceal a compatibility change.
+desktop CI. `app/desktop/native-ipc-parity.test.ts` reconstructs the original
+bank/session workflow in a real temporary Node SQLite store and compares bank,
+question and session pagination, unknown/graded/manual session payloads and
+backup/restore responses exactly. Only generated identities and the recovery
+path are normalized. Historical receipt values are seeded as retained state,
+never accepted as new grading responses exempt from current evidence checks.
+Legacy direct/service sidecars round-trip unchanged and a historical target
+cannot silently authorize current grading. Current AI settings have their own
+explicitly approved embedded-provider UI and do not expose the old settings API.
+
+The frozen fixture is not regenerated to conceal a compatibility change.
 Historical error fields remain opaque and are preserved.
 
 After an intentional contract change, update the typed bridge and affected
