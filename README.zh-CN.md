@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="app/src-tauri/icons/icon.png" width="160" alt="PractiQ logo">
+  <img src="app/desktop/icons/practiq.png" width="160" alt="PractiQ logo">
 </p>
 
 # PractiQ
@@ -14,10 +14,10 @@
 - **复习与记录**：按推荐题目复习，查看近 7 天或 30 天的学习统计，记录个人笔记和错因。
 - **保存与分享**：下次接着上次的进度练习，备份个人记录，把题库连同图片和音频导出为 ZIP 分享。
 
-应用提供简体中文、繁体中文和英文界面，支持明暗主题、七种基础题型，以及英语听力、阅读、完形填空、翻译和写作。练习记录保存在你的设备上，不需要账号，也不会同步到云端。AI 导入会将文档发送至自建服务、腾讯云及配置的模型供应商；可选的 AI 批改会将评分内容发送至所选接口。
+应用提供简体中文、繁体中文和英文界面，支持明暗主题、七种基础题型，以及英语听力、阅读、完形填空、翻译和写作。练习记录保存在你的设备上，不需要账号，也不会同步到云端。主动开始 AI 导入会将文档发送至腾讯云及配置的模型供应商；可选的 AI 批改会将评分内容发送至所选接口。
 
 
-也可以从 App 的**文档导入**连接自建个人服务，选择文档后点击**开始导入**。无需注册或管理员配置；文档导入和主观题评分共用**设置 → AI 服务**中的后端地址。
+当前源码构建为一个 Electron 应用，内置 Node 工作进程、LangGraph.js、SQLite 和本地文件存储。导入和评分共用**设置 → AI 模型与识别**中的配置，无需另行启动服务。迁移验收与剩余工作见[验收记录](docs/maintainers/electron-migration.md)。
 
 
 ## 截图
@@ -34,7 +34,7 @@
 
 [安装 PractiQ](#安装)后：
 
-1. “我的题库”为空时，点击**添加示例题库**；也可以依次打开**设置 → 导入与恢复 → 导入题库 ZIP**，导入 [sample.zip](app/fixtures/sample.zip)。更多示例：[复合题](app/fixtures/composite.zip)、[全题型](app/fixtures/all-types.zip)。
+1. “我的题库”为空时，点击**添加示例题库**；也可以依次打开**设置 → 导入与恢复 → 导入题库 ZIP**，导入 [sample.zip](app/fixtures/sample.zip)。更多示例：[复合题](app/fixtures/composite.zip)、[全题型](app/fixtures/all-types-no-recordings.zip)。
 2. 打开题库并点击**开始练习**，体验即时反馈练习、不限时自测或限时模考。
 3. 提交作答，查看评分和解析。
 
@@ -44,13 +44,13 @@
 
 ## 用 AI 导入文档
 
-文档导入界面内置于 macOS App，解析使用独立的 Python 后端：
+直接在 macOS App 中导入文档：
 
-1. [启动后端](#自建导入服务)，在 App 打开**文档导入**。默认连接 `http://127.0.0.1:8090`，可在全局**设置 → AI 服务**中更改地址，无需登录。
+1. 在**设置 → AI 模型与识别**中配置模型地址、ID、API Key 和腾讯凭据，保存后打开**文档导入**，无需登录。
 2. 一次最多选择 10 份文件，点击**开始导入**。只选择文件不会上传或解析。
-3. 检查题目、图片和需要复核的内容，然后点击**导入题库**。App 直接读取后端结果并校验配图，写入本地题库，无需下载或导入 ZIP。
+3. 检查题目、图片和需要复核的内容，然后点击**导入题库**。App 读取已保存的结果并校验配图，写入本地题库，无需下载或导入 ZIP。
 
-服务通过腾讯云的[异步多模态文档解析](https://cloud.tencent.com/document/api/866/139312)读取 **PDF、TXT、Markdown、PNG/JPEG、DOC、DOCX、PPT、PPTX、XLS 和 XLSX**，不支持新建 CSV 导入。腾讯云[计费说明](https://cloud.tencent.com/document/product/866/17619)列有首次开通的一次性 **1,000 页免费额度，有效期一年**；领取资格和剩余额度以腾讯云账号为准。文档解析与模型调用分别计费。
+App 通过腾讯云的[异步多模态文档解析](https://cloud.tencent.com/document/api/866/139312)读取 **PDF、TXT、Markdown、PNG/JPEG、DOC、DOCX、PPT、PPTX、XLS 和 XLSX**，不支持新建 CSV 导入。文档解析与模型调用分别计费，当前价格与额度以供应商账号为准。Office 文件超过当前传输或类型限制时，需先导出为 PDF 再导入；应用不使用 Python 或 LibreOffice 安装。
 
 默认只提取原文已有的答案和解析。如需补充缺失内容，在全局设置中开启**AI 生成答案与解析**，等待保存成功，再点击**开始导入**。原有答案会保留，生成内容标记为待核对，并共享任务的模型调用预算。
 
@@ -58,9 +58,9 @@
 
 ## 用 AI 批改主观题
 
-打开**设置 → AI 服务**，配置独立 Python 后端地址（默认 `http://127.0.0.1:8090`）。文档导入和 AI 评分共用此后端，模型地址、模型 ID 和密钥仅配置在后端。离线练习和本地判分无需服务。
+文档导入和 AI 评分共用**设置 → AI 模型与识别**中的模型配置。离线练习和本地判分无需凭据或网络连接。
 
-批改需要参考答案或评分细则，可能产生费用，并会把当前题目、材料、图片和你的作答发送给所选供应商。每次操作最多请求一次，结果不明时不会自动重发。供应商密钥保存在后端环境中，不会进入 App 备份。详见[练习指南（英文）](docs/guides/practice-guide.md)中的批改限制与重试规则。
+批改需要参考答案或评分细则，可能产生费用，并会把当前题目、材料、图片和你的作答发送给所选供应商。每次操作最多请求一次，结果不明时不会自动重发。当前密钥由 macOS 系统保护并加密保存在本机，不会进入学习备份。详见[练习指南（英文）](docs/guides/practice-guide.md)中的批改限制与重试规则。
 
 普通练习提交当前简答题后也可主动评分；自测和模拟考试仍需先交卷。评分结果展示逐项得分、评分依据和作答引用，并校验引用与分数合计；原题未提供分值时，练习按百分制评分。评分仍用于个人辅助核对，独立人工标注的质量验收尚未完成。
 
@@ -74,20 +74,23 @@
 
 > 阅读 `docs/guides/installation.md`，在这台电脑上安装 PractiQ。先检查环境要求，只执行适合我系统的步骤，完成后告诉我执行了哪些命令、安装包在哪里，以及哪些步骤失败。安装系统软件前先问我。
 
-[安装指南（英文）](docs/guides/installation.md)包含环境要求、命令和检查步骤。应用支持 macOS 14+（Apple Silicon）；Linux 仅用于运行 AI 服务和 CI。
+[安装指南（英文）](docs/guides/installation.md)包含环境要求、命令和检查步骤。应用面向 macOS 14+（Apple Silicon），其他桌面平台尚未验收。
 
 PractiQ 仍在开发中。构建通过不代表已完成签名、干净环境验收或真实模型准确性验证。已发布的安装包和验证证据见 [GitHub Releases](https://github.com/shenyankm/PractiQ/releases)。
 
 桌面数据保存在 `v4/` 目录中，SQLite schema 为 11。完整备份使用容器版本 4、schema 11；此前使用相同版本的备份仍受支持。更旧的 schema 不会自动迁移，旧目录原样保留，当前格式的题库 ZIP 仍可导入。详见[数据格式说明](docs/reference/question-model.md#versions-and-directories)。
 
-## 自建导入服务
+## 本地数据与 AI 工作进程
 
-文档导入需要自建 AI 服务，需要 Python 3.14+、uv、PostgreSQL、RabbitMQ、腾讯云解析凭据，以及支持 Responses API、文字与图片输入和结构化输出的模型接口。服务应绑定本机回环地址。[安装指南（英文）](docs/guides/installation.md)、[个人自托管指南](server/docs/personal-use.md)和[腾讯云配置指南](server/docs/tencent-document-parser.md)说明部署与升级；供应商配置由你提供，费用直接支付给供应商，PractiQ 不提供计费。
+练习数据和 AI 任务分别存储在本地 SQLite 数据库中。学习备份包含练习记录及引用资源，不包含 AI 任务和当前凭据。新增听力只保存二维码识别出的播放地址或手动填写的地址，音频在内存中播放；历史录音仍兼容。既有数据、Keychain 命名空间和历史服务数据卷保留。旧服务文档与报告用于迁移参考，不是当前安装步骤。
 
 ## 文档与开发
 
 
 ```sh
+make install
+make dev
+make verify
 cd app
 npx playwright install chromium --only-shell
 npm run test:browser

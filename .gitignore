@@ -17,7 +17,7 @@
 *.p12
 *.pfx
 
-# Python dependencies, caches and builds
+# Historical Python state stays ignored after runtime retirement
 .venv/
 __pycache__/
 *.py[cod]
@@ -33,7 +33,7 @@ __pycache__/
 /server/**/build/
 /server/**/dist/
 
-# React / Vite / Electron / Tauri dependencies and builds
+# React / Vite / Electron builds and retained Tauri build state
 node_modules/
 .electron-gyp/
 *.tsbuildinfo

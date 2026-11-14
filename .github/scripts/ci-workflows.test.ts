@@ -16,6 +16,21 @@ function workflow(name: string): Record<string, any> {
 const source = "${{ inputs.ref || github.sha }}";
 const templates = [{ name: "app", scope: "desktop", gate: "desktop-gate", label: "Desktop CI", dependencies: ["changes", "quality", "package"] }, { name: "server", scope: "service", gate: "gate", label: "Service CI", dependencies: ["changes", "quality"] }];
 
+test("default Make checks and installation use the single Node application", () => {
+  const project = JSON.parse(readFileSync(join(root, "app/package.json"), "utf8"));
+  assert.equal(project.scripts.tauri, undefined); assert.equal(project.devDependencies["@tauri-apps/cli"], undefined);
+  for (const target of ["install", "install-locked", "dev", "test", "verify", "app-check", "audit", "test-e2e"]) {
+    const result = spawnSync("make", ["--dry-run", target], { cwd: root, encoding: "utf8", timeout: 10000 });
+    assert.equal(result.status, 0, result.stderr);
+    assert.doesNotMatch(result.stdout, /python|uv |cargo|tauri|docker|postgres|rabbitmq/);
+    for (const match of result.stdout.matchAll(/npm run ([a-z:]+)/g)) assert.ok(project.scripts[match[1]], `Unknown npm command in ${target}: ${match[1]}`);
+    if (["install", "install-locked"].includes(target)) assert.match(result.stdout, /npm ci[\s\S]*npm run desktop:install/);
+    if (["verify", "app-check"].includes(target)) assert.match(result.stdout, /node --test \.github\/scripts\/\*\.test\.ts[\s\S]*npm run check[\s\S]*npm run build/);
+  }
+  for (const command of ["contracts:check", "check:packaging", "check:ui", "test:tooling", "test:desktop"]) assert.ok(project.scripts.check.includes(`npm run ${command}`), command);
+  assert.doesNotMatch(project.scripts.check, /cargo|python|tauri/);
+});
+
 test("native packaging installs locked Electron before building and stops on installation failure", () => {
   const project = JSON.parse(readFileSync(join(root, "app/package.json"), "utf8")), directory = mkdtempSync(join(tmpdir(), "practiq-install-"));
   assert.equal(project.scripts["desktop:install"], "install-electron");

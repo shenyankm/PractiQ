@@ -2585,3 +2585,46 @@ tests pass and seven remain intentionally skipped. Frontend types/lint, packagin
 types and both contract exporter checks pass. Reports remain ignored under
 `app/.build/evidence/` and `coverage/`. New-head remote gates and final-source
 manual/live-provider acceptance remain pending; no paid provider calls ran.
+
+## Default Node commands and complete fixture expectations
+
+Default `make install`, `install-locked`, `dev`, `test`, `verify`, `audit` and
+`build`, plus the existing App aliases, now operate on the single Node/Electron
+application. `npm run check` runs contracts, maintainer/frontend/worker types,
+lint, frontend/backend coverage and release-tool regressions. Root verification
+also runs CI guards and builds the production renderer. The default command no
+longer launches or requires Python, Cargo, PostgreSQL, RabbitMQ or Docker. The
+Tauri CLI and its platform packages are removed from the npm lockfile, and
+Dependabot no longer schedules the historical Cargo/Docker build graphs.
+
+The retired service startup/upgrade/package Make targets are removed. App CI's
+remaining historical Python reference checks retain their explicit locked
+bootstrap in the workflow until the reference implementation is removed; they
+are not desktop install dependencies. Old data, ignored build state, credentials,
+deployment files and volumes remain preserved. Existing legacy ignore patterns
+are intentionally retained. The three root README languages, installation,
+contribution, import/practice/data and IPC guides now describe the embedded
+implementation and distinguish historical service references.
+
+All 51 shared contract cases now also exercise parse-side normalization and
+every `expectedQuestion` field formerly checked only by Python. This reproduced
+two sparse-choice cases whose absent stem was `undefined` instead of the
+original `null`. Parse normalization now copies only absent defaults from the
+authoritative question schema, preserving explicitly supplied values and the
+input object. The sample, rich-content, composite and English JSON files and
+both historical/current all-mode ZIPs also run in TypeScript. The old Python
+fixture/exporter checks remain passing.
+
+Local verification on 2026-11-14: 5,893 embedded-runtime tests pass with 91.62%
+statement, 92.92% line, 92.31% function and 87.28% branch coverage; 916 frontend
+tests pass and seven are intentionally skipped. All 76 release-tool and 25 CI
+guards pass, including actual Make dry runs and the unchanged installer-order
+failure guard. Contracts, packaging types, frontend types/lint/build, npm audit
+and the complete actual Electron smoke pass. Native smoke uses isolated profiles,
+local provider substitutes and substituted file dialogs; it is not live-model
+or clean-machine acceptance. Changed documentation links resolve locally.
+
+Remote Embedded AI run `43575412608` at `2ffa892a` passed its coverage, audit and
+protected `Service CI` gate. Its App workflow was still running when these local
+changes were prepared. New-source remote/native package acceptance and removal
+of the historical runtime source remain pending.

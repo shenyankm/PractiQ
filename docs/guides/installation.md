@@ -1,120 +1,116 @@
 # Install PractiQ
 
-This guide installs PractiQ from source: the offline practice app, and optionally the self-hosted AI service that imports documents. It is written so that a person or a coding agent can follow it step by step. Run every command from the repository root unless a step says otherwise.
+The current source builds one macOS Electron application with embedded Node AI
+workers, LangGraph.js, SQLite and local files. No independent service, Python,
+Rust, PostgreSQL, RabbitMQ or LibreOffice installation is required. Historical
+service sources remain migration references until the
+[acceptance ledger](../maintainers/electron-migration.md) closes.
 
-PractiQ is in development; these steps build local packages and a development server. They do not sign installers or accept a release. Check [GitHub Releases](https://github.com/shenyankm/PractiQ/releases) before building if a published package is enough.
+Run commands from the repository root unless stated otherwise. Published
+installers may predate this migration; check their release notes rather than
+assuming these source instructions describe an older package.
 
 ## Before you start
 
 | Item | Requirement |
 | --- | --- |
-| Practice app | macOS 14+ on Apple Silicon |
+| Desktop | macOS 14+ on Apple Silicon; other targets are not accepted |
 | Node.js | 22.18+ within 22.x, or 24.11+ |
-| Rust | Installed through [rustup](https://rustup.rs/); the repository pins its toolchain |
-| Python | An existing 3.14+ interpreter for packaging checks; do not create a project `.venv` |
-| uv | Required for locked dependency installation |
-| Desktop toolchain | Xcode on macOS; see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) |
-
-Clone the repository and enter its root directory:
+| macOS tools | Command Line Tools providing the system signing/package utilities |
+| Network | Needed to install locked npm dependencies and Electron; explicit AI actions and playback addresses also need network access |
 
 ```sh
 git clone https://github.com/shenyankm/PractiQ.git
 cd PractiQ
+make install
+make dev
 ```
 
-Use your own interpreter path wherever these steps say `/path/to/python3.14`.
+`make install` runs `npm ci` and explicitly installs the locked Electron binary.
+It does not start an AI task. `make dev` builds the renderer and starts Electron
+with its embedded workers. A browser Vite page alone is not the desktop app.
 
-## Install the desktop app
-
-### macOS
+## Build and verify a package
 
 ```sh
-make install-locked AI_PYTHON=/path/to/python3.14
-make app-install
-cargo fetch --locked --manifest-path app/src-tauri/Cargo.toml
-make app-dev AI_PYTHON=/path/to/python3.14
-# Build a local application package:
-make app-build AI_PYTHON=/path/to/python3.14
+make verify
+make audit
+# Choose a fresh output directory; do not reuse an existing package path.
+make app-package-check APP_PACKAGE_DIRECTORY="$PWD/app/.build/packages/my-check"
 ```
 
-`prepare-package.py` needs Python 3.14+. It generates build metadata and dependency notices; it does not download or copy any document-processing runtime. A first build downloads Rust and npm dependencies and can take several minutes.
+`make verify` checks generated contracts, frontend types/lint/coverage, embedded
+runtime coverage, CI/release regressions and the production renderer build.
+`make audit` checks the locked npm dependencies. `make app-package-check` builds
+the application and DMG, independently installs that same DMG into a temporary
+location, and verifies its contents, protected credentials and recovery flows.
+Reports distinguish local providers/substituted dialogs from live acceptance.
 
-### Build outputs
+Outputs in the selected directory include `PractiQ.app`, a versioned `.dmg` and
+`package-report.json`. Without an override, `make build` creates a fresh directory
+under `app/.build/packages/`. Local packages are ad-hoc signed and not notarized
+distribution releases. These checks do not establish real-provider accuracy.
 
-Packages are written under `app/src-tauri/target/release/bundle`:
+## Confirm offline practice works
 
-- macOS: `.app` and `.dmg`
-
-Package checks verify the version, notices and the absence of embedded engines; they do not check signing or interactive playback.
-
-### Confirm the app works
-
-Run `make app-dev` (or start the packaged app), then:
+Run `make dev` or open the packaged app, then:
 
 1. When **My banks** is empty, choose **Add example bank**.
 2. Open the bank and choose **Start practice**.
-3. Answer one question and confirm that a score appears.
+3. Answer an objective question, submit, and review the score.
+4. Export a learning backup under **Settings → Import and restore**.
 
-No API key or model call is needed for this check.
+This needs no provider keys or model calls. The example omits recordings;
+listening questions need a QR-derived or manually supplied playback address.
+Historical ZIPs, recordings and version-4/schema-11 learning backups remain
+supported. Older database schemas are rejected without replacement.
 
-If a damaged database prevents the app from starting, follow [desktop data recovery](desktop-recovery.md) to preserve the complete existing directory before restoring a backup into a new one.
+## Configure optional AI import and grading
 
-## Install the AI import service (optional)
+Open **Settings → AI model and recognition** and save the model provider,
+endpoint, model ID/API key and Tencent Secret ID/Secret Key. Import and explicit
+grading share this configuration. Current credentials use macOS-protected
+encrypted local storage; learning backups exclude credentials and AI task state.
+Preserve old `.env` files and Keychain namespaces; they are not imported or
+deleted automatically.
 
-The independent Python service handles document import for the App and can grade short answers for the desktop app. Its commands use GNU Make; on a host without the native build tools, the [service guide](../../server/docs/service-guide.md) covers building the Docker image instead. It needs:
+Choose a supported document under **Document import**, then explicitly select
+**Start import** to authorize Tencent recognition and model processing. Merely
+selecting a file does not submit it. Review the saved results before importing
+them into a bank. Office files exceeding the current transport/type limit must
+first be exported as PDF. New CSV imports are unsupported.
 
-- Python 3.14+ and uv
-- An empty, dedicated PostgreSQL database
-- A dedicated RabbitMQ vhost
-- A model endpoint that accepts text and images
+These actions may incur provider charges. Unknown paid outcomes are retained
+and never resent automatically. Reads, exports and backups do not call models.
+If keys are unavailable, skip the live step and report it as untested.
 
-Copy the configuration template without overwriting existing settings:
+## Preserve existing data
+
+Do not remove old application directories, AI task files, service database
+volumes, backups or credentials to make a build work. Use isolated test profiles
+and fresh package paths. If a damaged practice database prevents startup, follow
+[desktop recovery](desktop-recovery.md) and retain the complete original
+directory before restoring a backup into a new one.
+
+For a copy-only comparison against an old profile, build the current runtime,
+then run from `app/`:
 
 ```sh
-cp -n .env.example .env
+npm run desktop:build
+npm run verify:existing-data -- /absolute/legacy/profile
 ```
 
-Set these values in `.env`:
-
-| Setting | Purpose |
-| --- | --- |
-| `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_MODEL` | The model used for question structuring and grading |
-| `AI_TENCENT_SECRET_ID`, `AI_TENCENT_SECRET_KEY` | Tencent Cloud credentials for document parsing |
-| `DATABASE_URI` | PostgreSQL address |
-| `RABBITMQ_URI` | RabbitMQ address using a dedicated vhost |
-| `AI_STORAGE_DIR` | Absolute, persistent location for uploads and results |
-
-Then initialise the service tables and start the service:
-
-```sh
-make install-locked AI_PYTHON=/path/to/python3.14
-make init-db AI_PYTHON=/path/to/python3.14
-make server-dev AI_PYTHON=/path/to/python3.14
-```
-
-The service listens on `127.0.0.1:8090`, keeps tasks in PostgreSQL, delivers work through RabbitMQ and stores files locally. Run one process per database. Configure `AI_OFFICE_EXECUTABLE` and `AI_OFFICE_VERSION` only on the service, and only when very large Office files must be split.
-
-### Confirm the service works
-
-1. Open `http://127.0.0.1:8090/ok` and `http://127.0.0.1:8090/ready`; both should return a success response (for example with `curl`).
-2. Open **Document import** in the App. It defaults to `http://127.0.0.1:8090`; change the backend under global **Settings → AI service** if needed. The backend root has no frontend.
-3. Import one small PDF or TXT file, then select **Import bank** to add its saved result directly to local practice.
-
-The last step calls Tencent and your model provider, and may cost money. Skip it if credentials are not configured.
+The verifier retains private copies and reports under ignored `.build/evidence/`.
+It does not authorize modifying the original profile.
 
 ## Notes for coding agents
 
-- Build the app on macOS. The independent service may run on Linux.
-- Ask before installing system packages, upgrading tools, or changing anything outside the repository.
-- Never create a project `.venv`; use an existing Python 3.14+ interpreter.
-- Do not overwrite an existing `.env`. Add missing keys instead.
-- Never print, commit or copy credentials from `.env`, and do not put them in logs.
-- Stop at the first failure and report the command, its output and what you already changed. Do not replace a failing step with a different toolchain or a different package manager.
-- When done, report the commands you ran, the output locations, and anything you skipped.
+- Ask before installing system packages or changing anything outside this task.
+- Never print, commit or include provider keys in logs, fixtures or backups.
+- Keep generated artifacts and local state ignored, including retained legacy state.
+- Preserve first failures and report actual commands, output paths and skipped checks.
+- Do not treat substitute-provider tests or successful packaging as live-model,
+  clean-machine, signing or publication acceptance.
 
-## Next steps
-
-- Practise, review scores and use optional AI grading: [practice guide](practice-guide.md).
-- Import, resume and download documents: [import tasks](import-tasks.md).
-- Deploy the service for personal use and upgrade old databases: [personal-use guide](../../server/docs/personal-use.md).
-- Configure Tencent parsing limits, splitting and private COS staging: [Tencent parser setup](../../server/docs/tencent-document-parser.md).
+See the [contribution guide](../../CONTRIBUTING.md) for browser/native tests and
+release checks, and the [practice guide](practice-guide.md) for user workflows.

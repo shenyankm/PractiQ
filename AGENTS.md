@@ -30,18 +30,23 @@ The independent service is for personal self-hosted use without an application a
 
 ## Commands
 
-- Use an existing Python 3.14+ interpreter; no project `.venv`. Set `AI_PYTHON` when needed.
-- `make install`: install AI and development dependencies into that interpreter.
-- `make server-dev`: run Uvicorn on loopback with PostgreSQL and RabbitMQ, loading `.env`.
-- `make test` / `make test-server`: AI tests without external model calls.
-- `make install-locked`: install locked runtime/development dependencies into the selected interpreter without a project `.venv`.
-- `make upgrade-db UPGRADE_BACKUP=/absolute/path/to/verified/bundle`: explicitly upgrade personal service schemas 1–5 to 9 offline under runtime ownership; verify and retain database/storage backups.
-- `make verify`: lockfile consistency, Ruff, Pyright, evaluation fixtures, one test run with 90% coverage, recovery probes and package build. Reports go to `server/reports/checks/`, including on test failure.
-- `make audit` / `make image-check`: audit locked dependencies (network required) / build the Docker image without publishing.
+These commands operate on the single Electron/Node application. Historical
+service startup, database-upgrade and Tauri packaging targets are retired.
 
-- `make app-install` / `make app-dev`: install locked desktop dependencies / start the Tauri desktop application.
-- `make app-check AI_PYTHON=...`: on macOS, check shared AI contracts, frontend interactions, host Rust integration tests and Clippy. Other native app targets are unsupported.
-- `make app-build`: build a native macOS package without publishing.
+- `make install` / `make install-locked` / `make app-install`: install locked npm dependencies and explicitly install the locked Electron binary.
+- `make dev` / `make app-dev`: start Electron with embedded AI/practice workers.
+- `make test`: frontend and embedded-runtime tests with required coverage, without external model calls.
+- `make verify` / `make app-check`: Node CI guards, shared contracts, maintainer/frontend/worker types, lint, frontend/backend coverage, release-tool regressions and the production renderer build. Do not run duplicate full suites after these pass without a new failure, change or unresolved concern.
+- `make audit`: audit the locked npm dependencies; network required.
+- `make build` / `make app-build`: build a fresh native macOS app/DMG without publishing; set `APP_PACKAGE_DIRECTORY` to choose a fresh output directory.
+- `make app-package-check`: build and independently install/verify that same DMG, including protected credentials and recovery checks.
+- `make test-e2e`: browser and actual Electron workflows with local provider substitutes.
+- `npm --prefix app run contracts:check`: check TypeScript types generated from `shared/ai-contracts.json`. Frozen wire/grading baselines in `app/fixtures/` must not be regenerated to hide drift.
+
+Until historical Python source is removed, App CI retains the Python exporter,
+fixture and release-reference checks with its own locked bootstrap. Use an
+existing Python 3.14+ interpreter for those reference checks; no project `.venv`.
+They are not part of the desktop installation or default verification commands.
 
 ## Module Conventions
 

@@ -76,7 +76,14 @@ jobs:
           enable-cache: true
           cache-dependency-glob: server/uv.lock
       - name: Install locked service dependencies for contract checks
-        run: make install-locked AI_PYTHON=python
+        run: |
+          set -eu
+          requirements=$(mktemp)
+          trap 'rm -f "$requirements"' EXIT
+          cd server
+          uv export --locked --extra dev --no-emit-project --python python -o "$requirements" >/dev/null
+          uv pip install --break-system-packages --python python -r "$requirements"
+          uv pip install --break-system-packages --python python --no-deps -e .
       - run: python app/scripts/export-contracts.py --check
       - run: python app/scripts/check-fixtures.py
       - run: python -m pytest server/tests/test_release_checks.py server/tests/test_release_workflow.py server/tests/test_desktop_package.py
