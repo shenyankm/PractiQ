@@ -1,6 +1,7 @@
 {
   "extends": "../tsconfig.json",
   "include": [
+    "../../.github/scripts/*.ts",
     "electron-smoke.ts",
     "package-electron.ts",
     "verify-electron-package.ts",

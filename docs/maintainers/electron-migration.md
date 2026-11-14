@@ -2408,3 +2408,78 @@ guards. The original log and recheck are retained as `cutover-browser.log` and
 Complete development Electron smoke and the real frontend-to-SQLite session
 consumer regression also pass (`cutover-electron.log`,
 `cutover-native-consumer.log`). None of these checks calls a real model.
+
+The entry-cutover DMG for `41107ef7` has SHA-256
+`91ce29daaf2cd9b54f8479c725c570663c06da90bc4d8dfc6c50f105f18c1918`.
+Its core installation checks pass, but OS credential initialization times out.
+A second independent `ditto` copy also stops at
+`safeStorage.isAsyncEncryptionAvailable()`. Native UI access and display capture
+were unavailable in that session, so a Keychain approval prompt is not confirmed.
+Keep `cutover-make-package.log`, `cutover-installed-electron.log`,
+`cutover-installed-41107ef7-failed.json` and the hash-specific package receipt;
+the latter retains false credential-verification flags. The earlier baseline's
+successful credential receipts do not certify this package. No timeout was
+increased, OS protection disabled, historical credentials deleted or plaintext
+fallback introduced.
+
+## TypeScript CI scope and final gates
+
+Both workflows now bootstrap change selection and their final protected gates
+with Node 22 and `.github/scripts/ci-scope.ts`. The old Python selector and its
+selector-only test module are removed. The required names remain `Service CI`
+and `Desktop CI`; both require a full source SHA and successful source detection.
+Changes and gate jobs no longer install Python. The former service quality job
+now checks embedded AI and practice on macOS/Node 24, with no PostgreSQL,
+RabbitMQ, Docker or Python matrix. Its complete suite runs once in that workflow;
+the desktop package job retains copied-app and installed-DMG functional checks.
+App quality still checks the Python contract exporter and reference release
+tools until those implementations are retired together. Release tooling and the
+reference Rust/package chain remain pending.
+
+The Node selector preserves paginated PR files, old and new rename paths, the
+3000-file truncation fallback, all-commit push diffs with NUL/Unicode handling,
+unavailable-base full checks, and pinned-ref/manual full checks. Every
+non-documentation path now requests both embedded-AI and desktop checks;
+unrecognized inputs cannot silently skip validation. Only an explicit
+documentation skip permits skipped quality/package jobs. Failed, cancelled,
+unexpected, missing or unresolved dependencies fail the final gate.
+
+Twenty-one Node guard tests pass, including real temporary Git history and
+executing the gate commands with outputs read from the actual workflow YAML.
+They cover the stable main rules, pinned actions/source, report retention and
+single ownership of frontend/backend checks. The old Python CI-specific test
+module is retired; 309 retained reference release/package tests and the
+maintainer-tool type check pass. An earlier 378-case run also passed before that
+retirement. The backend test command now requires 90% statement, line and
+function coverage and 85% branches, includes all desktop source files, and emits
+JUnit, JSON, LCOV and Cobertura reports. Complete 5,833-test runs pass under both
+Node 22 and Electron's embedded Node 24.22.2: 91.62% statements, 92.92% lines,
+92.31% functions and 87.31% branches. Native entry processes not exercised within
+the coverage runner remain in its denominator; independent Electron checks are
+separate evidence.
+An intentional failing-test probe confirms that JUnit and coverage files remain
+available on failure and the threshold violation retains a nonzero exit. Its
+fixture is removed afterward; the ignored `ci-report-probe/` receipt and logs
+retain the negative result. Coverage uses `reportOnFailure` and uploads run with
+`always()`; reports never convert a failed test run into a passed gate.
+The already installed `js-yaml@4.3.2` is an explicit development dependency for
+workflow tests; the selector itself uses only Node built-ins and needs no npm
+installation. It is not added to the packaged runtime dependency set.
+
+The embedded-Node run initially found that the SIGKILL receipt probe discarded
+`ELECTRON_RUN_AS_NODE` along with inherited environment variables. Its child now
+sets only that mode flag; no parent secrets or provider settings are inherited.
+Both unknown/successful receipt recovery assertions pass without a timeout
+increase, preserving explicit retry and no automatic paid-call replay.
+
+The `41107ef7` remote App-quality gate passed. Its macOS full-runtime job failed
+one preview-resource test after about 9 seconds on a cold host, exceeding the
+test runner's default 5 seconds. That test performs two native-media preview
+passes and now has a 20-second total allowance. Its no-persistence, checksum,
+expired-ticket and import assertions are unchanged; each CoreAudio decode still
+has the original 5-second deadline. The remote failure is separate from local
+package credential initialization. New CI acceptance remains pending.
+
+The release workflow/assembler still expects the retired Python report layout;
+it must be ported to the new `embedded-ai-checks` artifacts before a release can
+run. Do not treat passing component CI as completed release cutover.
