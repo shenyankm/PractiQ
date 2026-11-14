@@ -6,6 +6,12 @@ During this migration, the old architecture below remains a behavioral reference
 New desktop work belongs in `app/desktop/`; it must not forward unported
 operations to the old runtime. Test with isolated data directories.
 
+Run `make app-install` to install locked npm dependencies and the locked Electron
+binary. From `app/`, the equivalent is `npm ci` followed by
+`npm run desktop:install`; npm dependency installation alone does not install
+Electron's binary. Packaging also runs this explicit installation step before
+building and stops if it fails.
+
 `make app-dev` (or `npm run desktop` from `app/`) now starts Electron with the
 embedded Node AI runtime. It does not prepare Tauri resources or start a Python
 service. The production renderer requires Electron's typed preload bridge;

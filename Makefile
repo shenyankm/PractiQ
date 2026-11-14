@@ -59,6 +59,7 @@ alerts-check:
 .PHONY: app-install app-dev app-check app-build app-package-check
 app-install:
 	cd app && npm ci
+	cd app && npm run desktop:install
 app-dev:
 	cd app && npm run desktop
 app-check:

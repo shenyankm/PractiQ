@@ -10,6 +10,7 @@
     "test:coverage": "vitest run --coverage",
     "tauri": "tauri",
     "desktop": "npm run desktop:electron",
+    "desktop:install": "install-electron",
     "desktop:build": "node desktop/build.ts",
     "contracts:check": "node scripts/export-contracts.ts --check",
     "desktop:electron": "npm run build && npm run desktop:build && electron .build/electron/app/desktop/main.js",
@@ -21,7 +22,7 @@
     "test:browser": "playwright test",
     "test:preview": "playwright test --project preview",
     "test:rich-content": "playwright test --project rich-content",
-    "package:electron": "node scripts/package-electron.ts",
+    "package:electron": "npm run desktop:install && node scripts/package-electron.ts",
     "verify:existing-data": "node scripts/verify-existing-data.ts",
     "test:package": "node scripts/verify-electron-package.ts",
     "check:packaging": "tsc -p scripts/tsconfig.packaging.json"

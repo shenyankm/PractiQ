@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { existsSync, readFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
@@ -14,6 +15,26 @@ function workflow(name: string): Record<string, any> {
 }
 const source = "${{ inputs.ref || github.sha }}";
 const templates = [{ name: "app", scope: "desktop", gate: "desktop-gate", label: "Desktop CI", dependencies: ["changes", "quality", "package"] }, { name: "server", scope: "service", gate: "gate", label: "Service CI", dependencies: ["changes", "quality"] }];
+
+test("native packaging installs locked Electron before building and stops on installation failure", () => {
+  const project = JSON.parse(readFileSync(join(root, "app/package.json"), "utf8")), directory = mkdtempSync(join(tmpdir(), "practiq-install-"));
+  assert.equal(project.scripts["desktop:install"], "install-electron");
+  assert.match(readFileSync(join(root, "Makefile"), "utf8"), /app-install:\n\tcd app && npm ci\n\tcd app && npm run desktop:install\n/);
+  assert.ok(workflow("app").jobs.package.steps.some((step: any) => step.run?.includes("npm run package:electron -- .build/electron-ci")));
+  try {
+    mkdirSync(join(directory, "node_modules/.bin"), { recursive: true }); mkdirSync(join(directory, "scripts"));
+    writeFileSync(join(directory, "package.json"), JSON.stringify({ type: "module", scripts: { "desktop:install": project.scripts["desktop:install"], "package:electron": project.scripts["package:electron"] } }));
+    const installer = join(directory, "node_modules/.bin/install-electron"), events = join(directory, "events");
+    writeFileSync(installer, '#!/bin/sh\nprintf "install\\n" >> "$INSTALL_EVENTS"\nexit "$INSTALL_EXIT"\n'); chmodSync(installer, 0o700);
+    writeFileSync(join(directory, "scripts/package-electron.ts"), 'import { appendFileSync } from "node:fs"; appendFileSync(process.env.INSTALL_EVENTS, JSON.stringify(process.argv.slice(2)) + "\\n");');
+    for (const exit of ["0", "19"]) {
+      rmSync(events, { force: true });
+      const result = spawnSync("npm", ["run", "package:electron", "--", "output with spaces"], { cwd: directory, encoding: "utf8", timeout: 10000, env: { ...process.env, INSTALL_EVENTS: events, INSTALL_EXIT: exit, npm_config_ignore_scripts: "false" } });
+      assert.equal(result.status, Number(exit), result.stderr);
+      assert.equal(readFileSync(events, "utf8"), exit === "0" ? 'install\n["output with spaces"]\n' : "install\n");
+    }
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
 
 for (const item of templates) {
   test(`${item.name} workflow bootstraps its selector and final gate with Node and a pinned source`, () => {

@@ -2483,3 +2483,20 @@ package credential initialization. New CI acceptance remains pending.
 The release workflow/assembler still expects the retired Python report layout;
 it must be ported to the new `embedded-ai-checks` artifacts before a release can
 run. Do not treat passing component CI as completed release cutover.
+## Explicit Electron installation before packaging
+
+The Node CI run at `8c195d63` passed Embedded AI quality and App quality, but the
+macOS package job failed before creating a bundle: a fresh `npm ci` had no
+`node_modules/electron/dist/Electron.app`. Electron 42 and later deliberately
+download their binary on demand instead of using an npm postinstall script.
+The locked Electron package's `install-electron` command now runs through
+`desktop:install` before every `package:electron` invocation and during
+`make app-install`. No registry package lookup or alternate Electron version is
+introduced. Frontend and embedded-runtime unit jobs do not need this download.
+
+The 22 Node CI guards pass, including an actual npm invocation which verifies
+installation precedes packaging, preserves output arguments with spaces, and
+aborts without packaging after an installer failure. The local explicit install
+and 309 retained legacy release/package regressions also pass. These checks do
+not count as acceptance of the repaired remote macOS package job; that job and
+the final current-source installer acceptance remain pending.
