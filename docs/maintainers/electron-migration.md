@@ -2306,3 +2306,26 @@ screenshots, full desktop/Electron logs and the reproduced pre-fix resource fail
 (`preview-resources-before.log`). These results close the earlier native-dialog
 gap; they do not certify the final DMG, live providers, large Excel compatibility,
 CI/release cutover or old-runtime removal.
+
+The current-source arm64 DMG (`41c8573ab28d…`) subsequently passed an independent
+read-only DMG mount/copy, code-signature verification, isolated system-PATH launch,
+offline practice, all five archive codecs, PDFium, backup/restore, restart and
+protected credentials. Its receipt is
+`app/.build/evidence/electron-package-41c8573ab28d-1794624670421-acceptance.json`;
+all three credential flags are true. A separate copy outside the checkout also
+passed the complete installed Electron workflow using the package's compiled
+modules (`native-dialog-installed-smoke.log`). Providers and file-dialog results
+in those automatic checks are substitutes; the real-dialog checks above are
+separate development-runtime evidence. This candidate has ad-hoc signing and no
+notarization; the earlier copied historical-data comparison is still separate.
+
+The initial package check exhausted its shared 120-second allowance during the
+post-restart credential phase. A per-operation trace of this same binary then
+verified all three fixture keys: cold OS encryption initialization took 27.292
+seconds, post-restart initialization 4.831 seconds, and encryption/decryption at
+most 1 millisecond per operation. Each credential phase now refreshes the existing
+120-second watchdog, independently of installation/core checks. Every phase stays
+bounded and credential assertions remain mandatory. Both the failed receipt and
+subsequent complete receipt are retained; no plaintext fallback, Keychain deletion
+or protection bypass was used. Remote CI, consistent signing across distributed
+updates, large Excel parity and final architecture cutover remain open.

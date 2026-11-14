@@ -74,6 +74,7 @@ try {
   publish(); console.log(`Installed package core passed: ${receipt}; verifying OS-protected credentials next`);
   const currentSettings = await bridge({ type: "ai_settings" }, reopened);
   stage = "OS credential initialization";
+  watchdog.refresh();
   const testSecrets = { modelApiKey: "TEST_ONLY_PACKAGE_MODEL_KEY", tencentSecretId: "TEST_ONLY_PACKAGE_TENCENT_ID", tencentSecretKey: "TEST_ONLY_PACKAGE_TENCENT_KEY" };
   const savedSettings = await bridge({ type: "save_ai_settings", value: { revision: currentSettings.revision, preferences: { ...currentSettings.preferences, model: { ...currentSettings.preferences.model, baseUrl: "https://example.invalid/v1", modelId: "package-private-model" } }, secrets: testSecrets } }, reopened);
   assert.ok(Object.values(savedSettings.configured).every(value => value === true)); assert.equal(readFileSync(join(directory, "electron-ai-settings-v1.json"), "utf8").includes("TEST_ONLY_PACKAGE"), false);
@@ -82,6 +83,7 @@ try {
   try { assert.ok([...protectedArchive.entries.keys()].every(name => ["manifest.json", "practiq.sqlite"].includes(name) || /^assets\/[a-f0-9]{64}$/.test(name))); } finally { protectedArchive.close(); }
   await instance.close(); instance = await launch(); const credentialWindow = await instance.firstWindow({ timeout: 20000 }); await credentialWindow.waitForFunction(() => Boolean(window.practiq?.request));
   stage = "OS credential decryption after restart";
+  watchdog.refresh();
   const decrypted = await instance.evaluate(async ({ app, safeStorage }, data) => {
     const { createRequire } = process.getBuiltinModule("node:module"), { AiSettings } = createRequire(`${app.getAppPath()}/package.json`)("./.build/electron/app/desktop/ai-settings.js");
     const settings = new AiSettings(data.directory, { isAsyncEncryptionAvailable: () => safeStorage.isAsyncEncryptionAvailable(), encryptStringAsync: (value: string) => safeStorage.encryptStringAsync(value), decryptStringAsync: (value: Buffer) => safeStorage.decryptStringAsync(value) });
