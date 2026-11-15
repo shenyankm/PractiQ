@@ -1,4 +1,4 @@
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -35,6 +35,46 @@ it("orders pending writes by task path and replaces only special writes on repla
     await saver.putWrites(saved, [["__error__", "old"]], "failed"); await saver.putWrites(saved, [["__error__", "new"]], "failed");
     expect((await saver.getTuple(saved))!.pendingWrites).toEqual([["failed", "__error__", "new"], ["other", "value", "earlier"], ["task", "value", "first"]]);
     await saver.deleteThread("thread"); expect(await saver.getTuple(config)).toBeUndefined(); expect(saver.db.prepare("SELECT COUNT(*) AS count FROM checkpoint_writes").get()!.count).toBe(0);
+  } finally { saver.close(); }
+});
+
+it("uses indexed history scopes and does no database work for a validated zero limit", async () => {
+  const saver = new SqliteCheckpoints(directory()), prepare = saver.db.prepare.bind(saver.db), plans: string[] = [];
+  const spy = vi.spyOn(saver.db, "prepare").mockImplementation(sql => {
+    const statement = prepare(sql);
+    if (sql.startsWith("SELECT thread_id,namespace,id")) {
+      const all = statement.all.bind(statement);
+      vi.spyOn(statement, "all").mockImplementation((...args) => {
+        plans.push(...prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...args).map(row => String(row.detail)));
+        return all(...args);
+      });
+    }
+    return statement;
+  });
+  try {
+    const config = { configurable: { thread_id: "thread", checkpoint_ns: "" } };
+    const collect = async (limit: number) => { for await (const _ of saver.list(config, { limit, before: { configurable: { checkpoint_id: "z" } } })) { /* empty database */ } };
+    await collect(0); expect(spy).not.toHaveBeenCalled();
+    await collect(1); expect(plans.join(" ")).toContain("SEARCH checkpoints"); expect(plans.join(" ")).not.toContain("SCAN checkpoints");
+    await expect(collect(-1)).rejects.toThrow("limit");
+    await expect(saver.list({ configurable: { thread_id: "" } }, { limit: 0 }).next()).rejects.toThrow("identity");
+  } finally { spy.mockRestore(); saver.close(); }
+});
+
+it("keeps namespace, before, metadata filtering and suspended-generator membership", async () => {
+  const saver = new SqliteCheckpoints(directory()), config = { configurable: { thread_id: "thread", checkpoint_ns: "" } };
+  const collect = async (input: Parameters<SqliteCheckpoints["list"]>[0] = config, options = {}) => { const result = []; for await (const tuple of saver.list(input, options)) result.push(tuple.config.configurable?.checkpoint_id); return result; };
+  try {
+    for (let i = 0; i < 6; i++) await saver.put(config, { ...emptyCheckpoint(), id: String(i) }, { source: i % 2 ? "loop" : "input", step: i, parents: {} });
+    await saver.put({ configurable: { thread_id: "thread", checkpoint_ns: "child" } }, { ...emptyCheckpoint(), id: "9" }, { source: "loop", step: 9, parents: {} });
+    expect(await collect(config, { limit: 2, filter: { source: "input" }, before: { configurable: { checkpoint_id: "5" } } })).toEqual(["4", "2"]);
+    expect(await collect({ configurable: { thread_id: "thread" } }, { limit: 1 })).toEqual(["9"]);
+    expect(await collect(config, { filter: { missing: null } })).toEqual([]);
+    const iterator = saver.list(config, { limit: 2 }); expect((await iterator.next()).value?.checkpoint.id).toBe("5");
+    saver.db.prepare("DELETE FROM checkpoints WHERE thread_id=? AND namespace=? AND id=?").run("thread", "", "4");
+    await saver.put(config, { ...emptyCheckpoint(), id: "6" }, { source: "loop", step: 6, parents: {} });
+    expect((await iterator.next()).value?.checkpoint.id).toBe("3"); expect((await iterator.next()).done).toBe(true);
+    expect(await collect({ configurable: { thread_id: "missing", checkpoint_ns: "" } })).toEqual([]);
   } finally { saver.close(); }
 });
 

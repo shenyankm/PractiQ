@@ -46,7 +46,7 @@ class SnapshotDocument {
 export class Sessions {
   private readonly epoch = randomUUID();
   private cachedDocument?: { id: string; document: Record<string, unknown> };
-  private cachedAttempts?: { key: string; attempts: WireAttempt[] };
+  private cachedAttempts?: { key: string; ordinals: number[]; signatures: string[] };
   constructor(readonly db: DatabaseSync, readonly assets: Assets, readonly clock = new SessionClock()) {}
   now(): number {
     if (this.clock.started) return this.clock.now();
@@ -136,15 +136,17 @@ export class Sessions {
     }
     if (exam && row.submitted_at === null) for (const attempt of attempts) { attempt.result = null; attempt.autoResult = null; }
     const mutable = attempts.map(attempt => { const copy = { ...attempt }; delete copy.snapshot; return copy; });
-    const bytes = canonical([id, snapshotKey, mutable]), attemptKey = hash(bytes), cached = this.cachedAttempts;
+    const signatures = mutable.map(attempt => canonical(attempt));
+    // Reuse canonical JSON segments for both the unchanged revision hash and delta comparison.
+    const bytes = `[${JSON.stringify(id)},${JSON.stringify(snapshotKey)},[${signatures.join(",")}]]`, attemptKey = hash(bytes), cached = this.cachedAttempts;
     const session: SessionWire = { id, title: String(row.bank_title), createdAt: Number(row.created_at), finishedAt: nullableNumber(row.finished_at), position: Number(row.position), mode: String(row.mode), kind: row.kind as Session["kind"], deadlineAt: nullableNumber(row.deadline_at), submittedAt: nullableNumber(row.submitted_at), snapshotKey, attemptKey, attempts,
       bankIds: this.db.prepare("SELECT q.bank_id FROM attempts a JOIN questions q ON q.id=a.question_id WHERE a.session_id=? GROUP BY q.bank_id ORDER BY MIN(a.ordinal)").all(id).map(row => String(row.bank_id)) };
     if (row.deadline_at !== null && row.submitted_at === null) session.clockNow = this.clock.now();
     if (document.content.length) session.snapshotDocument = document.content;
-    if (previousSnapshot === snapshotKey && cached && previousAttempts === cached.key && cached.attempts.length === mutable.length && cached.attempts.every((attempt, i) => attempt.ordinal === mutable[i].ordinal)) {
-      session.attempts = mutable.filter((attempt, i) => canonical(attempt) !== canonical(cached.attempts[i])); session.attemptsBase = cached.key; session.attemptCount = mutable.length;
+    if (previousSnapshot === snapshotKey && cached && previousAttempts === cached.key && cached.ordinals.length === mutable.length && cached.ordinals.every((ordinal, i) => ordinal === mutable[i].ordinal)) {
+      session.attempts = mutable.filter((_, i) => signatures[i] !== cached.signatures[i]); session.attemptsBase = cached.key; session.attemptCount = mutable.length;
     }
-    this.cachedAttempts = Buffer.byteLength(bytes) <= 8 * 1024 * 1024 ? { key: attemptKey, attempts: mutable } : undefined;
+    this.cachedAttempts = Buffer.byteLength(bytes) <= 8 * 1024 * 1024 ? { key: attemptKey, ordinals: mutable.map(attempt => attempt.ordinal), signatures } : undefined;
     return session;
   }
   listeningPlayback(id: string, questionId: string, action: string, position?: number): PlaybackState {

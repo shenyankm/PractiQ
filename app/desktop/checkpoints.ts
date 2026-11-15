@@ -1,4 +1,4 @@
-import { DatabaseSync } from "node:sqlite";
+import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { BaseCheckpointSaver, compareWritesSortKeys, WRITES_IDX_MAP, writesSortKey, type Checkpoint, type CheckpointListOptions, type CheckpointMetadata, type CheckpointTuple, type PendingWrite, type SerializerProtocol } from "@langchain/langgraph-checkpoint";
@@ -94,8 +94,13 @@ export class SqliteCheckpoints extends BaseCheckpointSaver {
     const thread = config.configurable?.thread_id, namespace = config.configurable?.checkpoint_ns, before = options.before?.configurable?.checkpoint_id;
     if (thread !== undefined) identity(thread); if (namespace !== undefined) identity(namespace, true); if (before !== undefined) identity(before);
     invariant(options.limit === undefined || Number.isSafeInteger(options.limit) && options.limit >= 0, "LOCAL_FILTER_INVALID", "Invalid checkpoint history limit");
+    if (options.limit === 0) return;
     let count = 0;
-    const rows = this.db.prepare("SELECT thread_id,namespace,id FROM checkpoints WHERE (? IS NULL OR thread_id=?) AND (? IS NULL OR namespace=?) AND (? IS NULL OR id<?) ORDER BY id DESC").all(thread ?? null, thread ?? null, namespace ?? null, namespace ?? null, before ?? null, before ?? null);
+    const conditions: string[] = [], parameters: SQLInputValue[] = [];
+    if (thread !== undefined) { conditions.push("thread_id=?"); parameters.push(thread); }
+    if (namespace !== undefined) { conditions.push("namespace=?"); parameters.push(namespace); }
+    if (before !== undefined) { conditions.push("id<?"); parameters.push(before); }
+    const rows = this.db.prepare(`SELECT thread_id,namespace,id FROM checkpoints${conditions.length ? ` WHERE ${conditions.join(" AND ")}` : ""} ORDER BY id DESC`).all(...parameters);
     for (const row of rows) {
       if (options.limit !== undefined && count >= options.limit) return;
       const tuple = await this.getTuple({ configurable: { thread_id: row.thread_id, checkpoint_ns: row.namespace, checkpoint_id: row.id } }); if (!tuple) continue;

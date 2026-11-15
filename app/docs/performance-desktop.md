@@ -1,5 +1,9 @@
 # Electron performance audit — November 14, 2026
 
+November 15 follow-up: [session responses and checkpoint history](performance-session-history.md)
+now have a separate implementation, paired benchmark and acceptance report.
+The [second pass](performance-snapshot-associations.md) covers snapshot restoration.
+
 The current Electron/Node implementation has four retained improvements in three
 production files: indexed scoped reads, indexed association attachment, reused
 association INSERT statements and bounded mixed-group subset calculation. No
