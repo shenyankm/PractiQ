@@ -184,10 +184,23 @@ export function thaw(input: unknown): QuestionRow[] {
   invariant(doc.schemaVersion === 3, "LOCAL_BACKUP_SNAPSHOT_FIELD", "Unsupported session snapshot", { key: "schemaVersion" });
   for (const key of ["questions", "groups", "visuals"]) invariant(Array.isArray(doc[key]) && (doc[key] as unknown[]).every(value => value !== null && typeof value === "object" && !Array.isArray(value)), "LOCAL_BACKUP_SNAPSHOT_FIELD", "Invalid snapshot field", { key });
   const rows = structuredClone(doc.questions) as QuestionRow[];
+  const byId = new Map<unknown, QuestionRow[]>();
   for (const row of rows) {
     invariant(row.question !== null && typeof row.question === "object" && !Array.isArray(row.question), "LOCAL_BACKUP_SNAPSHOT_FIELD", "Invalid snapshot question", { key: "questions[].question" });
-    row.groups = list(doc, "groups").filter(item => list(item, "questionIds").includes(row.id)) as QuestionRow["groups"];
-    row.visuals = list(doc, "visuals").filter(item => !list(item, "questionIds").length || list(item, "questionIds").includes(row.id)) as QuestionRow["visuals"];
+    if (rows.length === 1) {
+      row.groups = list(doc, "groups").filter(item => list(item, "questionIds").includes(row.id)) as QuestionRow["groups"];
+      row.visuals = list(doc, "visuals").filter(item => !list(item, "questionIds").length || list(item, "questionIds").includes(row.id)) as QuestionRow["visuals"];
+      return rows;
+    }
+    row.groups = []; row.visuals = [];
+    if (!byId.has(row.id)) byId.set(row.id, []);
+    byId.get(row.id)!.push(row);
+  }
+  if (!rows.length) return rows;
+  for (const key of ["groups", "visuals"] as const) for (const item of list(doc, key)) {
+    const ids = list(item, "questionIds");
+    const targets = key === "visuals" && !ids.length ? rows : [...new Set(ids)].flatMap(id => byId.get(id) ?? []);
+    for (const row of targets) (row[key] as unknown[]).push(item);
   }
   return rows;
 }

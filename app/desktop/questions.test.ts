@@ -92,3 +92,40 @@ it("preserves scoped trees and association order across banks and absent referen
   expect(all.find(row => row.id === "other")!.visuals).toEqual([]);
   expect(value.db.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
 });
+
+it("restores ordered snapshot associations once per reference list without changing the source", () => {
+  const value = store(), bank = value.saveBank(null, "Snapshot", "");
+  saveQuestionTree(value.db, value.assets, bank, null, [{ id: "q0", stem: "Source", answerMode: "true_false", answerPayload: { value: true } }]);
+  const sample = readQuestions(value.db, value.assets)[0], rows = Array.from({ length: 20 }, (_, i) => ({ ...sample, id: `q${i}`, question: { ...sample.question, id: `q${i}` } }));
+  let reads = 0;
+  const groups = Array.from({ length: 10 }, (_, i) => ({ id: `s${i}`, title: `Section ${i}`, get questionIds() { reads++; return [`q${i * 2}`, `q${i * 2 + 1}`, `q${i * 2}`, "absent"]; } }));
+  const visuals = [{ id: "all", questionIds: [] }, ...groups.map(group => ({ id: `v${group.id}`, get questionIds() { return group.questionIds; } }))];
+  const document = { schemaVersion: 3, questions: rows, groups, visuals }, original = structuredClone(document);
+  reads = 0;
+  const restored = thaw(document);
+  expect(reads).toBeLessThanOrEqual(groups.length * 4);
+  expect(restored[0].groups.map(group => group.id)).toEqual(["s0"]);
+  expect(restored[0].visuals.map(visual => visual.id)).toEqual(["all", "vs0"]);
+  expect(restored[19].groups.map(group => group.id)).toEqual(["s9"]);
+  expect(document).toEqual(original);
+  restored[0].question.stem = "Changed copy";
+  expect(rows[0].question.stem).toBe("Source");
+});
+
+it("preserves dense, empty, duplicate and absent snapshot associations exactly", () => {
+  const value = store(), bank = value.saveBank(null, "Snapshot", "");
+  saveQuestionTree(value.db, value.assets, bank, null, [{ id: "one", stem: "Source", answerMode: "true_false", answerPayload: { value: false } }]);
+  const sample = readQuestions(value.db, value.assets)[0];
+  const rows = ["c", "a", "a", "b"].map((id, i) => ({ ...sample, id, question: { ...sample.question, id, stem: String(i) } }));
+  const groups = [{ id: "empty", questionIds: [] }, { id: "dense", questionIds: ["b", "a", "c", "a", "absent", null, 1] }, { id: "dense", questionIds: ["a"] }];
+  const visuals = [{ id: "all", questionIds: [] }, { id: "absent", questionIds: ["absent"] }, { id: "scoped", questionIds: ["a", "a", "b"] }];
+  for (const questions of [rows, rows.slice(0, 1), []]) {
+    const document = { schemaVersion: 3, questions, groups, visuals }, original = structuredClone(document);
+    const expected = structuredClone(questions).map(row => ({ ...row, groups: groups.filter(group => group.questionIds.includes(row.id)), visuals: visuals.filter(visual => !visual.questionIds.length || visual.questionIds.includes(row.id)) }));
+    expect(thaw(document)).toEqual(expected);
+    expect(document).toEqual(original);
+  }
+  expect(() => thaw({ schemaVersion: 2, questions: [], groups: [], visuals: [] })).toThrow("Unsupported session snapshot");
+  expect(() => thaw({ schemaVersion: 3, questions: [], groups: [null], visuals: [] })).toThrow("Invalid snapshot field");
+  expect(() => thaw({ schemaVersion: 3, questions: [{ question: null }], groups: [], visuals: [] })).toThrow("Invalid snapshot question");
+});

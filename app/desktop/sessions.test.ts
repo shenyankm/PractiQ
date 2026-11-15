@@ -1,4 +1,5 @@
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -6,6 +7,7 @@ import { PracticeStore } from "./store.js";
 import { Sessions } from "./sessions.js";
 import { SessionClock } from "./session-clock.js";
 import { previewPaper } from "./paper.js";
+import * as questions from "./questions.js";
 
 const stores: PracticeStore[] = [];
 function setup() {
@@ -85,6 +87,40 @@ it("uses revision patches without resending immutable snapshots", () => {
   expect(updated.attempts).toHaveLength(1);
   expect(updated.attempts[0]).toMatchObject({ ordinal: 1, answer: { value: false } });
   expect(updated.attempts[0].snapshot).toBeUndefined();
+});
+
+it("serializes each mutable attempt once while preserving canonical revision bytes", () => {
+  const { store, save, question, paper } = setup(); save([question("one")]); save([question("two")]);
+  const initial = store.sessions.createPaper(paper(["one", "two"]));
+  const grading = { z: [null, { "中文": "quote\"\\\n😀", a: false }], a: { second: 2, first: 1 } };
+  store.db.prepare("UPDATE attempts SET grading=? WHERE session_id=? AND ordinal=1").run(JSON.stringify(grading), initial.id);
+  const canonical = vi.spyOn(questions, "canonical");
+  try {
+    const updated = store.sessions.session(initial.id, `${initial.snapshotKey}:${initial.attemptKey}`);
+    expect(canonical).toHaveBeenCalledTimes(initial.attempts.length + 1);
+    expect(updated.attempts).toHaveLength(1);
+    expect(updated.attempts[0]).toMatchObject({ ordinal: 1, grading });
+    const mutable = initial.attempts.map(attempt => { const copy = { ...attempt }; delete copy.snapshot; return copy; });
+    mutable[1] = updated.attempts[0];
+    expect(updated.attemptKey).toBe(createHash("sha256").update(questions.canonical([initial.id, updated.snapshotKey, mutable])).digest("hex"));
+    const same = store.sessions.session(initial.id, `${updated.snapshotKey}:${updated.attemptKey}`);
+    expect(same.attempts).toEqual([]); expect(same.attemptKey).toBe(updated.attemptKey);
+    store.favorite("one", true);
+    expect(store.sessions.session(initial.id, `${same.snapshotKey}:${same.attemptKey}`).attempts).toMatchObject([{ ordinal: 0, favorite: true }]);
+  } finally { canonical.mockRestore(); }
+});
+
+it("falls back safely after session switches, restart, stale keys and oversized attempt data", () => {
+  const { store, save, question, paper } = setup(); save([question("one")]);
+  const first = store.sessions.createPaper(paper(["one"])), key = `${first.snapshotKey}:${first.attemptKey}`;
+  store.sessions.createPaper(paper(["one"]));
+  expect(store.sessions.session(first.id, key).attemptsBase).toBeUndefined();
+  const restarted = new Sessions(store.db, store.assets).session(first.id, key);
+  expect(restarted.attempts[0].snapshot).toBeDefined(); expect(restarted.attemptsBase).toBeUndefined();
+  expect(store.sessions.session(first.id, `${first.snapshotKey}:stale`).attempts).toHaveLength(1);
+  store.db.prepare("UPDATE attempts SET grading=? WHERE session_id=?").run(JSON.stringify({ history: "x".repeat(8 * 1024 * 1024) }), first.id);
+  const large = store.sessions.session(first.id, key);
+  expect(store.sessions.session(first.id, `${large.snapshotKey}:${large.attemptKey}`).attemptsBase).toBeUndefined();
 });
 
 it("preserves automatic results when self-assessment is allowed and rejects it for objective choice types", () => {
