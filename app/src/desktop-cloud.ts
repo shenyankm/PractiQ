@@ -27,7 +27,6 @@ export function desktopCloudBridge(settings: DesktopAiSettingsView): NativeBridg
     },
     pickSources: () => desktopAiRequest<SourceFile[]>({ type: "pick_document_sources" }),
     upload: ticket => desktopAiRequest<DocumentReference>({ type: "upload_document_source", ticket }),
-    download: async () => { throw new ApiError(t("此操作尚未完成迁移。"), "ACTION_UNAVAILABLE"); },
     save: (bytes, name) => desktopAiRequest<boolean>({ type: "save_document_bytes", bytes: new Uint8Array(bytes).buffer, name }),
   };
   return bridge;

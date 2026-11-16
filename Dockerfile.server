@@ -1,3 +1,7 @@
+# HISTORICAL REFERENCE ONLY: the Python service and its COPY inputs are retired.
+# Reproduction requires source revision a3bef2da8c818aaa889b1f27c72c4ce4f1617c7b.
+# This file does not build the current Electron app; see server/README.md and
+# docs/guides/installation.md. Existing deployment data must remain untouched.
 FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim@sha256:7cf77f594be8042dab6daa9fe326f90962252268b4f120a7f5dccce4d947e6c1 AS lock
 WORKDIR /lock
 COPY server/pyproject.toml server/uv.lock ./

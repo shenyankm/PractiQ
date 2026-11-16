@@ -187,7 +187,7 @@ for (const [width, height] of [[1440, 900], [768, 1024], [390, 844], [360, 640],
     await writeFile(`${output}/import-${width}-${theme}.json`, JSON.stringify({ width, height, theme, start: bounds, source: "Chromium; synthetic HTTP; no live service" }, null, 2));
     if (width === 1440) {
       // Static rendered fixture lets Taste inspect the import UI without a token or service.
-      const logo = `data:image/png;base64,${(await readFile(new URL("../../shared/cloud/assets/octopus.png", import.meta.url))).toString("base64")}`;
+      const logo = `data:image/png;base64,${(await readFile(new URL("../desktop/icons/practiq.png", import.meta.url))).toString("base64")}`;
       const html = await page.evaluate(logo => {
         const copy = document.documentElement.cloneNode(true) as HTMLElement;
         copy.querySelectorAll("script").forEach(node => node.remove());

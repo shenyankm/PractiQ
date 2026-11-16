@@ -2791,3 +2791,24 @@ probe is not substituted for that full report. Historical ignored artifacts and
 local state remain present under both old source directories; retirement must
 remove explicit tracked runtime files only, preserving their ignore files and
 all unrelated contents.
+
+## Unused migration entry points and shared brand asset
+
+The unused direct `tencent_submit` and `tencent_query` worker requests are removed;
+recognition continues through the document-task runtime. The unused native
+download bridge member and old connection-settings CSS are also removed. Both
+renderers and the browser capture helper now use `app/desktop/icons/practiq.png`,
+replacing two byte-identical PNG copies. Root service environment and Docker
+templates are explicitly marked as historical references, with existing local
+environment files and deployment state preserved.
+
+The HTTP import transport still has component and browser-harness callers. It
+remains until those tests are migrated to the typed document bridge; it is not
+part of the unused-code deletion. Backup compatibility, legacy PowerPoint
+support and frozen regression fixtures remain in use.
+
+Local validation on 2026-11-16 passes `make verify` (916 frontend tests, 1,838
+backend tests with required coverage, 76 release-tool tests and 26 CI guards),
+all 240 browser tests and the actual Electron smoke flows with local provider
+substitutes. The production renderer contains one byte-identical brand PNG.
+Installer packaging and live-provider acceptance were not rerun.

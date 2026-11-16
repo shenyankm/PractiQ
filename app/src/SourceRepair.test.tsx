@@ -25,7 +25,7 @@ function fixture() {
     throw Error(`Unexpected document action ${request.type}`);
   });
   const forbidden = vi.fn(async (): Promise<never> => { throw Error("No HTTP, provider or file-path transport allowed"); });
-  const bridge = { origin: "http://127.0.0.1:8090", revision: runId, documents, confirm: vi.fn(async () => true), fetch: forbidden, pickSources: forbidden, upload: forbidden, download: forbidden, save: forbidden }; setNativeBridge(bridge);
+  const bridge = { origin: "http://127.0.0.1:8090", revision: runId, documents, confirm: vi.fn(async () => true), fetch: forbidden, pickSources: forbidden, upload: forbidden, save: forbidden }; setNativeBridge(bridge);
   const client = new Client(), errors: unknown[] = [], run = async (perform: (current: Client) => Promise<void>) => { try { await perform(client); } catch (error) { errors.push(error); } };
   return { client, errors, run, calls, controls, status, documents, bridge, forbidden };
 }

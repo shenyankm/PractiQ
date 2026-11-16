@@ -30,8 +30,6 @@ async function request(input: AiWorkerRequest): Promise<unknown> {
     case "create_task": return database.createTask(input.sourceDigest, input.maxCalls);
     case "structured": return model.structured(input.taskId, input.key, input.input, input.config);
     case "grade": return subjectiveGrade(database, model, input.prepared, input.config);
-    case "tencent_submit": return tencent.submit(input.taskId, input.key, input.source, input.config);
-    case "tencent_query": return tencent.query(input.taskId, input.key, input.config);
     default: throw new AppError("LOCAL_FILTER_INVALID", "Unsupported AI operation");
   }
 }
