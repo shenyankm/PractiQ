@@ -4,7 +4,7 @@ import { HistoryPage, useHistoryPage } from "./HistoryPage";
 import { QuestionListPage, useQuestionListPage } from "./QuestionListPage";
 import { ImportDiagnostics } from "./ImportDiagnostics";
 import { QuestionNotesForTree } from "./QuestionNotes";
-import logo from "./assets/practiq.png";
+import logo from "../desktop/icons/practiq.png";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps } from "react";
 import { Tooltip } from "radix-ui";
 import { isDesktop, desktopWindow } from "./desktop-window";

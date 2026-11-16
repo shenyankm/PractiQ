@@ -10,7 +10,6 @@ export interface NativeBridge {
   pickSources(): Promise<SourceFile[]>;
   upload(ticket: string): Promise<DocumentReference>;
   importBank?(path: string): Promise<{bankId:string;count:number}>;
-  download(path: string, name: string): Promise<boolean>;
   save(bytes: Uint8Array, name: string): Promise<boolean>;
 }
 let native: NativeBridge | null = null;

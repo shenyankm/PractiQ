@@ -7,6 +7,17 @@ import { createServer, type ServerResponse } from "node:http";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 
+it("rejects retired direct Tencent operations without admitting provider work", async () => {
+  const { AiClient } = await import(fileURLToPath(new URL("../.build/electron/app/desktop/ai-client.js", import.meta.url)));
+  const directory = mkdtempSync(join(tmpdir(), "practiq-worker-retired-")), ai = new AiClient(directory);
+  try {
+    for (const type of ["tencent_submit", "tencent_query"]) {
+      expect(await ai.request({ type })).toMatchObject({ ok: false, error: { code: "LOCAL_FILTER_INVALID", message: "Unsupported AI operation" } });
+    }
+    expect(await ai.call({ type: "status" })).toMatchObject({ ready: true, tasks: 0, unknownCalls: 0 });
+  } finally { await ai.close(); rmSync(directory, { recursive: true, force: true }); }
+});
+
 it("keeps practice responsive while an independent AI worker waits for a model response", async () => {
   const { AiClient } = await import(fileURLToPath(new URL("../.build/electron/app/desktop/ai-client.js", import.meta.url))), { DatabaseClient } = await import(fileURLToPath(new URL("../.build/electron/app/desktop/client.js", import.meta.url)));
   const directory = mkdtempSync(join(tmpdir(), "practiq-worker-")), ai = new AiClient(directory), practice = new DatabaseClient(directory);

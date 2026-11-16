@@ -4,7 +4,7 @@ import { lazy, memo, Suspense, useCallback, useEffect, useLayoutEffect, useRef, 
 import { parsePages } from "./importSelection";
 import { Select, SelectOption } from "./components/ui/select";
 import { Upload, Play, RefreshCw, Download, Trash2, Server, ChevronLeft, ChevronRight, FileText, LoaderCircle, History, Settings, Pause, Square } from "lucide-react";
-import logo from "./assets/octopus.png";
+import logo from "../../app/desktop/icons/practiq.png";
 import { ApiError, Client, downloadBlob, fileFormat, MAX_FILES, sourceLimit, validateFiles, type Action, type Capabilities, type ReparseIntent, type TaskList, type UploadStage, type SourceFile } from "./api";
 import type { DocumentTaskCreate, DocumentTaskDetail, DocumentTaskReview, DocumentTaskSummary, ImportSettingsSnapshot } from "./contracts.generated";
 import { Button } from "./components/ui/button";

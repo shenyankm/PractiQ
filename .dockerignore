@@ -1,4 +1,4 @@
-# Dockerfile.server builds from the repository root.
+# Historical Dockerfile.server context; see server/README.md.
 # Include only its COPY inputs; omit desktop files, tests, reports and local data.
 **
 !Dockerfile.server
