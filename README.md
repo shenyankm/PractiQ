@@ -26,7 +26,7 @@ Migration acceptance and remaining work are tracked in the
 
 ## Screenshots
 
-These screenshots were captured on **2026-10-29** from the desktop browser preview at [`af7ab2ff`](https://github.com/shenyankm/PractiQ/commit/af7ab2ff3bf4a392103b403d73b70f0d1a5cd533), in English with hand-written sample banks and practice records. All data is held in memory; no credentials, uploads or model calls were used. Click an image to view it at full size.
+These screenshots were captured on **2026-11-16** from the desktop browser test harness at [`0701fe82`](https://github.com/shenyankm/PractiQ/commit/0701fe82263cb492949ea5ec92b32f685875f530), at 1440 × 1000 in English and the light theme, with hand-written sample banks and practice records. All sample data is held in memory; no real credentials, uploads or model calls were used. Click an image to view it at full size.
 
 | Question banks | Practice |
 | :---: | :---: |
