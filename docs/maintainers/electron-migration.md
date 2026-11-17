@@ -2820,3 +2820,12 @@ A crashed renderer can close without acknowledging the draft-save request;
 quitting still drains the AI worker before the practice database worker. The
 Electron smoke flow checks normal closure, reopening, crashed-window closure
 and crashed-window quit with the same ordered worker-shutdown assertions.
+
+## Document resume and retry admission
+
+New imports, explicit resume and failed-unit retry share the four-task admission
+limit inside the task transaction. A full queue rejects new execution without
+changing the saved task, checkpoint, retry counts or operation receipt. Matching
+acknowledged requests remain replayable at capacity, and accepting an existing
+partial result does not require an execution slot. The graph regressions check
+both resume and retry rejection, admission after a slot opens, and receipt replay.
