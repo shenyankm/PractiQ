@@ -52,7 +52,7 @@ function createWindow() {
   window.webContents.on("will-navigate", event => event.preventDefault());
   window.webContents.on("will-redirect", event => event.preventDefault());
   window.on("close", event => {
-    if (!closeApproved) { event.preventDefault(); window?.webContents.send("practiq:close-requested"); }
+    if (!closeApproved && window && !window.webContents.isCrashed()) { event.preventDefault(); window.webContents.send("practiq:close-requested"); }
   });
   window.on("closed", () => { window = null; if (quitRequested) app.quit(); });
   void window.loadURL(page);
@@ -193,6 +193,7 @@ else {
   createWindow();
   app.on("activate", () => { if (!window && !shuttingDown) createWindow(); });
   // Window closure leaves background work alive; an explicit quit ends workers.
+  app.on("window-all-closed", () => {});
   app.on("before-quit", () => { quitRequested = true; });
   app.on("will-quit", event => {
     if (quitReady) return;

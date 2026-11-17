@@ -146,6 +146,9 @@ export class DocumentTasks {
     const receipt: DocumentTaskReceipt = { threadId: task.id, requestId, runId: task.runId, accepted: true };
     this.db.prepare("INSERT INTO document_operations VALUES(?,?,?,?,?)").run(requestId, task.id, digest, canonical(receipt), Date.now()); return receipt;
   }
+  private requireCapacity(): void {
+    invariant(this.unfinished().filter(record => record.createdAt > Date.now() - DOCUMENT_TTL_MS && record.executionBuild === executionBuildFingerprint()).length < 4, "QUEUE_FULL", "Document queue is full");
+  }
   create(input: unknown, config: DocumentConfiguration, admission?: ReparseAdmission): DocumentTaskReceipt {
     validateContract("DocumentTaskCreate", input); const request = structuredClone(input) as DocumentTaskCreate; validateSourceReference(request.document);
     request.requestId = request.requestId.toLowerCase(); request.graphId ??= "document_parser"; request.failurePolicy ??= "return_partial"; request.documentRole ??= "questions"; request.pages = request.pages == null ? null : [...new Set(request.pages)].sort((a, b) => a - b); request.deduplicateQuestions ??= false; request.generateAnswers ??= false; request.officeMode ??= null; request.parentThreadId ??= null; request.reparseSelection ??= null;
@@ -165,7 +168,7 @@ export class DocumentTasks {
         invariant(canonical(request.document) === canonical(parent.input.document) && ["graphId", "failurePolicy", "pages", "documentRole", "deduplicateQuestions", "generateAnswers"].every(key => canonical(object(request)[key]) === canonical(object(parent.input)[key])), "SOURCE_SELECTION_INVALID", "Reparse must preserve its source and import options");
         if (request.reparseSelection) invariant(parent.state === "COMPLETED" && request.reparseSelection.checkpointId === parent.checkpointId, "STALE_CHECKPOINT", "Selective reparse requires the reviewed completed checkpoint");
       }
-      invariant(this.unfinished().filter(record => record.createdAt > Date.now() - DOCUMENT_TTL_MS && record.executionBuild === executionBuildFingerprint()).length < 4, "QUEUE_FULL", "Document queue is full");
+      this.requireCapacity();
       const id = admission?.id ?? randomUUID(), now = Date.now(), record: DocumentRecord = { id, inputDigest: digest, input: request, settings: { ...config.preferences.import, deduplicateQuestions: request.deduplicateQuestions, generateAnswers: request.generateAnswers }, target: targetOf(config), maxCalls: config.preferences.maxCalls, version: DOCUMENT_VERSION, executionBuild: executionBuildFingerprint(), executionFingerprint: executionFingerprint(config), state: "PENDING", phase: "pending", runId: randomUUID(), checkpointId: null, desired: null, errorCode: null, failedStage: null, retry: 0, retryCounts: {}, outputs: structuredClone(admission?.outputs ?? {}), retryBase: null, retryUnits: [], createdAt: now, updatedAt: now };
       const references = Object.values(record.outputs).flatMap(output => [...this.verifyOutput(record, output).values()]);
       invariant(Buffer.byteLength(canonical(record)) <= 16 * 1024 * 1024, "LOCAL_FILE_TOO_LARGE", "Document task metadata exceeds its limit");
@@ -207,6 +210,7 @@ export class DocumentTasks {
         this.preflight(record);
         if (request.action === "accept_partial") { record.state = "COMPLETED"; record.phase = "completed"; }
         else {
+          this.requireCapacity();
           if (request.action === "retry_failed") {
             const failures = this.failures(record), selected = request.units!.length || failures.some(failure => failure.retryable) ? selectRetryUnits(failures, request.units!) : [];
             invariant(record.retryCounts !== undefined || record.retry === 0, "TASK_CHECKPOINT_UNREADABLE", "Historical retry counts require their original execution");

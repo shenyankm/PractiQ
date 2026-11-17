@@ -72,6 +72,30 @@ it.each(["extra", "csv", "office-mode", "text-pages", "answer-generation", "pare
   expect(() => tasks.create(value, config())).toThrow(); expect(tasks.db.prepare("SELECT COUNT(*) AS n FROM document_tasks").get()!.n).toBe(0);
 });
 
+it.each(["resume", "retry_failed"])("enforces admission capacity on %s without changing rejected work or blocking receipt replay", async action => {
+  const { tasks, runtime, stages, input } = await setup({ prepare: vi.fn(async ({ signal }) => {
+    await new Promise<void>((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true })); return { artifacts: [] };
+  }) }), stopped = tasks.create(input, config());
+  await runtime.initialize(stopped.threadId);
+  if (action === "resume") await runtime.control(stopped.threadId, control("pause", { runId: stopped.runId }), config());
+  else tasks.stop(stopped.threadId, stopped.runId, "AI_PROVIDER_ERROR", "prepare");
+  const queued = Array.from({ length: 4 }, () => tasks.create({ ...input, requestId: randomUUID() }, config()));
+  for (const receipt of queued) await runtime.start(receipt, config());
+  await vi.waitFor(() => expect(stages.prepare).toHaveBeenCalledTimes(4));
+  expect(() => tasks.create({ ...input, requestId: randomUUID() }, config())).toThrowError(expect.objectContaining({ code: "QUEUE_FULL" }));
+  expect(tasks.create(input, config())).toEqual(stopped);
+  const before = tasks.record(stopped.threadId), request = control(action, { checkpointId: before.checkpointId });
+  await expect(runtime.control(stopped.threadId, request, config())).rejects.toMatchObject({ code: "QUEUE_FULL" });
+  expect(tasks.record(stopped.threadId)).toEqual(before); expect(tasks.controlReplay(stopped.threadId, request)).toBeNull();
+  expect(runtime.active()).toBe(4); expect(stages.prepare).toHaveBeenCalledTimes(4);
+  await runtime.control(queued[0].threadId, control("interrupt", { runId: queued[0].runId }), config()); await runtime.wait(queued[0].threadId);
+  const accepted = await runtime.control(stopped.threadId, request, config());
+  await vi.waitFor(() => expect(stages.prepare).toHaveBeenCalledTimes(5));
+  expect(tasks.unfinished()).toHaveLength(4); const running = tasks.record(stopped.threadId);
+  expect(await runtime.control(stopped.threadId, request, config())).toEqual(accepted);
+  expect(tasks.record(stopped.threadId)).toEqual(running); expect(stages.prepare).toHaveBeenCalledTimes(5);
+});
+
 it("acknowledges a real checkpoint before starting the substituted stages and returns strict shared task contracts", async () => {
   const { tasks, runtime, stages, input } = await setup(), receipt = await runtime.create(input, config());
   expect(tasks.record(receipt.threadId).checkpointId).toBeTypeOf("string"); await runtime.wait(receipt.threadId);
