@@ -731,11 +731,28 @@ try {
   const closed = page.waitForEvent("close");
   await instance.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close());
   await closed;
-  await instance.close();
+  assert.equal((await readdir(directory)).includes("closed-workers.txt"), false, "Closing the window must preserve background workers");
+  for (const action of ["close", "quit"] as const) {
+    stage = `crashed renderer ${action}`;
+    const opened = instance.waitForEvent("window");
+    await instance.evaluate(({ app }) => { app.emit("activate"); });
+    const crashedPage = await opened;
+    await crashedPage.getByRole("heading", { name: "我的题库", exact: true }).waitFor();
+    assert.equal(await instance.evaluate(async ({ BrowserWindow }) => {
+      const contents = BrowserWindow.getAllWindows()[0].webContents;
+      const crashed = new Promise<void>(resolve => { contents.once("render-process-gone", () => resolve()); });
+      contents.forcefullyCrashRenderer(); await crashed;
+      return contents.isCrashed();
+    }), true);
+    const finished = action === "quit" ? instance.waitForEvent("close", { timeout: 15_000 }) : crashedPage.waitForEvent("close", { timeout: 15_000 });
+    await instance.evaluate(({ app, BrowserWindow }, operation) => { setImmediate(() => { if (operation === "quit") app.quit(); else BrowserWindow.getAllWindows()[0].close(); }); }, action);
+    await finished;
+    if (action === "close") assert.equal((await readdir(directory)).includes("closed-workers.txt"), false, "Closing a crashed window must preserve background workers");
+  }
   assert.deepEqual((await readFile(shutdownReceipt, "utf8")).trim().split("\n"), ["start:AiClient", "closed:AiClient", "start:DatabaseClient", "closed:DatabaseClient"], "Keep SQLite available until AI results and both workers drain");
   assert.equal(modelCalls, 2);
   assert.deepEqual(unexpectedHttpApis, []);
-  await writeFile(receipt, JSON.stringify({ checkedAt: new Date().toISOString(), ...installation, passed: true, stage: "completed", systemOnlyPath: Boolean(executable), runtimeDirectory, gracefulWorkerShutdown: true, directGradingCalls: modelCalls, documentModelCalls, rasterGraphs: (codecReport as typeof codecReport & { rasterGraphs: unknown }).rasterGraphs, listeningAddressPlayback: true, passiveAudioLoads: 0, newAudioFiles: 0, audioTransport: "memory-only substitute with real Chromium decoding", nativeDialogs: "substituted", providerCalls: "local substitutes" }, null, 2) + "\n");
+  await writeFile(receipt, JSON.stringify({ checkedAt: new Date().toISOString(), ...installation, passed: true, stage: "completed", systemOnlyPath: Boolean(executable), runtimeDirectory, gracefulWorkerShutdown: true, crashedRendererClose: true, crashedRendererQuit: true, directGradingCalls: modelCalls, documentModelCalls, rasterGraphs: (codecReport as typeof codecReport & { rasterGraphs: unknown }).rasterGraphs, listeningAddressPlayback: true, passiveAudioLoads: 0, newAudioFiles: 0, audioTransport: "memory-only substitute with real Chromium decoding", nativeDialogs: "substituted", providerCalls: "local substitutes" }, null, 2) + "\n");
   console.log("Electron smoke passed: sandbox, IPC, five Tencent ZIP codecs, LangGraph text/OCR/PDF/image completion, bounded PDFium rendering, source crop calibration and passive completion guards in bounded workers, passive source tickets/copy/fences, explicit source repair/quarantine, fenced task deletion/recovery and stable pagination, complete/revised/selected/stopped-unit bank ZIP export without model work, SQLite CRUD, objective/subjective practice, OS-encrypted test credentials, explicit model calls, all-type ZIP roundtrip, bundled examples, and Settings import/backup/confirmed restore through native-dialog substitutes");
 } catch (error) {
   const window = instance.windows()[0];

@@ -2812,3 +2812,11 @@ backend tests with required coverage, 76 release-tool tests and 26 CI guards),
 all 240 browser tests and the actual Electron smoke flows with local provider
 substitutes. The production renderer contains one byte-identical brand PNG.
 Installer packaging and live-provider acceptance were not rerun.
+
+## Window recovery
+
+Closing the last window keeps background workers alive until an explicit quit.
+A crashed renderer can close without acknowledging the draft-save request;
+quitting still drains the AI worker before the practice database worker. The
+Electron smoke flow checks normal closure, reopening, crashed-window closure
+and crashed-window quit with the same ordered worker-shutdown assertions.
