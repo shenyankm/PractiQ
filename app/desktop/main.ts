@@ -184,7 +184,7 @@ else {
     try {
       trustedSender(event);
       invariant(locale === undefined || typeof locale === "string" && ["zh-CN", "zh-TW", "en"].includes(locale), "LOCAL_FILTER_INVALID", "Invalid language");
-      // Counted from the values themselves: a binary payload counts its real bytes without being serialized.
+      // Counted from the values themselves: text is bounded here, a binary payload by its own handler.
       invariant(withinRequestLimit(request), "LOCAL_FILE_TOO_LARGE", "Request exceeds size limit");
       invariant(request && typeof request === "object" && !Array.isArray(request) && typeof (request as Record<string, unknown>).type === "string" && !(request as { type: string }).type.startsWith("_"), "LOCAL_FILTER_INVALID", "Invalid request type");
       const input = request as Record<string, unknown>;
