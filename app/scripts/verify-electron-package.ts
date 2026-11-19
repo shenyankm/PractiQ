@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
 import { createHash } from "node:crypto";
 import { stripTypeScriptTypes } from "node:module";
+import { FuseState, FuseV1Options, getCurrentFuseWire } from "@electron/fuses";
 import { version } from "./release-data.ts";
 import type { DesktopBridge } from "../desktop/bridge.js";
 import type { WebPreferences } from "electron";
@@ -30,11 +31,24 @@ try {
   run("/usr/bin/hdiutil", ["attach", "-readonly", "-nobrowse", "-mountpoint", mount, join(release, report.dmg.file)]); mounted = true;
   cpSync(join(mount, "PractiQ.app"), join(installed, "PractiQ.app"), { recursive: true, verbatimSymlinks: true });
   run("/usr/bin/hdiutil", ["detach", mount]); mounted = false; run("/usr/bin/codesign", ["--verify", "--deep", "--strict", join(installed, "PractiQ.app")]);
+  // The shipped binary, not its build receipt, must carry the hardened fuse wire.
+  const manifest = JSON.parse(readFileSync(join(installed, "PractiQ.app/Contents/Resources/PRACTIQ-BUILD.json"), "utf8"));
+  assert.equal(manifest.hardenedRuntime, true); assert.equal(manifest.notarized, false);
+  const wire = await getCurrentFuseWire(join(installed, "PractiQ.app/Contents/MacOS/PractiQ"));
+  const expectedFuses = { RunAsNode: FuseV1Options.RunAsNode, EnableNodeOptionsEnvironmentVariable: FuseV1Options.EnableNodeOptionsEnvironmentVariable, GrantFileProtocolExtraPrivileges: FuseV1Options.GrantFileProtocolExtraPrivileges } as const;
+  for (const [name, option] of Object.entries(expectedFuses)) { assert.equal(manifest.fuses[name], false, `Build receipt did not declare ${name}`); assert.equal(wire[option], FuseState.DISABLE, `Installed bundle still enables ${name}`); }
   instance = await launch(); const page = await instance.firstWindow({ timeout: 20000 }); page.setDefaultTimeout(15000);
   const errors: string[] = [], http: string[] = []; page.on("pageerror", error => errors.push(error.message)); page.on("request", request => { if (/^https?:/.test(request.url())) http.push(request.url()); });
   await page.waitForFunction(() => Boolean(window.practiq?.request));
-  const state = await instance.evaluate(({ app, BrowserWindow }) => { const preferences = (BrowserWindow.getAllWindows()[0].webContents as unknown as { getLastWebPreferences(): WebPreferences }).getLastWebPreferences(); return { packaged: app.isPackaged, userData: app.getPath("userData"), appPath: app.getAppPath(), executable: process.execPath, node: process.versions.node, electron: process.versions.electron, sandbox: preferences.sandbox, contextIsolation: preferences.contextIsolation, nodeIntegration: preferences.nodeIntegration }; });
+  const state = await instance.evaluate(({ app, BrowserWindow, Menu }) => { const contents = BrowserWindow.getAllWindows()[0].webContents, preferences = (contents as unknown as { getLastWebPreferences(): WebPreferences }).getLastWebPreferences(); const menu: string[] = Menu.getApplicationMenu()?.items.flatMap(item => [item.role as string, ...(item.submenu?.items ?? []).map(child => child.role as string)]) ?? []; return { packaged: app.isPackaged, userData: app.getPath("userData"), appPath: app.getAppPath(), executable: process.execPath, node: process.versions.node, electron: process.versions.electron, sandbox: preferences.sandbox, contextIsolation: preferences.contextIsolation, nodeIntegration: preferences.nodeIntegration, menu }; });
   assert.equal(state.packaged, true); assert.equal(realpathSync(state.userData), realpathSync(profile)); assert.ok(state.appPath.startsWith(installed)); assert.deepEqual([state.sandbox, state.contextIsolation, state.nodeIntegration], [true, true, false]);
+  // A packaged window must not offer developer tools: opening them must be a no-op, and no menu entry exists.
+  await instance.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.openDevTools());
+  await new Promise(resolve => setTimeout(resolve, 500));
+  assert.equal(await instance.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.isDevToolsOpened()), false, "Packaged window opened developer tools");
+  // Electron reports menu roles in lower case, so the effect is asserted through the actual entries.
+  for (const role of ["reload", "forcereload", "toggledevtools"]) assert.ok(!state.menu.includes(role), `Packaged menu still exposes ${role}`);
+  assert.ok(state.menu.includes("copy") && state.menu.includes("paste"), "Packaged menu must keep the clipboard roles");
   const bridge = async (request: unknown, target = page) => { const reply = await target.evaluate(value => window.practiq!.request(value), request) as { ok: boolean; value: any; error?: { code: string } }; assert.equal(reply.ok, true, reply.error?.code ?? "Packaged command failed"); return reply.value; };
   const directory = join(profile, "v4"); assert.equal((await bridge({ type: "info" })).dataDirectory, directory); assert.equal((await bridge({ type: "banks" })).length, 0); assert.ok(readFileSync(join(oldProfile, "practiq.sqlite")).equals(oldBytes));
   await bridge({ type: "add_example_bank" }); assert.equal((await bridge({ type: "banks" }))[0].count, 20);
@@ -68,12 +82,17 @@ try {
   let existingDataReport: string | undefined;
   if (process.argv[3]) {
     const script = join(temporary, "verify-existing-data.mjs"); writeFileSync(script, stripTypeScriptTypes(readFileSync("scripts/verify-existing-data.ts", "utf8")), { mode: 0o600 });
-    const checked = spawnSync(state.executable, [script, realpathSync(process.argv[3]), join(state.appPath, ".build/electron/app/desktop")], { cwd: process.cwd(), env: { ...environment, ELECTRON_RUN_AS_NODE: "1" }, encoding: "utf8", timeout: 30000 });
-    assert.equal(checked.status, 0, `Installed runtime rejected the existing-data copy: ${checked.stderr}`); existingDataReport = JSON.parse(checked.stdout.split("\n").find(line => line.startsWith('{"report":'))!).report;
-    const result = JSON.parse(readFileSync(existingDataReport!, "utf8")); assert.equal(result.runtimeNode, state.node); assert.equal(result.runtimeImplementation, "installed-package"); assert.equal(result.originalProfileUnchanged, true);
+    // The shipped main process runs the probe: RunAsNode is fused off, and no external Node stands in for it.
+    const probe = await instance.evaluate(async (_electron, data) => {
+      const { pathToFileURL } = process.getBuiltinModule("node:url") as typeof import("node:url");
+      const module = await import(pathToFileURL(data.script).href) as { verifyExistingData: (options: { profile: string; runtimeBase: string; evidence: string; runtime: "installed-package" }) => Promise<{ report: string; banks: number; sessions: number; assets: number }> };
+      const result = await module.verifyExistingData(data.options); return { ...result, node: process.versions.node };
+    }, { script, options: { profile: realpathSync(process.argv[3]), runtimeBase: join(state.appPath, ".build/electron/app/desktop"), evidence, runtime: "installed-package" as const } });
+    assert.equal(probe.node, state.node); existingDataReport = probe.report;
+    const result = JSON.parse(readFileSync(existingDataReport, "utf8")); assert.equal(result.runtimeNode, state.node); assert.equal(result.runtimeImplementation, "installed-package"); assert.equal(result.originalProfileUnchanged, true);
   }
   await reopened.screenshot({ path: join(evidence, "electron-packaged-reopened.png") });
-  const acceptance = { checkedAt: new Date().toISOString(), dmgSha256: report.dmg.sha256, version: report.appVersion, arch: report.arch, packaged: state.packaged, node: state.node, electron: state.electron, codesignVerified: true, sourceIndependentInstall: true, isolatedUserData: true, systemOnlyPath: true, sandbox: true, practice: true, backupRestore: true, restart: true, codecs: helpers.codecs, pdfPages: helpers.pages, paidCalls: 0, rendererHttpRequests: 0, existingDataCopy: Boolean(existingDataReport), existingDataReport, corePassed: true, credentialsEncrypted: false, credentialsExcludedFromBackup: false, credentialsDecryptAfterRestart: false, nativeDialogs: "substituted", notarized: false };
+  const acceptance = { checkedAt: new Date().toISOString(), dmgSha256: report.dmg.sha256, version: report.appVersion, arch: report.arch, packaged: state.packaged, node: state.node, electron: state.electron, codesignVerified: true, sourceIndependentInstall: true, isolatedUserData: true, systemOnlyPath: true, sandbox: true, devToolsDisabled: true, hardenedFuses: Object.fromEntries(Object.keys(expectedFuses).map(name => [name, false])), practice: true, backupRestore: true, restart: true, codecs: helpers.codecs, pdfPages: helpers.pages, paidCalls: 0, rendererHttpRequests: 0, existingDataCopy: Boolean(existingDataReport), existingDataReport, corePassed: true, credentialsEncrypted: false, credentialsExcludedFromBackup: false, credentialsDecryptAfterRestart: false, nativeDialogs: "substituted", notarized: false };
   const receipt = join(evidence, `electron-package-${report.dmg.sha256.slice(0, 12)}-${Date.now()}-acceptance.json`), publish = () => { const value = JSON.stringify(acceptance, null, 2) + "\n"; writeFileSync(receipt, value); writeFileSync(join(evidence, "electron-package-acceptance.json"), value); };
   publish(); console.log(`Installed package core passed: ${receipt}; verifying OS-protected credentials next`);
   const currentSettings = await bridge({ type: "ai_settings" }, reopened);

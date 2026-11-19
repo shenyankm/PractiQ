@@ -1,4 +1,5 @@
 import { _electron as electron } from "playwright";
+import { extractAll } from "@electron/asar";
 import assert from "node:assert/strict";
 import { mkdtemp, rm, mkdir, readFile, writeFile, realpath, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -36,6 +37,9 @@ model.unref();
 const modelOrigin = `http://127.0.0.1:${(model.address() as { port: number }).port}/v1`;
 const environment = Object.fromEntries(Object.entries(process.env).filter(([key, value]) => value !== undefined && !["ELECTRON_RUN_AS_NODE", "PRACTIQ_DEV_URL", "PRACTIQ_DATA_DIR"].includes(key))) as Record<string, string>;
 if (executable) environment.PATH = "/usr/bin:/bin:/usr/sbin:/sbin"; else environment.PRACTIQ_DATA_DIR = practiceDirectory;
+// Startup milestones are printed to stderr so a window that never appears explains itself.
+environment.PRACTIQ_STARTUP_TRACE = "1";
+const launchedAt = performance.now();
 const instance = await electron.launch({
   timeout: 15_000,
   executablePath: executable, cwd: executable ? directory : undefined,
@@ -49,12 +53,19 @@ const watchdog = setTimeout(() => {
   const force = setTimeout(() => { if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL"); }, 2000); force.unref();
 }, 120000); watchdog.unref();
 try {
-  instance.process().stderr?.on("data", data => process.stderr.write(data));
+  instance.process().stderr?.on("data", data => process.stderr.write(`[app] ${data}`));
+  // Main-process facts are read before the first window so a window that never appears is diagnosable.
+  const installation = await instance.evaluate(({ app, BrowserWindow }) => ({ packaged: app.isPackaged, ready: app.isReady(), appPath: app.getAppPath(), userData: app.getPath("userData"), windows: BrowserWindow.getAllWindows().length, executable: process.execPath, node: process.versions.node, electron: process.versions.electron, argv: process.argv.slice(1), execArgv: process.execArgv }));
   const page = await instance.firstWindow({ timeout: 15_000 });
-  const installation = await instance.evaluate(({ app }) => ({ packaged: app.isPackaged, appPath: app.getAppPath(), userData: app.getPath("userData"), executable: process.execPath, node: process.versions.node, electron: process.versions.electron }));
+  const startupMs = Math.round(performance.now() - launchedAt);
   assert.equal(installation.packaged, Boolean(executable)); assert.equal(await realpath(installation.userData), await realpath(profile));
   if (executable) { assert.equal(await realpath(installation.executable), executable); assert.ok(!installation.appPath.startsWith(await realpath(process.cwd()) + "/"), "Installed smoke must run a copied app outside the checkout"); }
   const runtimeDirectory = executable ? join(installation.appPath, ".build/electron/app/desktop") : resolve(".build/electron/app/desktop");
+  // This harness runs outside Electron, so an archived runtime is extracted once from the shipped bytes
+  // for the checks that must read or import files with plain Node.
+  const inspectionDirectory = !executable || !installation.appPath.endsWith(".asar")
+    ? runtimeDirectory
+    : (() => { const target = join(directory, "shipped-runtime"); extractAll(installation.appPath, target); return join(target, ".build/electron/app/desktop"); })();
   await mkdir(".build/evidence", { recursive: true }); await writeFile(receipt, JSON.stringify({ checkedAt: new Date().toISOString(), ...installation, stage, passed: false }, null, 2) + "\n");
   const unexpectedHttpApis: string[] = [];
   page.setDefaultTimeout(15_000);
@@ -163,7 +174,7 @@ try {
   assert.deepEqual(codecReport.ocrGraph, { submissions: 1, modelCalls: 1, unitSaved: true, status: "SUCCEEDED", sourceStage: "vision_parse", stoppedAt: null, code: null });
   assert.deepEqual((codecReport as typeof codecReport & { rasterGraphs: unknown }).rasterGraphs, [{ sourceType: "pdf", submissions: 1, modelCalls: 1, status: "SUCCEEDED", engine: "pdfium", pageImages: 1 }, { sourceType: "image", submissions: 1, modelCalls: 1, status: "SUCCEEDED", engine: "sharp", pageImages: 1 }, { sourceType: "docx", submissions: 1, modelCalls: 1, status: "SUCCEEDED", engine: "office-metadata", pageImages: 0 }, { sourceType: "xlsx", submissions: 1, modelCalls: 1, status: "PARTIAL", engine: "office-metadata", pageImages: 0 }, { sourceType: "pptx", submissions: 1, modelCalls: 1, status: "PARTIAL", engine: "office-metadata", pageImages: 0, hiddenSlidesVisible: true, declaredSlides: 2 }, { sourceType: "ppt", submissions: 1, modelCalls: 1, status: "PARTIAL", engine: "office-metadata", pageImages: 0, hiddenSlidesVisible: true, declaredSlides: 2 }]);
   assert.deepEqual(codecReport.sourceProofs, { rasterCrops: true, literalAnswers: true, textAssembly: true, tableAnswerRoles: true, unverifiedBounds: true, linkedAnswerPages: true, fixedFigureIds: true, ocrAssembly: true, strictModelNumbers: true });
-  assert.match(await readFile(join(runtimeDirectory, "resources/unicode-data.txt"), "utf8"), /^UNICODE LICENSE V3/);
+  assert.match(await readFile(join(inspectionDirectory, "resources/unicode-data.txt"), "utf8"), /^UNICODE LICENSE V3/);
   await mkdir(".build/evidence", { recursive: true }); await writeFile(".build/evidence/electron-tencent-codecs.json", JSON.stringify(codecReport, null, 2));
   const bridge = async (request: unknown) => page.evaluate(async input => {
     return (window as unknown as { practiq: { request(value: unknown): Promise<{ ok: boolean; value?: unknown; error?: { code: string } }> } }).practiq.request(input);
@@ -308,7 +319,7 @@ try {
   assert.equal(await page.getByLabel("AI 服务地址", { exact: true }).count(), 0);
   assert.equal(modelCalls, 0); await page.screenshot({ path: ".build/evidence/electron-document-workspace.png" });
   stage = "document review, recovery, grading and backup";
-  const { BoundedZip } = await import(pathToFileURL(join(runtimeDirectory, "zip.js")).href), { resourceReferences } = await import(pathToFileURL(join(runtimeDirectory, "bank-references.js")).href);
+  const { BoundedZip } = await import(pathToFileURL(join(inspectionDirectory, "zip.js")).href), { resourceReferences } = await import(pathToFileURL(join(inspectionDirectory, "bank-references.js")).href);
   const readExportedBank = async (path: string): Promise<Omit<DocumentBankImport, "title">> => {
     const zip = await BoundedZip.open(path, { archiveBytes: 300 * 1024 * 1024, expandedBytes: 300 * 1024 * 1024, entries: 2002 });
     try {
@@ -750,11 +761,19 @@ try {
     if (action === "close") assert.equal((await readdir(directory)).includes("closed-workers.txt"), false, "Closing a crashed window must preserve background workers");
   }
   assert.deepEqual((await readFile(shutdownReceipt, "utf8")).trim().split("\n"), ["start:AiClient", "closed:AiClient", "start:DatabaseClient", "closed:DatabaseClient"], "Keep SQLite available until AI results and both workers drain");
+  // A crashed renderer must leave a bounded diagnostic and a restorable window frame behind.
+  assert.match(await readFile(join(profile, "logs", "main.log"), "utf8"), /render-process-gone/);
+  const retainedFrame = JSON.parse(await readFile(join(profile, "window-state.json"), "utf8"));
+  assert.ok(Number.isSafeInteger(retainedFrame.bounds.width) && retainedFrame.bounds.width >= 1024 && Number.isSafeInteger(retainedFrame.bounds.height), "Window frame was not retained for the next launch");
   assert.equal(modelCalls, 2);
   assert.deepEqual(unexpectedHttpApis, []);
-  await writeFile(receipt, JSON.stringify({ checkedAt: new Date().toISOString(), ...installation, passed: true, stage: "completed", systemOnlyPath: Boolean(executable), runtimeDirectory, gracefulWorkerShutdown: true, crashedRendererClose: true, crashedRendererQuit: true, directGradingCalls: modelCalls, documentModelCalls, rasterGraphs: (codecReport as typeof codecReport & { rasterGraphs: unknown }).rasterGraphs, listeningAddressPlayback: true, passiveAudioLoads: 0, newAudioFiles: 0, audioTransport: "memory-only substitute with real Chromium decoding", nativeDialogs: "substituted", providerCalls: "local substitutes" }, null, 2) + "\n");
+  await writeFile(receipt, JSON.stringify({ checkedAt: new Date().toISOString(), ...installation, passed: true, stage: "completed", systemOnlyPath: Boolean(executable), runtimeDirectory, gracefulWorkerShutdown: true, crashedRendererClose: true, crashedRendererQuit: true, crashedRendererDiagnostics: true, windowStateRetained: true, startupMs, directGradingCalls: modelCalls, documentModelCalls, rasterGraphs: (codecReport as typeof codecReport & { rasterGraphs: unknown }).rasterGraphs, listeningAddressPlayback: true, passiveAudioLoads: 0, newAudioFiles: 0, audioTransport: "memory-only substitute with real Chromium decoding", nativeDialogs: "substituted", providerCalls: "local substitutes" }, null, 2) + "\n");
   console.log("Electron smoke passed: sandbox, IPC, five Tencent ZIP codecs, LangGraph text/OCR/PDF/image completion, bounded PDFium rendering, source crop calibration and passive completion guards in bounded workers, passive source tickets/copy/fences, explicit source repair/quarantine, fenced task deletion/recovery and stable pagination, complete/revised/selected/stopped-unit bank ZIP export without model work, SQLite CRUD, objective/subjective practice, OS-encrypted test credentials, explicit model calls, all-type ZIP roundtrip, bundled examples, and Settings import/backup/confirmed restore through native-dialog substitutes");
 } catch (error) {
+  // A swallowed main-process fault is only visible in the app's own log, so it is copied to stderr.
+  console.error("practiq main log:", await readFile(join(profile, "logs", "main.log"), "utf8").catch(() => "absent"));
+  const facts = await instance.evaluate(({ app, BrowserWindow }) => ({ ready: app.isReady(), appPath: app.getAppPath(), windows: BrowserWindow.getAllWindows().length, argv: process.argv.slice(1) })).catch(value => ({ unavailable: String(value) }));
+  console.error("practiq startup facts:", JSON.stringify(facts));
   const window = instance.windows()[0];
   if (window && !window.isClosed()) { await window.screenshot({ path: ".build/evidence/electron-smoke-failure.png" }).catch(() => {}); await writeFile(".build/evidence/electron-smoke-failure.txt", await window.locator("body").ariaSnapshot()).catch(() => {}); }
   throw error;

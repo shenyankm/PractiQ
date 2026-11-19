@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createPackageWithOptions } from "@electron/asar";
 import { auditPackage, optionalOtherPlatform, runtimeDependencies } from "./package-audit.ts";
 import { checkMachO } from "./release-macho.ts";
 
@@ -48,6 +49,17 @@ test("package auditing rejects legacy engines, environment files and escaping li
   }
   const link = join(bundle, "link"); symlinkSync("valid", link); assert.equal(auditPackage(bundle), 1); rmSync(link); symlinkSync(join(bundle, "valid"), link); assert.throws(() => auditPackage(bundle)); rmSync(link); symlinkSync("../external", link); writeFileSync(join(directory, "external"), "external"); assert.throws(() => auditPackage(bundle));
 }));
+
+test("package auditing reads an archived runtime instead of trusting the archive name", async () => {
+  const directory = realpathSync(mkdtempSync(join(tmpdir(), "practiq-asar-audit-")));
+  try {
+    const bundle = join(directory, "PractiQ.app"), resources = join(bundle, "Contents/Resources"), archive = join(resources, "app.asar"), source = join(directory, "source");
+    mkdirSync(resources, { recursive: true }); mkdirSync(source); writeFileSync(join(source, "main.js"), "");
+    await createPackageWithOptions(source, archive, {}); assert.equal(auditPackage(bundle), 2);
+    writeFileSync(join(source, "python3"), "forbidden"); rmSync(archive); await createPackageWithOptions(source, archive, {}); assert.throws(() => auditPackage(bundle), /python3/);
+    rmSync(join(source, "python3")); writeFileSync(join(source, "legacy.py"), "forbidden"); rmSync(archive); await createPackageWithOptions(source, archive, {}); assert.throws(() => auditPackage(bundle), /legacy\.py/);
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
 
 test("runtime dependency selection follows shared imports and includes detached worker modules", () => fixture(directory => {
   const desktop = join(directory, ".build/electron/app/desktop"), shared = join(directory, ".build/electron/shared"); mkdirSync(desktop, { recursive: true }); mkdirSync(shared);
