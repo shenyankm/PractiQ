@@ -761,6 +761,9 @@ try {
   await writeFile(receipt, JSON.stringify({ checkedAt: new Date().toISOString(), ...installation, passed: true, stage: "completed", systemOnlyPath: Boolean(executable), runtimeDirectory, gracefulWorkerShutdown: true, crashedRendererClose: true, crashedRendererQuit: true, crashedRendererDiagnostics: true, windowStateRetained: true, startupMs, directGradingCalls: modelCalls, documentModelCalls, rasterGraphs: (codecReport as typeof codecReport & { rasterGraphs: unknown }).rasterGraphs, listeningAddressPlayback: true, passiveAudioLoads: 0, newAudioFiles: 0, audioTransport: "memory-only substitute with real Chromium decoding", nativeDialogs: "substituted", providerCalls: "local substitutes" }, null, 2) + "\n");
   console.log("Electron smoke passed: sandbox, IPC, five Tencent ZIP codecs, LangGraph text/OCR/PDF/image completion, bounded PDFium rendering, source crop calibration and passive completion guards in bounded workers, passive source tickets/copy/fences, explicit source repair/quarantine, fenced task deletion/recovery and stable pagination, complete/revised/selected/stopped-unit bank ZIP export without model work, SQLite CRUD, objective/subjective practice, OS-encrypted test credentials, explicit model calls, all-type ZIP roundtrip, bundled examples, and Settings import/backup/confirmed restore through native-dialog substitutes");
 } catch (error) {
+  // A swallowed main-process fault is only visible in the app's own log, so it is copied to stderr.
+  await readFile(join(profile, "logs", "main.log"), "utf8").then(log => process.stderr.write(`practiq main log:
+${log}`)).catch(() => {});
   const window = instance.windows()[0];
   if (window && !window.isClosed()) { await window.screenshot({ path: ".build/evidence/electron-smoke-failure.png" }).catch(() => {}); await writeFile(".build/evidence/electron-smoke-failure.txt", await window.locator("body").ariaSnapshot()).catch(() => {}); }
   throw error;

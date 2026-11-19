@@ -1,6 +1,6 @@
 import { app, BrowserWindow, crashReporter, dialog, ipcMain, Menu, protocol, safeStorage, screen, session } from "electron";
 import { dirname, join, resolve } from "node:path";
-import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { DatabaseClient } from "./client.js";
@@ -16,7 +16,7 @@ import { prepareListeningQr } from "./image-preparation.js";
 import { validateContract } from "./contracts.js";
 import { applicationMenuTemplate } from "./app-menu.js";
 import { MainLog } from "./main-log.js";
-import { bundleIndex, resolveBundleRequest } from "./protocol-assets.js";
+import { bundleIndex, resolveBundleRequest, type BundleAsset } from "./protocol-assets.js";
 import { withinRequestLimit } from "./request-size.js";
 import { WINDOW_MINIMUM, parseWindowState, serializeWindowState, type WindowState } from "./window-state.js";
 
@@ -51,8 +51,9 @@ function log(scope: string, error: unknown): void {
 }
 
 // A main-process fault is recorded even when no window can show it; practice data stays on disk.
-process.on("uncaughtException", error => log("uncaughtException", error));
-process.on("unhandledRejection", reason => log("unhandledRejection", reason));
+const fault = (scope: string, error: unknown) => { log(scope, error); console.error(`PractiQ ${scope}:`, error); };
+process.on("uncaughtException", error => fault("uncaughtException", error));
+process.on("unhandledRejection", reason => fault("unhandledRejection", reason));
 
 const windowStateFile = () => join(app.getPath("userData"), "window-state.json");
 function readWindowState(): WindowState | null {
@@ -148,7 +149,11 @@ else {
       development && (details.url.startsWith("http://127.0.0.1:1420/") || details.url.startsWith("ws://127.0.0.1:1420/"));
     callback({ cancel: !allowed });
   });
-  const bundle = realpathSync(resolve(base, "../../../../dist")), assets = bundleIndex(bundle);
+  // The bundle may live inside app.asar, which the OS cannot canonicalize, so it is used as given.
+  // An unreadable bundle must degrade to the failure page instead of preventing the window.
+  let assets: Map<string, BundleAsset>;
+  try { assets = bundleIndex(resolve(base, "../../../../dist")); }
+  catch (error) { log("bundle-index", error); assets = new Map(); }
   protocol.handle("practiq", async request => {
     if (request.method !== "GET") return new Response(null, { status: 403 });
     // The built bundle is indexed once, so a request selects a known file instead of a path.
@@ -278,5 +283,6 @@ else {
     listeningWeb.close(); listeningAbort.abort();
     shuttingDown ??= Promise.allSettled([ai?.close(), ...listeningJobs]).then(() => Promise.allSettled([database?.close()])).then(() => { quitReady = true; app.quit(); });
   });
-  });
+  // A startup fault must never leave a windowless process behind: record it, then exit non-zero.
+  }).catch(error => { fault("startup", error); app.exit(1); });
 }
