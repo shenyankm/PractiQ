@@ -46,8 +46,9 @@ try {
   await instance.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.openDevTools());
   await new Promise(resolve => setTimeout(resolve, 500));
   assert.equal(await instance.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.isDevToolsOpened()), false, "Packaged window opened developer tools");
-  for (const role of ["reload", "forceReload", "toggleDevTools"]) assert.ok(!state.menu.includes(role), `Packaged menu still exposes ${role}`);
-  assert.ok(state.menu.includes("editMenu"), "Packaged menu must keep the clipboard roles");
+  // Electron reports menu roles in lower case, so the effect is asserted through the actual entries.
+  for (const role of ["reload", "forcereload", "toggledevtools"]) assert.ok(!state.menu.includes(role), `Packaged menu still exposes ${role}`);
+  assert.ok(state.menu.includes("copy") && state.menu.includes("paste"), "Packaged menu must keep the clipboard roles");
   const bridge = async (request: unknown, target = page) => { const reply = await target.evaluate(value => window.practiq!.request(value), request) as { ok: boolean; value: any; error?: { code: string } }; assert.equal(reply.ok, true, reply.error?.code ?? "Packaged command failed"); return reply.value; };
   const directory = join(profile, "v4"); assert.equal((await bridge({ type: "info" })).dataDirectory, directory); assert.equal((await bridge({ type: "banks" })).length, 0); assert.ok(readFileSync(join(oldProfile, "practiq.sqlite")).equals(oldBytes));
   await bridge({ type: "add_example_bank" }); assert.equal((await bridge({ type: "banks" }))[0].count, 20);
