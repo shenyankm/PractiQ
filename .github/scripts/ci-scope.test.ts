@@ -15,7 +15,7 @@ function temporary(action: (directory: string) => void) {
 }
 function needs(target: Scope, required = true): Record<string, any> {
   const result = required ? "success" : "skipped";
-  return { changes: { result: "success", outputs: { required: String(required), sha: "a".repeat(40) } }, quality: { result }, ...(target === "desktop" ? { package: { result } } : {}) };
+  return { changes: { result: "success", outputs: { required: String(required), sha: "a".repeat(40) } }, quality: { result }, ...(target === "desktop" ? { package: { result }, "package-windows": { result } } : {}) };
 }
 
 test("only recognized documentation skips both embedded-runtime gates", () => {
@@ -81,7 +81,7 @@ test("real multi-commit push retains deleted inputs and Unicode paths with NUL s
 
 for (const target of scopes) for (const required of [true, false]) test(`${target} gate accepts only its exact ${required ? "successful" : "deliberately skipped"} dependencies`, () => {
   checkGate(target, needs(target, required));
-  for (const job of ["quality", ...(target === "desktop" ? ["package"] : [])]) for (const result of ["success", "skipped", "cancelled", "failure", "neutral", undefined]) {
+  for (const job of ["quality", ...(target === "desktop" ? ["package", "package-windows"] : [])]) for (const result of ["success", "skipped", "cancelled", "failure", "neutral", undefined]) {
     if (result === (required ? "success" : "skipped")) continue;
     const value = needs(target, required); value[job].result = result; assert.throws(() => checkGate(target, value));
   }

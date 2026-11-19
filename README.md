@@ -6,7 +6,7 @@
 
 English | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md)
 
-Turn documents into question banks, then practise and take mock exams offline on macOS.
+Turn documents into question banks, then practise and take mock exams offline on macOS or the Windows x64 preview.
 
 - **Import and review**: pull questions out of documents with AI, check anything that needs a second look, and organise your banks.
 - **Practise and test**: choose questions across banks by type, mistakes, bookmarks or unanswered questions, then practise, self-test or run a timed mock exam.
@@ -48,7 +48,7 @@ Export a bank from its card menu to share its questions without your answers or 
 
 ## Import documents with AI
 
-Import documents inside the macOS App:
+Import documents inside the app:
 
 1. Configure the model endpoint/ID/API key and Tencent credentials under **Settings → AI model and recognition**, save, then open **Document import**. No login is required.
 2. Choose up to 10 files and select **Start import**. Choosing files does not upload or parse them.
@@ -78,7 +78,7 @@ To build from source, open the repository root and ask your coding agent to use 
 
 > Read `docs/guides/installation.md` and install PractiQ on this machine. Check the requirements first, run only the steps for my platform, and tell me what you ran, where the build is and anything that failed. Ask before installing system packages.
 
-The [installation guide](docs/guides/installation.md) covers requirements, commands and checks. PractiQ targets macOS 14+ on Apple Silicon; other desktop platforms are not accepted.
+The [installation guide](docs/guides/installation.md) covers macOS 14+ on Apple Silicon and the Windows 11 x64 preview. Look for the portable Windows ZIP in candidate Releases and read the package limitations before using it with existing data.
 
 PractiQ is still in development. A passing build does not establish signing, clean-machine acceptance or live-model accuracy. Published packages and their evidence are listed on [GitHub Releases](https://github.com/shenyankm/PractiQ/releases).
 

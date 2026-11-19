@@ -9,7 +9,8 @@ export class RpcWorker {
   private closing?: Promise<void>;
   private readonly pending = new Map<number, { resolve: (reply: DesktopReply) => void; reject: (error: Error) => void }>();
   constructor(url: URL, directory: string, code: string, message: string) {
-    this.worker = new Worker(url, { workerData: { directory }, env: {} });
+    const env = process.platform === "win32" ? { SystemRoot: process.env.SystemRoot } : {};
+    this.worker = new Worker(url, { workerData: { directory }, env });
     this.worker.on("message", ({ id, reply }: { id: number; reply: DesktopReply }) => { this.pending.get(id)?.resolve(reply); this.pending.delete(id); });
     const fail = () => { this.failure = new AppError(code, message); for (const pending of this.pending.values()) pending.reject(this.failure); this.pending.clear(); };
     this.worker.on("error", fail); this.worker.on("exit", fail);

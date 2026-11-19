@@ -48,7 +48,7 @@ export function changedPaths(event: string, payload: unknown, repository: string
 }
 export function checkGate(target: Scope, input: unknown): void {
   scope(target);
-  const needs = object(input), jobs = target === "desktop" ? ["changes", "quality", "package"] : ["changes", "quality"];
+  const needs = object(input), jobs = target === "desktop" ? ["changes", "quality", "package", "package-windows"] : ["changes", "quality"];
   if (Object.keys(needs).sort().join() !== [...jobs].sort().join()) throw Error("Missing or unexpected CI dependencies");
   const changes = object(needs.changes), outputs = object(changes.outputs);
   if (changes.result !== "success") throw Error("Change detection did not succeed");

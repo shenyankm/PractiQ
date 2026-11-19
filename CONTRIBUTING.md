@@ -21,18 +21,18 @@ workspace and model settings use the embedded runtime without a service URL.
 builds and independently verifies that same output. Set `APP_PACKAGE_DIRECTORY`
 on the Make command line to choose a fresh output directory. Default install,
 test and verification commands now use Node. Release candidate
-validation, DMG staging and draft assembly now use `app/scripts/release.ts`.
+validation, package staging and draft assembly use `app/scripts/release.ts`.
 
 From `app/`, use `npm run desktop:build` and `npm run test:desktop` for the new
 runtime and its type checks. `npm run check:packaging` checks the maintainer tools;
-`npm run package:electron` builds a local macOS application and DMG. Verify it with
+`npm run package:electron` builds an app and DMG on macOS or a portable ZIP on Windows x64. Verify it with
 `npm run test:package -- /absolute/package-output`. An optional second argument
 selects a legacy profile for copy-only compatibility checks. The standalone
 `npm run verify:existing-data -- /absolute/legacy/profile` also operates only on
 private copies and requires a current `npm run desktop:build` first. Retain its
 ignored `.build/evidence/` reports and copies locally. These are migration tools;
 they do not authorize replacing an existing profile.
-Local packages use ad-hoc signing and are not notarized distribution builds.
+Local macOS packages use ad-hoc signing. Windows ZIPs contain an unsigned executable.
 
 `npm run test:electron` exercises the complete compiled desktop with local provider
 substitutes. To run the same workflows against a package, copy `PractiQ.app`
@@ -41,6 +41,8 @@ outside the checkout, then run
 The installed check uses a private profile, system-only PATH and the package's
 compiled modules; file dialogs remain substituted. macOS CI builds and checks both
 the copied app workflows and the installed DMG, including protected credentials.
+The Windows runner launches the extracted ZIP with a private profile and checks
+offline practice, PDFium, codecs, backup/restore and DPAPI credentials.
 Reports distinguish these local checks from live provider and remote CI results.
 
 Use this guide to prepare a focused contribution. The [installation guide](docs/guides/installation.md) covers setup; [README.md](README.md) covers the product and supported platforms; [AGENTS.md](AGENTS.md) defines architecture and coding rules; the [documentation index](docs/README.md) links to detailed guides.
@@ -105,7 +107,7 @@ Keep `origin` as your fork's push target and use `upstream` to fetch project upd
 
 ### Set up the affected components
 
-App development requires macOS on Apple Silicon and Node.js 22.18+ within the
+App development uses macOS on Apple Silicon or Windows x64 and Node.js 22.18+ within the
 22.x line, or 24.11+. Python, Rust, PostgreSQL and RabbitMQ are not part of the
 desktop install, development, test or package commands.
 
@@ -197,7 +199,7 @@ CI selects work using [shared path rules](.github/scripts/ci-scope.ts):
 
 | Changed paths | Heavy CI jobs |
 | --- | --- |
-| Executable code, contracts, fixtures, dependencies or unknown paths | Both workflows: UI/browser/release checks, embedded runtime coverage and macOS package checks |
+| Executable code, contracts, fixtures, dependencies or unknown paths | Both workflows: UI/browser/release checks, embedded runtime coverage and macOS/Windows package checks |
 | Release notes configuration or release template | Both workflows |
 | Any workflow YAML, shared CI actions, scope selector, rulesets, or dependency-update configuration | Both workflows; cross-check selectors and privileged workflow safeguards |
 | Documentation, issue/PR templates, or label catalog | Skip heavy Service/App jobs; manually verify local links and command syntax, parse changed YAML/JSON, and check form fields and labels against the catalog |

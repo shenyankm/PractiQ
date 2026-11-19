@@ -39,11 +39,17 @@ export function readBounded(path: string, limit: number): Buffer {
   } finally { closeSync(descriptor); }
 }
 export function syncDirectory(path: string): void {
+  if (process.platform === "win32") {
+    invariant(lstatSync(path).isDirectory(), "LOCAL_REGULAR_FILE_REQUIRED", "Expected a real directory");
+    // shortcut: Node cannot flush Windows directory handles, use write-through native publication for power-loss parity.
+    return;
+  }
   const descriptor = openSync(path, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
   try { fsyncSync(descriptor); } finally { closeSync(descriptor); }
 }
 export function syncFile(path: string): void {
-  const descriptor = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  // FlushFileBuffers needs write access on Windows even when no file content changes.
+  const descriptor = openSync(path, (process.platform === "win32" ? constants.O_RDWR : constants.O_RDONLY) | constants.O_NOFOLLOW);
   try { invariant(fstatSync(descriptor).isFile(), "LOCAL_REGULAR_FILE_REQUIRED", "Expected a regular file"); fsyncSync(descriptor); } finally { closeSync(descriptor); }
 }
 export function writeNewFile(path: string, bytes: Uint8Array): void {

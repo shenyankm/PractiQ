@@ -6,7 +6,7 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md) | 繁體中文
 
-將文件轉成題庫，在 macOS 上離線練習與模擬考。
+將文件轉成題庫，在 macOS 或 Windows x64 預覽版上離線練習與模擬考。
 
 - **匯入與複核**：用 AI 從文件中擷取題目，檢查需要複核的內容，整理自己的題庫。
 - **練習與組卷**：跨題庫依題型、錯題、收藏或未作答題目挑選題目，進行練習、自我測驗或限時模擬考。
@@ -46,7 +46,7 @@
 
 ## 使用 AI 匯入文件
 
-直接在 macOS App 中匯入文件：
+直接在應用程式中匯入文件：
 
 1. 在**設定 → AI 模型與辨識**中設定模型位址、ID、API 金鑰與騰訊憑證，儲存後開啟**文件匯入**，不需登入。
 2. 一次最多選擇 10 份檔案，點選**開始匯入**。僅選擇檔案不會上傳或解析。
@@ -76,7 +76,7 @@ App 透過騰訊雲的[非同步多模態文件解析](https://cloud.tencent.com
 
 > 閱讀 `docs/guides/installation.md`，在這台電腦上安裝 PractiQ。先檢查環境需求，只執行適合我系統的步驟，完成後告訴我執行了哪些指令、安裝套件在哪裡，以及哪些步驟失敗。安裝系統軟體前先問我。
 
-[安裝指南（英文）](docs/guides/installation.md)包含環境需求、指令與檢查步驟。應用程式面向 macOS 14+（Apple Silicon），其他桌面平台尚未驗收。
+[安裝指南（英文）](docs/guides/installation.md)涵蓋 macOS 14+（Apple Silicon）和 Windows 11 x64 預覽版。Windows 免安裝 ZIP 隨候選版本提供，使用既有資料前請閱讀該版本的限制。
 
 PractiQ 仍在開發中。建置通過不代表已完成簽章、乾淨環境驗收或真實模型準確性驗證。已發布的安裝套件與驗證證據請見 [GitHub Releases](https://github.com/shenyankm/PractiQ/releases)。
 

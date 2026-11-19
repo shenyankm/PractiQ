@@ -6,7 +6,7 @@
 
 [English](README.md) | 简体中文 | [繁體中文](README.zh-TW.md)
 
-把文档变成题库，在 macOS 上离线练习和模拟考试。
+把文档变成题库，在 macOS 或 Windows x64 预览版上离线练习和模拟考试。
 
 - **导入与复核**：用 AI 从文档中提取题目，检查需要复核的内容，整理自己的题库。
 - **练习与组卷**：跨题库按题型、错题、收藏或未做题挑选题目，进行练习、自测或限时模考。
@@ -44,7 +44,7 @@
 
 ## 用 AI 导入文档
 
-直接在 macOS App 中导入文档：
+直接在应用中导入文档：
 
 1. 在**设置 → AI 模型与识别**中配置模型地址、ID、API Key 和腾讯凭据，保存后打开**文档导入**，无需登录。
 2. 一次最多选择 10 份文件，点击**开始导入**。只选择文件不会上传或解析。
@@ -74,7 +74,7 @@ App 通过腾讯云的[异步多模态文档解析](https://cloud.tencent.com/do
 
 > 阅读 `docs/guides/installation.md`，在这台电脑上安装 PractiQ。先检查环境要求，只执行适合我系统的步骤，完成后告诉我执行了哪些命令、安装包在哪里，以及哪些步骤失败。安装系统软件前先问我。
 
-[安装指南（英文）](docs/guides/installation.md)包含环境要求、命令和检查步骤。应用面向 macOS 14+（Apple Silicon），其他桌面平台尚未验收。
+[安装指南（英文）](docs/guides/installation.md)涵盖 macOS 14+（Apple Silicon）和 Windows 11 x64 预览版。Windows 便携 ZIP 随候选版本提供，使用既有数据前请阅读该版本的限制。
 
 PractiQ 仍在开发中。构建通过不代表已完成签名、干净环境验收或真实模型准确性验证。已发布的安装包和验证证据见 [GitHub Releases](https://github.com/shenyankm/PractiQ/releases)。
 

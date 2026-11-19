@@ -1,6 +1,6 @@
 # Release policy
 
-PractiQ releases deliver one macOS Electron application with embedded
+PractiQ releases deliver one Electron application with embedded
 TypeScript/Node AI workers, LangGraph.js, SQLite and local files. Import and
 explicit grading use configured remote providers from those workers; no
 independent backend is required. Oversized Office input requires PDF export
@@ -87,13 +87,11 @@ changes, tagging and publication remain explicit maintainer operations.
 | Target | Minimum system | Public filename |
 | --- | --- | --- |
 | macOS arm64 | macOS 14+ | `PractiQ_<version>_macos_arm64.dmg` |
-
-The current client release target is macOS arm64. An application ZIP is optional;
-if supplied, preserve symlinks with `ditto` and verify the final archive too.
-Other native app targets and their build pipelines are not supported.
+| Windows x64 preview | Windows 11 x64 | `PractiQ_<version>_windows_x64.zip` |
 
 Every installer includes the Electron application, compiled TypeScript workers,
-renderer and required runtime dependencies. `Contents/Resources/PRACTIQ-BUILD.json`
+renderer and required runtime dependencies. `PRACTIQ-BUILD.json` in the app's
+resources directory
 records build metadata version 1, reviewed npm lockfile hashes, execution hash,
 runtime dependencies and notices. Release candidates use
 `packageSchemaVersion: 1`, `packageMode: electron-desktop`.
@@ -101,7 +99,7 @@ Python, LibreOffice, PostgreSQL, RabbitMQ and the former Rust/Tauri runtime must
 be absent from the whole application. Source-bound notices live in
 `Contents/Resources/THIRD-PARTY.txt`; licenses remain alongside the runtime.
 The selected application must contain a bounded Mach-O executable with an actual
-arm64 slice on macOS. Version labels and container CPU
+arm64 slice on macOS or a PE x64 executable on Windows. Version labels and container CPU
 labels alone cannot establish this identity. Header checks do not prove startup,
 full binary loadability, signing or device compatibility.
 Existing ignored engine caches and historical packages remain untouched and
@@ -135,12 +133,12 @@ a workflow source SHA different from the candidate checkout. This binds the
 Actions OIDC source identity to the candidate rather than a later main commit.
 The candidate must already include this workflow version. It reuses Service and
 Desktop CI at that exact commit, forces full checks
-regardless of changed paths, and gates the macOS arm64 asset. It checks a
-private read-only DMG snapshot for native version, engine absence, executable
+regardless of changed paths, and gates both platform assets. It checks private
+copies of the DMG and portable ZIP for version, engine absence, executable
 identity, metadata, freshly rebuilt renderer/worker bytes and source-bound npm notices. Any failure blocks staging;
 diagnostics remain in Actions. Prerelease status never bypasses these gates.
 
-Assembly requires exactly one macOS candidate and rejects missing candidates, mismatched commits/versions, altered
+Assembly requires one macOS candidate and one Windows candidate and rejects missing candidates, mismatched commits/versions, altered
 installers or missing/failed package evidence. It bundles embedded AI reports,
 generates checksums, and fills [the release template](../../.github/RELEASE_TEMPLATE.md).
 GitHub's [generated release notes](https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes)
@@ -159,7 +157,7 @@ reviewed assets silently. Review or discard that draft explicitly before retryin
 ### Actions provenance
 
 After assembly, the pinned [actions/attest](https://github.com/actions/attest)
-action attests the macOS installer, the manifest, evidence ZIP and checksums.
+action attests the DMG, Windows ZIP, manifest, evidence ZIP and checksums.
 Only the draft job receives `id-token: write` and `attestations: write`.
 Before draft creation, `gh attestation verify` checks every attachment using the
 generated bundle, repository, release workflow, candidate tag and exact source SHA;

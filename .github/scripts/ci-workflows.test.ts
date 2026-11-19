@@ -14,7 +14,7 @@ function workflow(name: string): Record<string, any> {
   return yaml.load(readFileSync(join(root, `.github/workflows/${name}.yml`), "utf8")) as Record<string, any>;
 }
 const source = "${{ inputs.ref || github.sha }}";
-const templates = [{ name: "app", scope: "desktop", gate: "desktop-gate", label: "Desktop CI", dependencies: ["changes", "quality", "package"] }, { name: "server", scope: "service", gate: "gate", label: "Service CI", dependencies: ["changes", "quality"] }];
+const templates = [{ name: "app", scope: "desktop", gate: "desktop-gate", label: "Desktop CI", dependencies: ["changes", "quality", "package", "package-windows"] }, { name: "server", scope: "service", gate: "gate", label: "Service CI", dependencies: ["changes", "quality"] }];
 
 test("default Make checks and installation use the single Node application", () => {
   const project = JSON.parse(readFileSync(join(root, "app/package.json"), "utf8"));
@@ -189,13 +189,17 @@ test("release checks and assembly use Node, full candidate history and embedded 
   assert.equal(candidate.steps.some((step: any) => step.run?.includes("npm ci")), false);
   assert.doesNotMatch(JSON.stringify(value), /setup-python|release\.py|service-checks/);
   const downloads = draft.steps.filter((step: any) => step.uses?.startsWith("actions/download-artifact@"));
-  assert.deepEqual(downloads.map((step: any) => step.with), [{ name: "release-macOS", path: "app/.build/release-inputs/release-macOS/" }, { name: "embedded-ai-checks", path: "app/.build/release-inputs/embedded-ai-checks/" }]);
+  assert.deepEqual(downloads.map((step: any) => step.with), [{ name: "release-macOS", path: "app/.build/release-inputs/release-macOS/" }, { name: "release-Windows", path: "app/.build/release-inputs/release-Windows/" }, { name: "embedded-ai-checks", path: "app/.build/release-inputs/embedded-ai-checks/" }]);
   assert.ok(draft.steps.some((step: any) => step.run?.startsWith("node app/scripts/release.ts assemble ")));
   const packageJob = workflow("app").jobs.package, stage = packageJob.steps.find((step: any) => step.name === "Verify final installer and stage release assets");
   assert.equal(stage.if, "inputs.release"); assert.ok(stage.run.startsWith("node app/scripts/release.ts stage "));
   for (const option of ["--package app/.build/electron-ci", "--output app/.build/release", "--reports app/.build/release-reports", "--acceptance app/.build/evidence/electron-package-acceptance.json"]) assert.ok(stage.run.includes(option));
   assert.ok(packageJob.steps.indexOf(stage) > packageJob.steps.findIndex((step: any) => step.run?.includes("npm run test:package")));
   assert.equal(packageJob.steps.find((step: any) => step.uses?.startsWith("actions/checkout@")).with["fetch-depth"], "${{ inputs.release && '0' || '1' }}");
+  const windows = workflow("app").jobs["package-windows"], windowsStage = windows.steps.find((step: any) => step.run?.startsWith("npm run release:stage "));
+  assert.equal(windows["runs-on"], "windows-2025"); assert.equal(windowsStage.if, "inputs.release");
+  assert.ok(windows.steps.indexOf(windowsStage) > windows.steps.findIndex((step: any) => step.run === "npm run test:package -- .build/electron-ci"));
+  assert.ok(windows.steps.indexOf(windowsStage) < windows.steps.findIndex((step: any) => step.with?.name === "release-Windows"));
   assert.ok(workflow("app").jobs.quality.steps.some((step: any) => step.run === "npm run test:tooling"));
   assert.doesNotMatch(JSON.stringify(packageJob), /setup-python|rust-cache|rustup|cargo|tauri|prepare-package\.py|check-installer\.py/);
   assert.doesNotMatch(JSON.stringify(workflow("app").jobs.quality), /rust-cache|rustup|cargo/);

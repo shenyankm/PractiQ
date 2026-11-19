@@ -11,7 +11,7 @@ function fixture(action: (root: string) => void) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "practiq-license-test-")));
   try {
     mkdirSync(join(root, "licenses/texts"), { recursive: true }); json(join(root, "licenses/supplemental.json"), {});
-    const lock = { "node_modules/example": { version: "1.0.0", resolved: "https://registry.npmjs.org/example/-/example-1.0.0.tgz", integrity: "sha512-test" }, "node_modules/frontend-only": { version: "1.0.0", resolved: "https://registry.npmjs.org/frontend-only/-/frontend-only-1.0.0.tgz", integrity: "sha512-test" } };
+    const lock = { "": { dependencies: { example: "1.0.0", "frontend-only": "1.0.0" } }, "node_modules/example": { version: "1.0.0", resolved: "https://registry.npmjs.org/example/-/example-1.0.0.tgz", integrity: "sha512-test" }, "node_modules/frontend-only": { version: "1.0.0", resolved: "https://registry.npmjs.org/frontend-only/-/frontend-only-1.0.0.tgz", integrity: "sha512-test" } };
     json(join(root, "package-lock.json"), { packages: lock });
     for (const name of ["example", "frontend-only"]) { const directory = join(root, "node_modules", name); mkdirSync(directory, { recursive: true }); json(join(directory, "package.json"), { name, version: "1.0.0", license: "MIT", repository: "https://example.test/source" }); writeFileSync(join(directory, "LICENSE"), `Complete upstream terms for ${name}\n`); }
     action(root);
@@ -35,9 +35,21 @@ test("verified supplemental texts retain provenance and reject drift or unreview
 }));
 
 test("license selection excludes development and foreign-platform dependencies without hiding required inputs", () => fixture(root => {
-  const lockPath = join(root, "package-lock.json"), lock = JSON.parse(readFileSync(lockPath, "utf8")); lock.packages["node_modules/dev-only"] = { dev: true, version: "1.0.0" }; lock.packages["node_modules/foreign"] = { optional: true, version: "1.0.0", os: ["linux"] }; json(lockPath, lock); assert.equal(collectLicenses(root, "arm64").report.passed, true);
+  const lockPath = join(root, "package-lock.json"), lock = JSON.parse(readFileSync(lockPath, "utf8")); lock.packages[""].optionalDependencies = { foreign: "1.0.0" }; lock.packages["node_modules/dev-only"] = { dev: true, version: "1.0.0" }; lock.packages["node_modules/foreign"] = { optional: true, version: "1.0.0", os: ["linux"] }; json(lockPath, lock); assert.equal(collectLicenses(root, "arm64").report.passed, true);
   lock.packages["node_modules/foreign"].os = ["darwin"]; json(lockPath, lock); assert.throws(() => collectLicenses(root, "arm64"), /Missing production/);
   delete lock.packages["node_modules/foreign"].optional; lock.packages["node_modules/foreign"].os = ["linux"]; json(lockPath, lock); assert.throws(() => collectLicenses(root, "arm64"), /Missing production/);
+}));
+
+test("Windows omits transitive packages of a foreign optional dependency only when unreachable", () => fixture(root => {
+  const lockPath = join(root, "package-lock.json"), { packages } = JSON.parse(readFileSync(lockPath, "utf8"));
+  packages["node_modules/example"].optionalDependencies = { foreign: "1.0.0" };
+  packages["node_modules/foreign"] = { optional: true, os: ["darwin"], dependencies: { child: "1.0.0" } };
+  packages["node_modules/child"] = { optional: true };
+  json(lockPath, { packages });
+  assert.equal(collectLicenses(root, "x64", "win32").report.passed, true);
+  packages["node_modules/frontend-only"].optionalDependencies = { child: "1.0.0" };
+  json(lockPath, { packages });
+  assert.throws(() => collectLicenses(root, "x64", "win32"), /Missing production dependency: node_modules\/child/);
 }));
 
 test("license reads reject escaping links and empty terms", () => fixture(root => {
