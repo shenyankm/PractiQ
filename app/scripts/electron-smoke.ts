@@ -1,4 +1,5 @@
 import { _electron as electron } from "playwright";
+import { extractAll } from "@electron/asar";
 import assert from "node:assert/strict";
 import { mkdtemp, rm, mkdir, readFile, writeFile, realpath, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -60,6 +61,11 @@ try {
   assert.equal(installation.packaged, Boolean(executable)); assert.equal(await realpath(installation.userData), await realpath(profile));
   if (executable) { assert.equal(await realpath(installation.executable), executable); assert.ok(!installation.appPath.startsWith(await realpath(process.cwd()) + "/"), "Installed smoke must run a copied app outside the checkout"); }
   const runtimeDirectory = executable ? join(installation.appPath, ".build/electron/app/desktop") : resolve(".build/electron/app/desktop");
+  // This harness runs outside Electron, so an archived runtime is extracted once from the shipped bytes
+  // for the checks that must read or import files with plain Node.
+  const inspectionDirectory = !executable || !installation.appPath.endsWith(".asar")
+    ? runtimeDirectory
+    : (() => { const target = join(directory, "shipped-runtime"); extractAll(installation.appPath, target); return join(target, ".build/electron/app/desktop"); })();
   await mkdir(".build/evidence", { recursive: true }); await writeFile(receipt, JSON.stringify({ checkedAt: new Date().toISOString(), ...installation, stage, passed: false }, null, 2) + "\n");
   const unexpectedHttpApis: string[] = [];
   page.setDefaultTimeout(15_000);
@@ -168,7 +174,7 @@ try {
   assert.deepEqual(codecReport.ocrGraph, { submissions: 1, modelCalls: 1, unitSaved: true, status: "SUCCEEDED", sourceStage: "vision_parse", stoppedAt: null, code: null });
   assert.deepEqual((codecReport as typeof codecReport & { rasterGraphs: unknown }).rasterGraphs, [{ sourceType: "pdf", submissions: 1, modelCalls: 1, status: "SUCCEEDED", engine: "pdfium", pageImages: 1 }, { sourceType: "image", submissions: 1, modelCalls: 1, status: "SUCCEEDED", engine: "sharp", pageImages: 1 }, { sourceType: "docx", submissions: 1, modelCalls: 1, status: "SUCCEEDED", engine: "office-metadata", pageImages: 0 }, { sourceType: "xlsx", submissions: 1, modelCalls: 1, status: "PARTIAL", engine: "office-metadata", pageImages: 0 }, { sourceType: "pptx", submissions: 1, modelCalls: 1, status: "PARTIAL", engine: "office-metadata", pageImages: 0, hiddenSlidesVisible: true, declaredSlides: 2 }, { sourceType: "ppt", submissions: 1, modelCalls: 1, status: "PARTIAL", engine: "office-metadata", pageImages: 0, hiddenSlidesVisible: true, declaredSlides: 2 }]);
   assert.deepEqual(codecReport.sourceProofs, { rasterCrops: true, literalAnswers: true, textAssembly: true, tableAnswerRoles: true, unverifiedBounds: true, linkedAnswerPages: true, fixedFigureIds: true, ocrAssembly: true, strictModelNumbers: true });
-  assert.match(await readFile(join(runtimeDirectory, "resources/unicode-data.txt"), "utf8"), /^UNICODE LICENSE V3/);
+  assert.match(await readFile(join(inspectionDirectory, "resources/unicode-data.txt"), "utf8"), /^UNICODE LICENSE V3/);
   await mkdir(".build/evidence", { recursive: true }); await writeFile(".build/evidence/electron-tencent-codecs.json", JSON.stringify(codecReport, null, 2));
   const bridge = async (request: unknown) => page.evaluate(async input => {
     return (window as unknown as { practiq: { request(value: unknown): Promise<{ ok: boolean; value?: unknown; error?: { code: string } }> } }).practiq.request(input);
@@ -313,7 +319,7 @@ try {
   assert.equal(await page.getByLabel("AI 服务地址", { exact: true }).count(), 0);
   assert.equal(modelCalls, 0); await page.screenshot({ path: ".build/evidence/electron-document-workspace.png" });
   stage = "document review, recovery, grading and backup";
-  const { BoundedZip } = await import(pathToFileURL(join(runtimeDirectory, "zip.js")).href), { resourceReferences } = await import(pathToFileURL(join(runtimeDirectory, "bank-references.js")).href);
+  const { BoundedZip } = await import(pathToFileURL(join(inspectionDirectory, "zip.js")).href), { resourceReferences } = await import(pathToFileURL(join(inspectionDirectory, "bank-references.js")).href);
   const readExportedBank = async (path: string): Promise<Omit<DocumentBankImport, "title">> => {
     const zip = await BoundedZip.open(path, { archiveBytes: 300 * 1024 * 1024, expandedBytes: 300 * 1024 * 1024, entries: 2002 });
     try {
