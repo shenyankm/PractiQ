@@ -18,6 +18,7 @@ import { applicationMenuTemplate } from "./app-menu.js";
 import { MainLog } from "./main-log.js";
 import { bundleIndex, resolveBundleRequest, type BundleAsset } from "./protocol-assets.js";
 import { withinRequestLimit } from "./request-size.js";
+import { needsRendererApproval } from "./window-close.js";
 import { WINDOW_MINIMUM, parseWindowState, serializeWindowState, type WindowState } from "./window-state.js";
 
 const base = dirname(fileURLToPath(import.meta.url));
@@ -105,10 +106,10 @@ function createWindow() {
   trace("window-created");
   window = current;
   if (restored?.maximized) current.maximize();
-  // The window is created visible: `ready-to-show` is not a reliable first-paint signal here,
-  // and a hidden window would simply appear later than the background colour already prevents.
-  const contents = current.webContents;
-  let failedLoads = 0;
+  // The window is created visible: `ready-to-show` is not a reliable first-paint signal here,
+  // and a hidden window would simply appear later than the background colour already prevents.
+  const contents = current.webContents;
+  let failedLoads = 0, failurePageShown = false;
   contents.on("render-process-gone", (_event, details) => { if (details.reason !== "clean-exit") log("render-process-gone", `${details.reason} exitCode ${details.exitCode}`); });
   contents.on("unresponsive", () => log("unresponsive", "Renderer stopped responding"));
   contents.on("preload-error", (_event, preload, error) => log("preload-error", `${preload}: ${error.message}`));
@@ -116,13 +117,15 @@ function createWindow() {
     // -3 is an intentional cancellation of an in-flight navigation, not a failed load.
     if (!isMainFrame || code === -3) return;
     log("did-fail-load", `${code} ${description} ${url}`);
-    if (failedLoads++ === 0) { setTimeout(() => { if (!current.isDestroyed()) void current.loadURL(page); }, 500); return; }
-    void contents.loadURL(failurePage(code));
+    if (failedLoads++ === 0) { setTimeout(() => { if (!current.isDestroyed()) void current.loadURL(page); }, 500); return; }
+    // The failure page has no close listener, so it must never be asked for approval.
+    failurePageShown = true; void contents.loadURL(failurePage(code));
   });
   current.on("close", event => {
     saveWindowState(current);
-    // A crashed renderer cannot confirm the close, so it must never be able to block it.
-    if (!closeApproved && !contents.isCrashed()) { event.preventDefault(); contents.send("practiq:close-requested"); }
+    // A crashed renderer and the static failure page cannot confirm the close, so they never block it.
+    if (!needsRendererApproval({ approved: closeApproved, crashed: contents.isCrashed(), fallback: failurePageShown })) return;
+    event.preventDefault(); contents.send("practiq:close-requested");
   });
   current.on("closed", () => { window = null; if (quitRequested) app.quit(); });
   void current.loadURL(page).then(() => trace("window-loaded"), error => trace(`window-load-failed ${error?.code ?? "unknown"}`));

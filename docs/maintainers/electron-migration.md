@@ -2846,7 +2846,9 @@ child processes and main-process faults are recorded in a bounded
 redacted, request content never written). A crashed renderer is reloaded only
 when the user activates the app, so recovery can never block the draft-save close
 handshake that the crash regressions exercise. A failed `practiq://app` load is
-retried once before a static, script-free failure page replaces the blank window.
+retried once before a static, script-free failure page replaces the blank window. That page has
+no close listener, so it is exempt from the draft-save handshake together with a crashed
+renderer; otherwise the window and a normal quit could never complete.
 
 Static responses are selected from a bundle index built once at startup: a
 request no longer resolves or canonicalizes a filesystem path, unknown and
