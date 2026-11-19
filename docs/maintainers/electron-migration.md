@@ -2853,9 +2853,11 @@ request no longer resolves or canonicalizes a filesystem path, unknown and
 traversal paths are refused by lookup, and content-hashed `assets/` files carry
 immutable caching while the document revalidates. The window frame is retained
 in `<userData>/window-state.json` and replayed only while it remains reachable on
-a connected display. IPC admission counts binary payloads directly instead of
-serializing the request to measure it, so the 16 MiB limit now covers an
-`ArrayBuffer` payload as well as text.
+a connected display. IPC admission walks the request values instead of serializing
+them to measure them: text and structure are bounded by the 16 MiB limit, while a
+binary payload counts as structure and keeps the explicit cap of the command that
+accepts it (150 MiB for a document download), so a legal download is not rejected
+by the text limit.
 
 Packaging produces `Contents/Resources/app.asar` plus `app.asar.unpacked` for
 `sharp`/`@img`, because native modules must keep their own libraries beside them.
