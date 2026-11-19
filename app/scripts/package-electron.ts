@@ -4,6 +4,8 @@ import { constants, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, re
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { FuseV1Options, FuseVersion, flipFuses } from "@electron/fuses";
+import { createPackageWithOptions } from "@electron/asar";
 import { auditPackage, runtimeDependencies } from "./package-audit.ts";
 import { macosVersions } from "./release-data.ts";
 import { collectLicenses } from "./release-licenses.ts";
@@ -19,6 +21,25 @@ const run = (command: string, args: string[], cwd = root, capture = false) => {
 };
 const copy = (source: string, target: string) => cpSync(source, target, { recursive: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE });
 const sha256 = (path: string) => createHash("sha256").update(readFileSync(path)).digest("hex");
+/** The packaged runtime must not act as a general Node interpreter or honour debugger switches. */
+const fuses = { RunAsNode: false, EnableNodeOptionsEnvironmentVariable: false, EnableNodeCliInspectArguments: false, GrantFileProtocolExtraPrivileges: false, OnlyLoadAppFromAsar: true } as const;
+/** Native modules stay outside the archive so dyld loads them beside their own libraries. */
+const asarUnpack = { unpack: "**/*.{node,dylib,so}", unpackDir: "{node_modules/sharp,node_modules/@img}" } as const;
+/** Every Mach-O file and bundle nested in the app, deepest first: `--deep` verifies but never signs. */
+function signable(contents: string): { binaries: string[]; bundles: string[] } {
+  const binaries: string[] = [], bundles: string[] = [];
+  const walk = (directory: string) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name);
+      // Symbolic links inside a framework version directory point at files already visited.
+      if (entry.isDirectory()) { if (/\.(?:framework|app)$/.test(entry.name)) bundles.push(path); walk(path); }
+      else if (entry.isFile() && run("/usr/bin/file", ["-b", path], root, true).includes("Mach-O")) binaries.push(path);
+    }
+  };
+  walk(contents);
+  // Frameworks and helper apps are signed after their contents, and the outer app after both.
+  return { binaries, bundles: bundles.sort((left, right) => right.split("/").length - left.split("/").length) };
+}
 function plist(path: string, changes: Record<string, string>) {
   const value = JSON.parse(run("/usr/bin/plutil", ["-convert", "json", "-o", "-", path], root, true));
   Object.assign(value, changes); writeFileSync(path, JSON.stringify(value)); run("/usr/bin/plutil", ["-convert", "xml1", path]);
@@ -66,13 +87,33 @@ try {
     plist(join(path, "Contents/Info.plist"), { CFBundleExecutable: title, CFBundleName: title, CFBundleDisplayName: title, CFBundleIdentifier: `${identifier}.helper${suffix ? `.${suffix}` : ""}` });
     renameSync(join(path, "Contents/MacOS", old), join(path, "Contents/MacOS", title)); renameSync(path, join(frameworks, `${title}.app`));
   }
-  const files = auditPackage(bundle); run("npm", ["ls", "--omit=dev", "--all", "--json"], runtime, true);
+  run("npm", ["ls", "--omit=dev", "--all", "--json"], runtime, true);
   assert.ok(!existsSync(join(runtime, "node_modules/electron")) && !existsSync(join(runtime, "node_modules/typescript")), "Development toolchain was bundled");
-  writeFileSync(join(resources, "PRACTIQ-BUILD.json"), JSON.stringify({ version: 1, appVersion: project.version, electronVersion: JSON.parse(readFileSync(join(root, "node_modules/electron/package.json"), "utf8")).version, arch: process.arch, minimumMacOS: "14.0", lockfileSha256: sha256(join(root, "package-lock.json")), runtimeLockfileSha256: sha256(join(runtime, "package-lock.json")), licenseInventorySha256: sha256(join(licenseDirectory, "inventory.json")), runtimeDependencies: Object.keys(dependencies), execution: JSON.parse(readFileSync(join(runtime, ".build/electron/app/desktop/execution-version.json"), "utf8")), dependencies: inventory, signing: "ad-hoc-local", notarized: false }, null, 2) + "\n");
-  run("/usr/bin/codesign", ["--force", "--deep", "--sign", "-", bundle]); run("/usr/bin/codesign", ["--verify", "--deep", "--strict", bundle]);
+  const execution = JSON.parse(readFileSync(join(runtime, ".build/electron/app/desktop/execution-version.json"), "utf8")), runtimeLockfileSha256 = sha256(join(runtime, "package-lock.json"));
+  // The runtime tree is archived once; opening the app then reads one file instead of thousands.
+  const archive = join(resources, "app.asar");
+  await createPackageWithOptions(runtime, archive, asarUnpack);
+  rmSync(runtime, { recursive: true, force: true });
+  assert.ok(existsSync(archive) && existsSync(`${archive}.unpacked/node_modules/sharp`), "Archived runtime and its unpacked native directory are required");
+  const asarSha256 = sha256(archive), files = auditPackage(bundle);
+  const executable = join(bundle, "Contents/MacOS/PractiQ");
+  // Fuse state is part of the shipped bytes, so it is flipped before the bundle is signed.
+  await flipFuses(executable, {
+    version: FuseVersion.V1,
+    [FuseV1Options.RunAsNode]: fuses.RunAsNode,
+    [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: fuses.EnableNodeOptionsEnvironmentVariable,
+    [FuseV1Options.EnableNodeCliInspectArguments]: fuses.EnableNodeCliInspectArguments,
+    [FuseV1Options.GrantFileProtocolExtraPrivileges]: fuses.GrantFileProtocolExtraPrivileges,
+    [FuseV1Options.OnlyLoadAppFromAsar]: fuses.OnlyLoadAppFromAsar,
+  });
+  writeFileSync(join(resources, "PRACTIQ-BUILD.json"), JSON.stringify({ version: 1, appVersion: project.version, electronVersion: JSON.parse(readFileSync(join(root, "node_modules/electron/package.json"), "utf8")).version, arch: process.arch, minimumMacOS: "14.0", lockfileSha256: sha256(join(root, "package-lock.json")), runtimeLockfileSha256, licenseInventorySha256: sha256(join(licenseDirectory, "inventory.json")), runtimeDependencies: Object.keys(dependencies), execution, dependencies: inventory, signing: "ad-hoc-local", notarized: false, hardenedRuntime: true, entitlements: ["com.apple.security.cs.allow-jit"], asar: true, asarSha256, asarUnpack, fuses }, null, 2) + "\n");
+  const entitlements = join(root, "scripts/desktop-entitlements.plist"), signableContents = signable(join(bundle, "Contents"));
+  // Ad-hoc signing has no timestamp authority; the release script adds one for Developer ID.
+  for (const path of [...signableContents.binaries, ...signableContents.bundles, bundle]) run("/usr/bin/codesign", ["--force", "--options", "runtime", "--entitlements", entitlements, "--sign", "-", path]);
+  run("/usr/bin/codesign", ["--verify", "--deep", "--strict", bundle]);
   symlinkSync("/Applications", join(stage, "Applications")); const dmgName = `PractiQ-${project.version}-${process.arch}.dmg`;
   run("/usr/bin/hdiutil", ["create", "-volname", "PractiQ", "-srcfolder", stage, "-format", "UDZO", join(release, dmgName)]);
   renameSync(bundle, join(release, "PractiQ.app"));
-  writeFileSync(join(release, "package-report.json"), JSON.stringify({ checkedAt: new Date().toISOString(), appVersion: project.version, arch: process.arch, files, codesignVerified: true, noLegacyRuntime: true, notarized: false, signing: "ad-hoc-local", dmg: { file: dmgName, sha256: sha256(join(release, dmgName)) } }, null, 2) + "\n");
+  writeFileSync(join(release, "package-report.json"), JSON.stringify({ checkedAt: new Date().toISOString(), appVersion: project.version, arch: process.arch, files, codesignVerified: true, noLegacyRuntime: true, notarized: false, signing: "ad-hoc-local", hardenedRuntime: true, asar: true, asarSha256, fuses, dmg: { file: dmgName, sha256: sha256(join(release, dmgName)) } }, null, 2) + "\n");
   renameSync(release, destination); console.log(`Electron package ready: ${destination}`);
 } finally { rmSync(temporary, { recursive: true, force: true }); }

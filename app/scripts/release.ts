@@ -4,6 +4,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { tmpdir, homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { extractAll } from "@electron/asar";
 import { canonical, checkCandidate, checksum, command, containedFile, digest, externalAcceptanceStatus, externalSigningStatus, macosVersions, MODE, normalizedDigest, object, payloadFingerprint, publicReport, readBytes, readJson, SCHEMA, strictJson, version, versions } from "./release-data.ts";
 
 const gates = ["desktop-bundle.json", "licenses.json", "desktop-version.json", "notices-match.json"];
@@ -36,6 +37,10 @@ function versionsTag(tag: string): string { assert.equal(typeof tag, "string"); 
 function original(candidate: Candidate) { identity(candidate); assert.equal(candidate.signing, "unsigned", "Build provenance requires the original CI candidate"); for (const key of ["restagedFinalBytes", "originalBuildCandidate", "signingReport", "cleanMachineReport", "liveModelReport", "signingVerification", "acceptanceVerification"]) assert.ok(!Object.hasOwn(candidate, key), "Build provenance must be an original CI candidate"); }
 function validateManifest(value: unknown, expectedVersion: string, architecture: string): void {
   const metadata = object(value); assert.deepEqual([metadata.version, metadata.appVersion, metadata.arch, metadata.minimumMacOS, metadata.signing, metadata.notarized], [1, expectedVersion, architecture, "14.0", "ad-hoc-local", false]); version(`v${metadata.electronVersion}`);
+  assert.equal(metadata.hardenedRuntime, true); assert.deepEqual(metadata.entitlements, ["com.apple.security.cs.allow-jit"]);
+  // The archive, its unpack list and the hardened fuse wire are part of the shipped identity.
+  assert.equal(metadata.asar, true); normalizedDigest(metadata.asarSha256); assert.deepEqual(metadata.asarUnpack, { unpack: "**/*.{node,dylib,so}", unpackDir: "{node_modules/sharp,node_modules/@img}" });
+  assert.deepEqual(metadata.fuses, { RunAsNode: false, EnableNodeOptionsEnvironmentVariable: false, EnableNodeCliInspectArguments: false, GrantFileProtocolExtraPrivileges: false, OnlyLoadAppFromAsar: true });
   for (const key of ["lockfileSha256", "runtimeLockfileSha256", "licenseInventorySha256"]) normalizedDigest(metadata[key]); assert.equal(object(metadata.execution).version, 1); normalizedDigest(metadata.execution.sha256);
   const names = metadata.runtimeDependencies; assert.ok(Array.isArray(names) && names.length > 0 && names.every(name => typeof name === "string" && /^(?:@[\w.-]+\/)?[\w.-]+$/.test(name)) && new Set(names).size === names.length, "Invalid runtime dependency inventory");
   assert.ok(Array.isArray(metadata.dependencies) && metadata.dependencies.length > 0);
@@ -82,8 +87,19 @@ export function validateAcceptance(value: unknown, identity: Candidate): void {
   assert.equal(report.paidCalls, 0); assert.equal(report.rendererHttpRequests, 0); assert.deepEqual([...report.codecs].sort(), ["0", "8", "12", "14", "93"].sort()); assert.ok(Number.isSafeInteger(report.pdfPages) && report.pdfPages > 0);
 }
 
+/** Extracts a shipped runtime archive under ignored build evidence so inspection reads the shipped bytes. */
+function extractRuntime(root: string, resources: string, metadata: Record<string, any>): string {
+  const archive = containedFile(resources, "app.asar");
+  assert.equal(checksum(archive), normalizedDigest(metadata.asarSha256), "Runtime archive differs from its build receipt");
+  const target = join(root, "app/.build/evidence", `runtime-${String(metadata.asarSha256).slice(0, 12)}`);
+  rmSync(target, { recursive: true, force: true }); mkdirSync(target, { recursive: true }); extractAll(archive, target);
+  return target;
+}
+
 async function inspectPayload(root: string, bundle: string, tag: string): Promise<Record<string, any>> {
-  const version = versions(root, tag).desktop, resources = join(bundle, "Contents/Resources"), runtime = join(resources, "app"), metadata = readJson(containedFile(resources, "PRACTIQ-BUILD.json"));
+  const version = versions(root, tag).desktop, resources = join(bundle, "Contents/Resources"), metadata = readJson(containedFile(resources, "PRACTIQ-BUILD.json"));
+  // An archived runtime is extracted first so the comparison reads the exact shipped bytes.
+  const runtime = existsSync(join(resources, "app")) ? join(resources, "app") : extractRuntime(root, resources, metadata);
   const info = strictJson(command(root, "/usr/bin/plutil", ["-convert", "json", "-o", "-", containedFile(bundle, "Contents/Info.plist")]));
   for (const [key, value] of Object.entries(macosVersions(version))) assert.equal(info[key], value, "Final macOS version differs from the tag");
   assert.equal(info.CFBundleExecutable, "PractiQ"); assert.equal(info.CFBundleIdentifier, "com.practiq.desktop");

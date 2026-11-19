@@ -1,8 +1,15 @@
 import assert from "node:assert/strict";
 import { parse } from "@babel/parser";
 import type { Node } from "@babel/types";
+import { listPackage, uncache } from "@electron/asar";
 import { existsSync, lstatSync, readFileSync, readdirSync, readlinkSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+
+const forbidden = /^(?:(?:lib)?python(?:[0-9._-].*)?|soffice(?:\.exe)?|libreoffice(?:\.app)?|postgres(?:ql|\.exe)?|pg_ctl|rabbitmq(?:-server)?|erl|practiq-ai(?:\.exe)?|base_library\.zip)$/i;
+/** A packaged runtime never ships an interpreter, converter, server or environment file, packed or not. */
+function assertShippedName(name: string, label = name): void {
+  assert.ok(!forbidden.test(name) && !/\.(?:py|pyc|pyo|rs)$/i.test(name) && !/^\.env(?:\.|$)/i.test(name), `Forbidden legacy runtime or environment file: ${label}`);
+}
 
 function moduleNames(source: string): string[] {
   const imports: string[] = [];
@@ -35,13 +42,16 @@ export function optionalOtherPlatform(locked: Record<string, any>, architecture:
 }
 export function auditPackage(bundle: string) {
   assert.ok(lstatSync(bundle).isDirectory() && !lstatSync(bundle).isSymbolicLink(), "Package root must be a real directory");
+  // An archive is audited from its own header so packed content stays verifiable.
+  const audited = (path: string) => { uncache(path); return listPackage(path, { isPack: false }).reduce((count, entry) => { const name = entry.split(/[\\/]/).at(-1)!; assertShippedName(name, `${relative(bundle, path)}${entry}`); return count + 1; }, 0); };
   function audit(directory: string): number {
     let files = 0;
     for (const name of readdirSync(directory)) {
       const path = join(directory, name), stat = lstatSync(path);
-      assert.ok(!/^(?:(?:lib)?python(?:[0-9._-].*)?|soffice(?:\.exe)?|libreoffice(?:\.app)?|postgres(?:ql|\.exe)?|pg_ctl|rabbitmq(?:-server)?|erl|practiq-ai(?:\.exe)?|base_library\.zip)$/i.test(name) && !/\.(?:py|pyc|pyo|rs)$/i.test(name) && !/^\.env(?:\.|$)/i.test(name), `Forbidden legacy runtime or environment file: ${relative(bundle, path)}`);
+      assertShippedName(name, relative(bundle, path));
       if (stat.isSymbolicLink()) { assert.ok(!isAbsolute(readlinkSync(path)) && realpathSync(path).startsWith(`${realpathSync(bundle)}/`), "Package link escapes the app bundle"); continue; }
       if (stat.isDirectory()) files += audit(path);
+      else if (stat.isFile() && name.endsWith(".asar")) files += 1 + audited(path);
       else { assert.ok(stat.isFile(), "Unsupported package file type"); files++; }
     }
     return files;
