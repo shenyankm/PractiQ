@@ -126,6 +126,7 @@ try {
   const protectedArchive = await BoundedZip.open(credentialBackup, { archiveBytes: 600 * 1024 * 1024, expandedBytes: 600 * 1024 * 1024, entries: 100000 });
   try { assert.ok([...protectedArchive.entries.keys()].every(name => ["manifest.json", "practiq.sqlite"].includes(name) || /^assets\/[a-f0-9]{64}$/.test(name))); } finally { protectedArchive.close(); }
   await instance.close(); instance = await launch(); const credentialWindow = await instance.firstWindow({ timeout: 20000 }); await credentialWindow.waitForFunction(() => Boolean(window.practiq?.request));
+  await credentialWindow.getByText("安装包验证", { exact: true }).waitFor();
   stage = "OS credential decryption after restart";
   watchdog.refresh();
   const decrypted = await instance.evaluate(async ({ app, safeStorage }, data) => {
@@ -139,7 +140,14 @@ try {
   console.error(`Package verification failed during ${stage}:`, error); throw error;
 } finally {
   clearTimeout(watchdog);
-  if (instance) { const process = instance.process(), force = setTimeout(() => process.kill("SIGKILL"), 5000); try { await instance.close().catch(() => {}); } finally { clearTimeout(force); } }
+  if (instance) {
+    const child = instance.process(), force = setTimeout(() => {
+      // Playwright launches a cmd wrapper on Windows, so also stop its Electron descendants.
+      if (windows && child.pid && child.exitCode === null) spawnSync(join(systemRoot!, "System32/taskkill.exe"), ["/PID", String(child.pid), "/T", "/F"], { timeout: 5000 });
+      else child.kill("SIGKILL");
+    }, 5000);
+    try { await instance.close().catch(() => {}); } finally { clearTimeout(force); }
+  }
   if (mounted) run("/usr/bin/hdiutil", ["detach", mount]);
   rmSync(temporary, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 }
