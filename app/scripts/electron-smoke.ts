@@ -36,6 +36,8 @@ model.unref();
 const modelOrigin = `http://127.0.0.1:${(model.address() as { port: number }).port}/v1`;
 const environment = Object.fromEntries(Object.entries(process.env).filter(([key, value]) => value !== undefined && !["ELECTRON_RUN_AS_NODE", "PRACTIQ_DEV_URL", "PRACTIQ_DATA_DIR"].includes(key))) as Record<string, string>;
 if (executable) environment.PATH = "/usr/bin:/bin:/usr/sbin:/sbin"; else environment.PRACTIQ_DATA_DIR = practiceDirectory;
+// Startup milestones are printed to stderr so a window that never appears explains itself.
+environment.PRACTIQ_STARTUP_TRACE = "1";
 const launchedAt = performance.now();
 const instance = await electron.launch({
   timeout: 15_000,
@@ -50,7 +52,7 @@ const watchdog = setTimeout(() => {
   const force = setTimeout(() => { if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL"); }, 2000); force.unref();
 }, 120000); watchdog.unref();
 try {
-  instance.process().stderr?.on("data", data => process.stderr.write(data));
+  instance.process().stderr?.on("data", data => process.stderr.write(`[app] ${data}`));
   const page = await instance.firstWindow({ timeout: 15_000 });
   const startupMs = Math.round(performance.now() - launchedAt);
   const installation = await instance.evaluate(({ app }) => ({ packaged: app.isPackaged, appPath: app.getAppPath(), userData: app.getPath("userData"), executable: process.execPath, node: process.versions.node, electron: process.versions.electron }));

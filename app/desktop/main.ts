@@ -25,6 +25,15 @@ const origin = "practiq://app";
 const development = !app.isPackaged && process.env.PRACTIQ_DEV_URL === "http://127.0.0.1:1420";
 const page = development ? "http://127.0.0.1:1420/" : `${origin}/`;
 const trustedOrigin = development ? "http://127.0.0.1:1420" : origin;
+/**
+ * Startup milestones for field and CI diagnostics. Stages contain no paths, content or credentials,
+ * and are printed only when an explicit trace flag is set.
+ */
+const trace = (stage: string) => { if (process.env.PRACTIQ_STARTUP_TRACE) console.error(`[practiq] ${stage}`); };
+trace(`module electron ${process.versions.electron} node ${process.versions.node} packaged ${app.isPackaged}`);
+app.on("will-finish-launching", () => trace("will-finish-launching"));
+app.on("ready", () => trace("ready"));
+
 const contentPolicy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-src 'none'; frame-ancestors 'none'";
 app.setName("PractiQ");
 // Every renderer, including one created later, starts sandboxed and without Node integration.
@@ -84,7 +93,7 @@ function createWindow() {
   const restored = readWindowState(), created: Electron.BrowserWindowConstructorOptions = {
     title: "PractiQ", width: restored?.width ?? 1440, height: restored?.height ?? 960,
     minWidth: WINDOW_MINIMUM.width, minHeight: WINDOW_MINIMUM.height,
-    backgroundColor: "#090d15", show: false,
+    backgroundColor: "#090d15",
     webPreferences: {
       preload: join(base, "preload.cjs"), contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true,
       // A packaged window exposes neither developer tools nor a reload entry to its content.
@@ -93,13 +102,14 @@ function createWindow() {
   };
   // A saved position is reused only while the frame still fits inside a connected display.
   if (restored?.x !== undefined && restored.y !== undefined) { created.x = restored.x; created.y = restored.y; }
+  trace("window-creating");
   const current = new BrowserWindow(created);
+  trace("window-created");
   window = current;
   if (restored?.maximized) current.maximize();
-  const contents = current.webContents, reveal = () => { if (!current.isDestroyed() && !current.isVisible()) current.show(); };
-  current.once("ready-to-show", reveal);
-  // The window must still open when the bundle never reports a first paint.
-  const revealTimer = setTimeout(reveal, 3000); revealTimer.unref();
+  // The window is created visible: `ready-to-show` is not a reliable first-paint signal here,
+  // and a hidden window would simply appear later than the background colour already prevents.
+  const contents = current.webContents;
   let failedLoads = 0;
   contents.on("render-process-gone", (_event, details) => { if (details.reason !== "clean-exit") log("render-process-gone", `${details.reason} exitCode ${details.exitCode}`); });
   contents.on("unresponsive", () => log("unresponsive", "Renderer stopped responding"));
@@ -108,16 +118,16 @@ function createWindow() {
     // -3 is an intentional cancellation of an in-flight navigation, not a failed load.
     if (!isMainFrame || code === -3) return;
     log("did-fail-load", `${code} ${description} ${url}`);
-    if (failedLoads++ === 0) { setTimeout(() => { if (!current.isDestroyed()) void current.loadURL(page); }, 500); return; }
-    reveal(); void contents.loadURL(failurePage(code));
+    if (failedLoads++ === 0) { setTimeout(() => { if (!current.isDestroyed()) void current.loadURL(page); }, 500); return; }
+    void contents.loadURL(failurePage(code));
   });
   current.on("close", event => {
     saveWindowState(current);
     // A crashed renderer cannot confirm the close, so it must never be able to block it.
     if (!closeApproved && !contents.isCrashed()) { event.preventDefault(); contents.send("practiq:close-requested"); }
   });
-  current.on("closed", () => { clearTimeout(revealTimer); window = null; if (quitRequested) app.quit(); });
-  void current.loadURL(page);
+  current.on("closed", () => { window = null; if (quitRequested) app.quit(); });
+  void current.loadURL(page).then(() => trace("window-loaded"), error => trace(`window-load-failed ${error?.code ?? "unknown"}`));
 }
 
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -130,10 +140,12 @@ else {
     contents.on("will-attach-webview", event => event.preventDefault());
   });
   void app.whenReady().then(() => {
+  trace("whenReady");
   const directory = !app.isPackaged && process.env.PRACTIQ_DATA_DIR
     ? resolve(process.env.PRACTIQ_DATA_DIR)
     : join(app.getPath("userData"), "v4");
   database = new DatabaseClient(directory);
+  trace("database-client");
   const aiRuntime = () => { invariant(!shuttingDown, "AI_RUNTIME_UNAVAILABLE", "AI runtime is closing"); return ai ??= new AiClient(directory); };
   const aiSettings = new AiSettings(directory, {
     isAsyncEncryptionAvailable: () => process.platform === "darwin" ? safeStorage.isAsyncEncryptionAvailable() : Promise.resolve(false),
@@ -149,11 +161,13 @@ else {
       development && (details.url.startsWith("http://127.0.0.1:1420/") || details.url.startsWith("ws://127.0.0.1:1420/"));
     callback({ cancel: !allowed });
   });
+  trace("session");
   // The bundle may live inside app.asar, which the OS cannot canonicalize, so it is used as given.
   // An unreadable bundle must degrade to the failure page instead of preventing the window.
   let assets: Map<string, BundleAsset>;
   try { assets = bundleIndex(resolve(base, "../../../../dist")); }
   catch (error) { log("bundle-index", error); assets = new Map(); }
+  trace("bundle-index");
   protocol.handle("practiq", async request => {
     if (request.method !== "GET") return new Response(null, { status: 403 });
     // The built bundle is indexed once, so a request selects a known file instead of a path.
@@ -167,6 +181,7 @@ else {
       } });
     } catch (error) { log("protocol-asset", error); return new Response(null, { status: 404 }); }
   });
+  trace("protocol");
   ipcMain.handle("practiq:request", async (event, request: unknown, locale?: unknown) => {
     try {
       trustedSender(event);
@@ -264,10 +279,13 @@ else {
     }
   });
   ipcMain.handle("practiq:close", event => { trustedSender(event); closeApproved = true; window?.close(); });
+  trace("ipc");
   app.setAboutPanelOptions({ applicationName: "PractiQ", applicationVersion: app.getVersion(), version: `Electron ${process.versions.electron}`, copyright: "Open source single-person practice application" });
   // A packaged app keeps only the roles macOS needs for clipboard and window shortcuts.
   Menu.setApplicationMenu(Menu.buildFromTemplate(applicationMenuTemplate(app.isPackaged)));
+  trace("menu");
   createWindow();
+  trace("window");
   app.on("activate", () => {
     if (shuttingDown) return;
     // The dock icon is the only affordance left when a crashed renderer cannot paint.
