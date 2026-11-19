@@ -118,7 +118,9 @@ function createWindow() {
     if (!isMainFrame || code === -3) return;
     log("did-fail-load", `${code} ${description} ${url}`);
     if (failedLoads++ === 0) { setTimeout(() => { if (!current.isDestroyed()) void current.loadURL(page); }, 500); return; }
-    // The failure page has no close listener, so it must never be asked for approval.
+    // The failure page has no close listener, so it must never be asked for approval, and a
+    // failure of the failure page itself must not start another replacement.
+    if (failurePageShown) return;
     failurePageShown = true; void contents.loadURL(failurePage(code));
   });
   current.on("close", event => {
