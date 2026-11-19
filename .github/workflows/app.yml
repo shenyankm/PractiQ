@@ -199,7 +199,10 @@ jobs:
           cache-dependency-path: app/package-lock.json
       - run: npm ci
       - name: Build portable Electron ZIP
-        run: npm run package:electron -- .build/electron-ci
+        run: |
+          npm run contracts:check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run package:electron -- .build/electron-ci
       - name: Verify the extracted Windows application and protected credentials
         run: npm run test:package -- .build/electron-ci
       - name: Verify final ZIP and stage release assets
