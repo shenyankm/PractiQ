@@ -2829,3 +2829,63 @@ changing the saved task, checkpoint, retry counts or operation receipt. Matching
 acknowledged requests remain replayable at capacity, and accepting an existing
 partial result does not require an execution slot. The graph regressions check
 both resume and retry rejection, admission after a slot opens, and receipt replay.
+
+## Desktop hardening and archived runtime — 2026-11-19
+
+The shipped app now carries hardened Electron fuses, an archived runtime and an
+inside-out signature. `app.enableSandbox()` covers every renderer, and the
+packaged window reports `devTools: false` while the application menu keeps only
+the application, edit and window roles, so reload, force-reload and DevTools are
+no longer reachable from a packaged window. Cookies are unused by the renderer,
+so `EnableCookieEncryption` keeps its default instead of adding a Keychain
+dependency to startup.
+
+Renderer crashes, unresponsive renderers, preload failures, failed loads, dead
+child processes and main-process faults are recorded in a bounded
+`<userData>/logs/main.log` (256 KiB with one rotated file, home directory
+redacted, request content never written). A crashed renderer is reloaded only
+when the user activates the app, so recovery can never block the draft-save close
+handshake that the crash regressions exercise. A failed `practiq://app` load is
+retried once before a static, script-free failure page replaces the blank window.
+
+Static responses are selected from a bundle index built once at startup: a
+request no longer resolves or canonicalizes a filesystem path, unknown and
+traversal paths are refused by lookup, and content-hashed `assets/` files carry
+immutable caching while the document revalidates. The window frame is retained
+in `<userData>/window-state.json` and replayed only while it remains reachable on
+a connected display. IPC admission counts binary payloads directly instead of
+serializing the request to measure it, so the 16 MiB limit now covers an
+`ArrayBuffer` payload as well as text.
+
+Packaging produces `Contents/Resources/app.asar` plus `app.asar.unpacked` for
+`sharp`/`@img`, because native modules must keep their own libraries beside them.
+`RunAsNode`, `EnableNodeOptionsEnvironmentVariable`, `EnableNodeCliInspectArguments`
+and `GrantFileProtocolExtraPrivileges` are disabled and `OnlyLoadAppFromAsar` is
+enabled; the fuse wire is flipped before signing, with the release entitlements
+and hardened runtime, using inside-out signing, and `--deep` is retained for
+verification only. The build receipt records the fuse values, the archive digest,
+the unpack list, `hardenedRuntime` and the entitlements, and the release
+inspector extracts the archive to compare the shipped bytes with the tagged
+build. Removing `ELECTRON_RUN_AS_NODE` required the existing-data probe to run
+inside the packaged main process instead of an external Node interpreter.
+
+Verified on 2026-11-19 (Windows 11, Node 26, Electron 45.3.1): `npm run
+desktop:build`, `npm run check:packaging`, the new `main-log`, `window-state`,
+`app-menu`, `protocol-assets` and `request-size` regressions, the
+archived-runtime audit regression, and two Electron probes that loaded an ESM
+main process, an ESM `worker_threads` worker and `sharp` (native PNG encode) from
+`app.asar` with these unpack rules. Release-tool results were unchanged from
+HEAD: 61 passing and the same 15 environment failures (directory `fsync`,
+symlink creation and POSIX execute permissions are unavailable there).
+
+macOS packaging, codesign, notarization, the Electron smoke flow and the
+installed-package acceptance were **not** run for this change; run
+`make app-build` and `make app-package-check` before accepting it. Two follow-ups
+remain out of scope. The practice database worker still answers every request
+from one serial queue, so a long bank import, export or backup blocks reads
+issued behind it; reads currently only arrive from modal flows, and parallel
+reads would require SQLite WAL together with backup/restore handling for its
+`-wal`/`-shm` sidecars, which changes the sidecar and version-4 backup policy
+above. `EnableEmbeddedAsarIntegrityValidation` stays disabled because it needs
+the archive digest embedded in `Info.plist` and a macOS acceptance run.
+

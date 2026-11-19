@@ -213,6 +213,19 @@ The optional fresh DMG path rebuilds the image from the signed and stapled app,
 then signs, notarizes and staples the DMG. The earlier development DMG still
 contains its original app and must not be relabeled as signed.
 
+`app/scripts/package-electron.ts` produces the runtime as
+`Contents/Resources/app.asar` with `app.asar.unpacked` for `sharp`/`@img`, flips
+the hardened fuse wire before signing, and signs every nested Mach-O file and
+bundle from the inside out with the release entitlements and hardened runtime;
+`--deep` is only used to verify. `sign-release.sh` continues that order for
+Developer ID signing, so the unpacked native files and the archive itself are
+sealed by the final signature. The build receipt must show
+`hardenedRuntime: true`, the `fuses` values and a matching `asarSha256`;
+`verify-electron-package.ts` reads the fuse wire and archive digest from the
+installed bundle and rejects a package that differs from its receipt.
+`EnableEmbeddedAsarIntegrityValidation` is intentionally not enabled: it requires
+the archive digest embedded in `Info.plist` and a macOS acceptance run.
+
 After any asset replacement, mount/install/extract the actual final file and
 repeat client package and license checks with fresh output
 paths. Update its manifest size/hash and verified signing identity/status, add
