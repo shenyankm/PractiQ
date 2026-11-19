@@ -36,6 +36,7 @@ model.unref();
 const modelOrigin = `http://127.0.0.1:${(model.address() as { port: number }).port}/v1`;
 const environment = Object.fromEntries(Object.entries(process.env).filter(([key, value]) => value !== undefined && !["ELECTRON_RUN_AS_NODE", "PRACTIQ_DEV_URL", "PRACTIQ_DATA_DIR"].includes(key))) as Record<string, string>;
 if (executable) environment.PATH = "/usr/bin:/bin:/usr/sbin:/sbin"; else environment.PRACTIQ_DATA_DIR = practiceDirectory;
+const launchedAt = performance.now();
 const instance = await electron.launch({
   timeout: 15_000,
   executablePath: executable, cwd: executable ? directory : undefined,
@@ -51,6 +52,7 @@ const watchdog = setTimeout(() => {
 try {
   instance.process().stderr?.on("data", data => process.stderr.write(data));
   const page = await instance.firstWindow({ timeout: 15_000 });
+  const startupMs = Math.round(performance.now() - launchedAt);
   const installation = await instance.evaluate(({ app }) => ({ packaged: app.isPackaged, appPath: app.getAppPath(), userData: app.getPath("userData"), executable: process.execPath, node: process.versions.node, electron: process.versions.electron }));
   assert.equal(installation.packaged, Boolean(executable)); assert.equal(await realpath(installation.userData), await realpath(profile));
   if (executable) { assert.equal(await realpath(installation.executable), executable); assert.ok(!installation.appPath.startsWith(await realpath(process.cwd()) + "/"), "Installed smoke must run a copied app outside the checkout"); }
@@ -750,9 +752,13 @@ try {
     if (action === "close") assert.equal((await readdir(directory)).includes("closed-workers.txt"), false, "Closing a crashed window must preserve background workers");
   }
   assert.deepEqual((await readFile(shutdownReceipt, "utf8")).trim().split("\n"), ["start:AiClient", "closed:AiClient", "start:DatabaseClient", "closed:DatabaseClient"], "Keep SQLite available until AI results and both workers drain");
+  // A crashed renderer must leave a bounded diagnostic and a restorable window frame behind.
+  assert.match(await readFile(join(profile, "logs", "main.log"), "utf8"), /render-process-gone/);
+  const retainedFrame = JSON.parse(await readFile(join(profile, "window-state.json"), "utf8"));
+  assert.ok(Number.isSafeInteger(retainedFrame.bounds.width) && retainedFrame.bounds.width >= 1024 && Number.isSafeInteger(retainedFrame.bounds.height), "Window frame was not retained for the next launch");
   assert.equal(modelCalls, 2);
   assert.deepEqual(unexpectedHttpApis, []);
-  await writeFile(receipt, JSON.stringify({ checkedAt: new Date().toISOString(), ...installation, passed: true, stage: "completed", systemOnlyPath: Boolean(executable), runtimeDirectory, gracefulWorkerShutdown: true, crashedRendererClose: true, crashedRendererQuit: true, directGradingCalls: modelCalls, documentModelCalls, rasterGraphs: (codecReport as typeof codecReport & { rasterGraphs: unknown }).rasterGraphs, listeningAddressPlayback: true, passiveAudioLoads: 0, newAudioFiles: 0, audioTransport: "memory-only substitute with real Chromium decoding", nativeDialogs: "substituted", providerCalls: "local substitutes" }, null, 2) + "\n");
+  await writeFile(receipt, JSON.stringify({ checkedAt: new Date().toISOString(), ...installation, passed: true, stage: "completed", systemOnlyPath: Boolean(executable), runtimeDirectory, gracefulWorkerShutdown: true, crashedRendererClose: true, crashedRendererQuit: true, crashedRendererDiagnostics: true, windowStateRetained: true, startupMs, directGradingCalls: modelCalls, documentModelCalls, rasterGraphs: (codecReport as typeof codecReport & { rasterGraphs: unknown }).rasterGraphs, listeningAddressPlayback: true, passiveAudioLoads: 0, newAudioFiles: 0, audioTransport: "memory-only substitute with real Chromium decoding", nativeDialogs: "substituted", providerCalls: "local substitutes" }, null, 2) + "\n");
   console.log("Electron smoke passed: sandbox, IPC, five Tencent ZIP codecs, LangGraph text/OCR/PDF/image completion, bounded PDFium rendering, source crop calibration and passive completion guards in bounded workers, passive source tickets/copy/fences, explicit source repair/quarantine, fenced task deletion/recovery and stable pagination, complete/revised/selected/stopped-unit bank ZIP export without model work, SQLite CRUD, objective/subjective practice, OS-encrypted test credentials, explicit model calls, all-type ZIP roundtrip, bundled examples, and Settings import/backup/confirmed restore through native-dialog substitutes");
 } catch (error) {
   const window = instance.windows()[0];
