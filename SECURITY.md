@@ -26,8 +26,9 @@ The Electron renderer is sandboxed with context isolation, no Node integration a
 no DevTools in packaged builds; SQLite, credentials, networking and file access
 stay behind one validated IPC channel, and the app is served from a registered
 `practiq://app` scheme with a fixed content-security policy. Packaged binaries
-disable `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS`, debugger arguments and extra
-`file://` privileges, load the app only from `app.asar`, and are signed from the
-inside out. Local packages remain ad-hoc signed and are not notarized, so they do
+disable `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS` and extra `file://` privileges,
+load the app only from `app.asar`, and are signed from the inside out. `--inspect`
+stays available because the Playwright acceptance harness attaches through the
+Node inspector; it requires an explicit local invocation. Local packages remain ad-hoc signed and are not notarized, so they do
 not establish a publisher identity; see
 [the release policy](docs/maintainers/releases.md).

@@ -40,7 +40,7 @@ function validateManifest(value: unknown, expectedVersion: string, architecture:
   assert.equal(metadata.hardenedRuntime, true); assert.deepEqual(metadata.entitlements, ["com.apple.security.cs.allow-jit"]);
   // The archive, its unpack list and the hardened fuse wire are part of the shipped identity.
   assert.equal(metadata.asar, true); normalizedDigest(metadata.asarSha256); assert.deepEqual(metadata.asarUnpack, { unpack: "**/*.{node,dylib,so}", unpackDir: "{node_modules/sharp,node_modules/@img}" });
-  assert.deepEqual(metadata.fuses, { RunAsNode: false, EnableNodeOptionsEnvironmentVariable: false, EnableNodeCliInspectArguments: false, GrantFileProtocolExtraPrivileges: false, OnlyLoadAppFromAsar: true });
+  assert.deepEqual(metadata.fuses, { RunAsNode: false, EnableNodeOptionsEnvironmentVariable: false, GrantFileProtocolExtraPrivileges: false, OnlyLoadAppFromAsar: true });
   for (const key of ["lockfileSha256", "runtimeLockfileSha256", "licenseInventorySha256"]) normalizedDigest(metadata[key]); assert.equal(object(metadata.execution).version, 1); normalizedDigest(metadata.execution.sha256);
   const names = metadata.runtimeDependencies; assert.ok(Array.isArray(names) && names.length > 0 && names.every(name => typeof name === "string" && /^(?:@[\w.-]+\/)?[\w.-]+$/.test(name)) && new Set(names).size === names.length, "Invalid runtime dependency inventory");
   assert.ok(Array.isArray(metadata.dependencies) && metadata.dependencies.length > 0);

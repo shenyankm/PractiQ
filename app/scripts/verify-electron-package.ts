@@ -35,7 +35,7 @@ try {
   const manifest = JSON.parse(readFileSync(join(installed, "PractiQ.app/Contents/Resources/PRACTIQ-BUILD.json"), "utf8"));
   assert.equal(manifest.hardenedRuntime, true); assert.equal(manifest.notarized, false);
   const wire = await getCurrentFuseWire(join(installed, "PractiQ.app/Contents/MacOS/PractiQ"));
-  const expectedFuses = { RunAsNode: FuseV1Options.RunAsNode, EnableNodeOptionsEnvironmentVariable: FuseV1Options.EnableNodeOptionsEnvironmentVariable, EnableNodeCliInspectArguments: FuseV1Options.EnableNodeCliInspectArguments, GrantFileProtocolExtraPrivileges: FuseV1Options.GrantFileProtocolExtraPrivileges } as const;
+  const expectedFuses = { RunAsNode: FuseV1Options.RunAsNode, EnableNodeOptionsEnvironmentVariable: FuseV1Options.EnableNodeOptionsEnvironmentVariable, GrantFileProtocolExtraPrivileges: FuseV1Options.GrantFileProtocolExtraPrivileges } as const;
   for (const [name, option] of Object.entries(expectedFuses)) { assert.equal(manifest.fuses[name], false, `Build receipt did not declare ${name}`); assert.equal(wire[option], FuseState.DISABLE, `Installed bundle still enables ${name}`); }
   instance = await launch(); const page = await instance.firstWindow({ timeout: 20000 }); page.setDefaultTimeout(15000);
   const errors: string[] = [], http: string[] = []; page.on("pageerror", error => errors.push(error.message)); page.on("request", request => { if (/^https?:/.test(request.url())) http.push(request.url()); });

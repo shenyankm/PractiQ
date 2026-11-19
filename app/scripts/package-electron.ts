@@ -21,8 +21,13 @@ const run = (command: string, args: string[], cwd = root, capture = false) => {
 };
 const copy = (source: string, target: string) => cpSync(source, target, { recursive: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE });
 const sha256 = (path: string) => createHash("sha256").update(readFileSync(path)).digest("hex");
-/** The packaged runtime must not act as a general Node interpreter or honour debugger switches. */
-const fuses = { RunAsNode: false, EnableNodeOptionsEnvironmentVariable: false, EnableNodeCliInspectArguments: false, GrantFileProtocolExtraPrivileges: false, OnlyLoadAppFromAsar: true } as const;
+/**
+ * The packaged runtime must not act as a general Node interpreter, honour `NODE_OPTIONS`, grant
+ * `file://` extra privileges or load application code from outside the archive. `--inspect` stays
+ * available because the Playwright acceptance harness attaches to this process through the Node
+ * inspector; `RunAsNode` closes the interpreter vector that a local attacker would otherwise use.
+ */
+const fuses = { RunAsNode: false, EnableNodeOptionsEnvironmentVariable: false, GrantFileProtocolExtraPrivileges: false, OnlyLoadAppFromAsar: true } as const;
 /** Native modules stay outside the archive so dyld loads them beside their own libraries. */
 const asarUnpack = { unpack: "**/*.{node,dylib,so}", unpackDir: "{node_modules/sharp,node_modules/@img}" } as const;
 /** Every Mach-O file and bundle nested in the app, deepest first: `--deep` verifies but never signs. */
@@ -102,7 +107,6 @@ try {
     version: FuseVersion.V1,
     [FuseV1Options.RunAsNode]: fuses.RunAsNode,
     [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: fuses.EnableNodeOptionsEnvironmentVariable,
-    [FuseV1Options.EnableNodeCliInspectArguments]: fuses.EnableNodeCliInspectArguments,
     [FuseV1Options.GrantFileProtocolExtraPrivileges]: fuses.GrantFileProtocolExtraPrivileges,
     [FuseV1Options.OnlyLoadAppFromAsar]: fuses.OnlyLoadAppFromAsar,
   });

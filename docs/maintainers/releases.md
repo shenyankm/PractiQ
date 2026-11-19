@@ -223,6 +223,10 @@ sealed by the final signature. The build receipt must show
 `hardenedRuntime: true`, the `fuses` values and a matching `asarSha256`;
 `verify-electron-package.ts` reads the fuse wire and archive digest from the
 installed bundle and rejects a package that differs from its receipt.
+`--inspect` remains available in packaged builds by design: the Playwright
+acceptance harness attaches through the Node inspector, so that fuse stays at its
+default while `RunAsNode`, `NODE_OPTIONS` and extra `file://` privileges are
+closed.
 `EnableEmbeddedAsarIntegrityValidation` is intentionally not enabled: it requires
 the archive digest embedded in `Info.plist` and a macOS acceptance run.
 

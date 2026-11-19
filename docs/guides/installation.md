@@ -54,8 +54,8 @@ distribution releases. These checks do not establish real-provider accuracy.
 
 The application runtime is archived as `Contents/Resources/app.asar`, with
 `app.asar.unpacked` holding the native image libraries beside their own
-dependencies. Packaged builds disable `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS`,
-`--inspect` and extra `file://` privileges, load the app only from the archive,
+dependencies. Packaged builds disable `ELECTRON_RUN_AS_NODE`, `NODE_OPTIONS`
+and extra `file://` privileges, load the app only from the archive,
 and expose no DevTools or reload entry; the window frame and a bounded
 `logs/main.log` are kept under the app's user-data directory, outside `v4/`.
 

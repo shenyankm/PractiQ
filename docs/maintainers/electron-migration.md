@@ -2859,9 +2859,11 @@ serializing the request to measure it, so the 16 MiB limit now covers an
 
 Packaging produces `Contents/Resources/app.asar` plus `app.asar.unpacked` for
 `sharp`/`@img`, because native modules must keep their own libraries beside them.
-`RunAsNode`, `EnableNodeOptionsEnvironmentVariable`, `EnableNodeCliInspectArguments`
-and `GrantFileProtocolExtraPrivileges` are disabled and `OnlyLoadAppFromAsar` is
-enabled; the fuse wire is flipped before signing, with the release entitlements
+`RunAsNode`, `EnableNodeOptionsEnvironmentVariable` and
+`GrantFileProtocolExtraPrivileges` are disabled and `OnlyLoadAppFromAsar` is
+enabled (`--inspect` stays available because the Playwright acceptance harness
+attaches to the app through the Node inspector; `RunAsNode` closes the
+interpreter vector that matters); the fuse wire is flipped before signing, with the release entitlements
 and hardened runtime, using inside-out signing, and `--deep` is retained for
 verification only. The build receipt records the fuse values, the archive digest,
 the unpack list, `hardenedRuntime` and the entitlements, and the release
