@@ -1,4 +1,4 @@
-import { app, BrowserWindow, crashReporter, dialog, ipcMain, Menu, protocol, safeStorage, screen, session } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol, safeStorage, screen, session } from "electron";
 import { dirname, join, resolve } from "node:path";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
@@ -29,7 +29,7 @@ const trustedOrigin = development ? "http://127.0.0.1:1420" : origin;
  * Startup milestones for field and CI diagnostics. Stages contain no paths, content or credentials,
  * and are printed only when an explicit trace flag is set.
  */
-const trace = (stage: string) => { if (process.env.PRACTIQ_STARTUP_TRACE) console.error(`[practiq] ${stage}`); };
+const trace = (stage: string) => { if (process.env.PRACTIQ_STARTUP_TRACE) { console.error(`[practiq] ${stage}`); try { (mainLog ??= new MainLog(join(app.getPath("userData"), "logs", "main.log"))).record("startup", stage); } catch { /* The trace must never change startup. */ } } };
 trace(`module electron ${process.versions.electron} node ${process.versions.node} packaged ${app.isPackaged}`);
 app.on("will-finish-launching", () => trace("will-finish-launching"));
 app.on("ready", () => trace("ready"));
@@ -38,8 +38,6 @@ const contentPolicy = "default-src 'self'; script-src 'self'; style-src 'self' '
 app.setName("PractiQ");
 // Every renderer, including one created later, starts sandboxed and without Node integration.
 app.enableSandbox();
-// Local dumps only: diagnostics must never upload data, and a report is written for a user to share.
-crashReporter.start({ uploadToServer: false });
 protocol.registerSchemesAsPrivileged([{ scheme: "practiq", privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 let window: BrowserWindow | null = null;
 let database: DatabaseClient | undefined;

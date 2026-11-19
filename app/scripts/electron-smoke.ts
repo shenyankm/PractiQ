@@ -53,9 +53,10 @@ const watchdog = setTimeout(() => {
 }, 120000); watchdog.unref();
 try {
   instance.process().stderr?.on("data", data => process.stderr.write(`[app] ${data}`));
+  // Main-process facts are read before the first window so a window that never appears is diagnosable.
+  const installation = await instance.evaluate(({ app, BrowserWindow }) => ({ packaged: app.isPackaged, ready: app.isReady(), appPath: app.getAppPath(), userData: app.getPath("userData"), windows: BrowserWindow.getAllWindows().length, executable: process.execPath, node: process.versions.node, electron: process.versions.electron, argv: process.argv.slice(1), execArgv: process.execArgv }));
   const page = await instance.firstWindow({ timeout: 15_000 });
   const startupMs = Math.round(performance.now() - launchedAt);
-  const installation = await instance.evaluate(({ app }) => ({ packaged: app.isPackaged, appPath: app.getAppPath(), userData: app.getPath("userData"), executable: process.execPath, node: process.versions.node, electron: process.versions.electron }));
   assert.equal(installation.packaged, Boolean(executable)); assert.equal(await realpath(installation.userData), await realpath(profile));
   if (executable) { assert.equal(await realpath(installation.executable), executable); assert.ok(!installation.appPath.startsWith(await realpath(process.cwd()) + "/"), "Installed smoke must run a copied app outside the checkout"); }
   const runtimeDirectory = executable ? join(installation.appPath, ".build/electron/app/desktop") : resolve(".build/electron/app/desktop");
@@ -764,8 +765,9 @@ try {
   console.log("Electron smoke passed: sandbox, IPC, five Tencent ZIP codecs, LangGraph text/OCR/PDF/image completion, bounded PDFium rendering, source crop calibration and passive completion guards in bounded workers, passive source tickets/copy/fences, explicit source repair/quarantine, fenced task deletion/recovery and stable pagination, complete/revised/selected/stopped-unit bank ZIP export without model work, SQLite CRUD, objective/subjective practice, OS-encrypted test credentials, explicit model calls, all-type ZIP roundtrip, bundled examples, and Settings import/backup/confirmed restore through native-dialog substitutes");
 } catch (error) {
   // A swallowed main-process fault is only visible in the app's own log, so it is copied to stderr.
-  await readFile(join(profile, "logs", "main.log"), "utf8").then(log => process.stderr.write(`practiq main log:
-${log}`)).catch(() => {});
+  console.error("practiq main log:", await readFile(join(profile, "logs", "main.log"), "utf8").catch(() => "absent"));
+  const facts = await instance.evaluate(({ app, BrowserWindow }) => ({ ready: app.isReady(), appPath: app.getAppPath(), windows: BrowserWindow.getAllWindows().length, argv: process.argv.slice(1) })).catch(value => ({ unavailable: String(value) }));
+  console.error("practiq startup facts:", JSON.stringify(facts));
   const window = instance.windows()[0];
   if (window && !window.isClosed()) { await window.screenshot({ path: ".build/evidence/electron-smoke-failure.png" }).catch(() => {}); await writeFile(".build/evidence/electron-smoke-failure.txt", await window.locator("body").ariaSnapshot()).catch(() => {}); }
   throw error;
