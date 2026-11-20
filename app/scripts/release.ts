@@ -4,7 +4,6 @@ import { basename, dirname, join, resolve, sep } from "node:path";
 import { tmpdir, homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { extractAll } from "@electron/asar";
 import { canonical, checkCandidate, checksum, command, containedFile, digest, externalAcceptanceStatus, externalSigningStatus, macosVersions, MODE, normalizedDigest, object, payloadFingerprint, publicReport, readBytes, readJson, SCHEMA, strictJson, version, versions } from "./release-data.ts";
 import { checkWindowsExecutable, expandWindowsPackage } from "./release-windows.ts";
 
@@ -99,7 +98,8 @@ export function validateAcceptance(value: unknown, identity: Candidate): void {
 }
 
 /** Extracts a shipped runtime archive under ignored build evidence so inspection reads the shipped bytes. */
-function extractRuntime(root: string, resources: string, metadata: Record<string, any>): string {
+async function extractRuntime(root: string, resources: string, metadata: Record<string, any>): Promise<string> {
+  const { extractAll } = await import("@electron/asar");
   const archive = containedFile(resources, "app.asar");
   assert.equal(checksum(archive), normalizedDigest(metadata.asarSha256), "Runtime archive differs from its build receipt");
   const target = join(root, "app/.build/evidence", `runtime-${String(metadata.asarSha256).slice(0, 12)}`);
@@ -110,7 +110,7 @@ function extractRuntime(root: string, resources: string, metadata: Record<string
 async function inspectPayload(root: string, bundle: string, tag: string, windows: boolean): Promise<Record<string, any>> {
   const version = versions(root, tag).desktop, resources = join(bundle, windows ? "resources" : "Contents/Resources"), metadata = readJson(containedFile(resources, "PRACTIQ-BUILD.json"));
   // An archived runtime is extracted first so the comparison reads the exact shipped bytes.
-  const runtime = existsSync(join(resources, "app")) ? join(resources, "app") : extractRuntime(root, resources, metadata);
+  const runtime = existsSync(join(resources, "app")) ? join(resources, "app") : await extractRuntime(root, resources, metadata);
   const architecture = metadata.arch;
   validateManifest(metadata, version, architecture, windows);
   if (windows) {

@@ -43,7 +43,9 @@ function ci(folder: string) {
 async function fixture(action: (value: { root: string; folder: string; inputs: string; candidate: Value; save: () => void }) => void | Promise<void>) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "practiq-release-test-")));
   try {
-    mkdirSync(join(root, "app")); json(join(root, "app/package.json"), { version: "0.2.2" }); json(join(root, "app/package-lock.json"), { version: "0.2.2", packages: { "": { version: "0.2.2" } } });
+    mkdirSync(join(root, "app")); json(join(root, "app/package.json"), { type: "module", version: "0.2.2" }); json(join(root, "app/package-lock.json"), { version: "0.2.2", packages: { "": { version: "0.2.2" } } });
+    mkdirSync(join(root, "app/scripts"));
+    for (const name of ["release.ts", "release-data.ts", "release-windows.ts"]) copyFileSync(join(projectRoot, "app/scripts", name), join(root, "app/scripts", name));
     mkdirSync(join(root, ".github")); copyFileSync(join(projectRoot, ".github/RELEASE_TEMPLATE.md"), join(root, ".github/RELEASE_TEMPLATE.md")); writeFileSync(join(root, ".gitignore"), ".work/\napp/.build/\n");
     const git = (...args: string[]) => execFileSync("git", ["-c", "user.name=Release test", "-c", "user.email=release@example.test", "-c", "commit.gpgSign=false", "-c", "tag.gpgSign=false", "-c", `core.hooksPath=${join(root, "no-hooks")}`, ...args], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
     git("init", "-q"); git("add", "."); git("commit", "-qm", "Release fixture"); git("update-ref", "refs/remotes/origin/main", "HEAD"); git("tag", "-am", "Candidate", tag);
@@ -195,6 +197,13 @@ test("CLI rejects duplicate/mixed options and preserves existing evidence before
   await assert.rejects(main(root, ["check", "--tag", tag], { WORKFLOW_REF: "refs/heads/main" }));
   const existing = join(root, ".work/releases.json"); json(existing, [[{ tag_name: "v0.1.0" }], [{ tag_name: tag }]]); assert.throws(() => checkExisting(existing, tag)); json(existing, [[{ tag_name: "v0.1.0" }]]); checkExisting(existing, tag);
   const outputs = join(root, ".work/outputs"); await main(root, ["check", "--tag", tag], { GITHUB_OUTPUT: outputs, WORKFLOW_REF: `refs/tags/${tag}` }); assert.match(readFileSync(outputs, "utf8"), /sha=[a-f0-9]{40}\nprerelease=false\n/);
+}));
+
+test("candidate CLI boots on a checkout before npm dependencies are installed", () => fixture(({ root, candidate }) => {
+  const run = (...args: string[]) => execFileSync(process.execPath, [join(root, "app/scripts/release.ts"), ...args, "--tag", tag], { cwd: root, encoding: "utf8", env: { ...process.env, WORKFLOW_REF: `refs/tags/${tag}`, WORKFLOW_SHA: candidate.commit } });
+  assert.equal(JSON.parse(run("check")).commit, candidate.commit);
+  const releases = join(root, ".work/releases.json"); json(releases, [[]]);
+  assert.equal(run("check-existing", "--inputs", releases), "");
 }));
 
 test("generated changes remain literal content and invalid UTF-8 cannot publish notes", () => fixture(async ({ root, inputs }) => {
