@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.3.0-beta.2](https://github.com/shenyankm/PractiQ/releases/tag/v0.3.0-beta.2) — 2026-11-20
+
+Preview release for Windows 11 x64 and macOS 14+ on Apple Silicon. The
+Windows package is a portable ZIP. Extract it and open `PractiQ/PractiQ.exe`.
+The macOS package is a DMG. Both packages passed the tagged CI run, and all five
+release attachments were verified against their SHA-256 hashes and Actions
+attestations. Publisher signing, clean-machine manual acceptance and live-provider
+acceptance are deferred for this preview. [Tagged CI and release evidence](https://github.com/shenyankm/PractiQ/actions/runs/44647512299).
+
+- Move the desktop app to Electron with embedded TypeScript AI workers, LangGraph.js and SQLite.
+- Package Windows x64 with DPAPI credential storage and verify the extracted app in Desktop CI.
+- Attach the Windows and macOS packages to the same source-bound release with checksums and validation reports.
+
+Study data uses SQLite schema 11, full backup version 4 and bank ZIP version 2.
+Windows bank and backup operations that must validate legacy recordings require macOS.
+Sudden power-loss durability on Windows remains unverified.
+
+[Changes since v0.2.2](https://github.com/shenyankm/PractiQ/compare/v0.2.2...v0.3.0-beta.2).
+
 ## [0.2.2](https://github.com/shenyankm/PractiQ/releases/tag/v0.2.2) — 2026-11-05
 
 Published for macOS 14+ on Apple Silicon with explicit maintainer approval to defer the signing, clean-machine and live-model requirements in the [release policy](docs/maintainers/releases.md). The installer is unsigned and not notarized; final clean-machine and live-model acceptance remain incomplete. Same-candidate automated checks passed, and all four unchanged release attachments have verified checksums and Actions provenance. See the release notes for evidence and limitations.
