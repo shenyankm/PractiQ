@@ -14,6 +14,7 @@
 | Platform | Minimum requirements | File | Automated final-package checks | Publisher signing | Clean-machine acceptance |
 | --- | --- | --- | --- | --- | --- |
 | macOS | macOS 14+, @ARCH@ | `PractiQ_@VERSION@_macos_@ARCH@.dmg` | Record evidence | Unsigned / not notarized | Pending |
+| Windows preview | Windows 11 x64 | `PractiQ_@VERSION@_windows_x64.zip` | Record evidence | Unsigned | Pending |
 
 This is one Electron application with embedded TypeScript/Node AI workers,
 LangGraph.js checkpoints and Store, SQLite and local files. It contains no
@@ -21,9 +22,9 @@ Python, Rust/Tauri, PostgreSQL, RabbitMQ or LibreOffice runtime. Document import
 task review, bank import, practice and explicit AI grading run from the App.
 Configure recognition/model providers in Settings; no separate backend is needed.
 
-macOS is the only application target. Record the actual architecture and tested
-OS versions; an arm64 result does not establish Intel acceptance. GitHub Source
-code attachments are source, not installers.
+On Windows, extract the entire ZIP and open `PractiQ/PractiQ.exe`. Keep the
+surrounding files together. The unsigned executable can trigger SmartScreen.
+Record the actual OS and architecture tested on each platform.
 
 macOS native `CFBundleShortVersionString` and `CFBundleVersion` use the numeric
 core of `@VERSION@`; the merged plist `PractiQVersion`, application, build manifest,
@@ -35,14 +36,18 @@ both native fields and the exact full version. No automatic updater is shipped.
 - Desktop directory `v4/`, SQLite schema 11; full backup container version 4, schema 11.
 - Bank ZIP version 2, AI JSON schema 3. Bank import appends content; full restoration requires replacement confirmation.
 - Old directories remain untouched. Older databases and full backups are rejected without migration. Keep backups before upgrading; downgrade compatibility is not promised.
-- Current provider credentials use macOS-protected encrypted local storage. Legacy Keychain namespaces remain untouched. Full backups exclude credentials and AI task state; optional version-1 historical grading connection settings remain supported without secrets.
+- Provider credentials use Keychain on macOS and DPAPI on Windows. Full backups exclude credentials and AI task state; optional version-1 historical grading connection settings remain supported without secrets.
 - Historical directories, deployment volumes, provider settings and legacy task files are preserved. Unknown provider outcomes are not automatically replayed.
-- New listening content stores QR-derived or playback addresses, without persisting recordings. Historical audio files and backup references remain supported. Remote addresses need network access and may expire or change content.
+- New listening content stores playback addresses. Banks and backups that contain legacy recordings require macOS for full audio validation. Remote addresses need network access and may expire or change content.
 <!-- Update these values from tagged source whenever formats change. -->
 
 ## Known limitations
 
 <!-- List concrete failed or untested flows. Do not infer interactive acceptance from CI. -->
+
+The Windows preview verifies backup restore across a normal process restart.
+Windows directory metadata is managed by the filesystem without an explicit
+directory flush, so sudden power-loss durability remains unverified.
 
 Offline practice needs no account or service. AI work requires explicit actions,
 network access and configured providers, and may incur provider charges.

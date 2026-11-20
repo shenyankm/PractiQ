@@ -2,7 +2,7 @@
 
 ## Architecture
 
-PractiQ is one macOS Electron application using TypeScript/Node, React/Vite,
+PractiQ is one Electron application using TypeScript/Node, React/Vite,
 shadcn/ui, LangGraph.js (`@langchain/langgraph`), SQLite and local files. AI runs
 in embedded background workers owned by the App. LangGraph orchestration,
 checkpoints and Store all use the JavaScript implementation. The renderer is
@@ -32,7 +32,7 @@ and Git history, not current startup instructions.
 The product is an open-source single-person application. Do not add accounts,
 administration, sessions for authentication, phone registration, plans, points,
 payments, billing or cloud sync. Material-question groups are document content.
-The current App targets macOS on Apple Silicon; use accessible desktop layouts,
+The app targets macOS on Apple Silicon and has a Windows x64 preview. Use accessible desktop layouts,
 the existing octopus brand, Lucide icons and existing shadcn components.
 
 ## Commands
@@ -47,9 +47,9 @@ the existing octopus brand, Lucide icons and existing shadcn components.
   and production renderer build. Do not repeat full passing suites without a
   new change, failure or unresolved concern.
 - `make audit`: audit the locked npm dependencies; network required.
-- `make build` / `make app-build`: build a fresh macOS App/DMG without publishing.
+- `make build` / `make app-build`: build a fresh macOS App/DMG or Windows portable ZIP without publishing.
   Set `APP_PACKAGE_DIRECTORY` to choose a fresh output directory.
-- `make app-package-check`: build and independently install/verify that same DMG,
+- `make app-package-check`: build and independently install/verify that same package,
   including protected credentials and recovery flows.
 - `make test-e2e`: browser and actual Electron flows with local provider substitutes.
 - From `app/`, `npm run contracts:check`, `npm run desktop:build` and
@@ -101,7 +101,7 @@ packages, reports and local caches stay out of Git.
 
 ## Embedded AI and explicit actions
 
-Current provider credentials use macOS-protected encrypted local storage, outside
+Current provider credentials use Keychain on macOS and DPAPI on Windows, outside
 SQLite, URLs, browser storage, logs and learning backups. Leave old Keychain/env
 values untouched. Validate settings, endpoint/model changes and every native
 command input. File access begins with a native file picker; imported content
@@ -164,8 +164,9 @@ credentials, private/reserved addresses and unsafe redirects. Retain DNS pinning
 no-proxy requests, redirect/body/deadline bounds and unresolved-DNS fencing.
 Fetched bytes/Blob URLs are memory-only and released after use. Snapshots, ZIPs
 and backups retain the address without downloading audio. Historical recordings,
-checksums, segments and offline playback remain compatible; native decoding is
-sandboxed and bounded. New desktop packages contain no Python/LibreOffice runtime
+checksums, segments and offline playback remain compatible on macOS; native decoding is
+sandboxed and bounded. Windows preview bank and backup operations reject recordings
+that require the macOS decoder. New desktop packages contain no Python/LibreOffice runtime
 and must not discover installations or accept executable preferences in backups.
 
 ## Validation and delivery

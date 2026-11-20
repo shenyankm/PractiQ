@@ -177,9 +177,69 @@ jobs:
           path: app/.build/electron-ci/*.dmg
           if-no-files-found: error
           retention-days: 14
+  package-windows:
+    name: Windows x64 package
+    needs: changes
+    if: needs.changes.outputs.required == 'true'
+    runs-on: windows-2025
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          fetch-depth: ${{ inputs.release && '0' || '1' }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - name: Build portable Electron ZIP
+        run: |
+          npm run contracts:check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run package:electron -- .build/electron-ci
+      - name: Verify the extracted Windows application and protected credentials
+        run: npm run test:package -- .build/electron-ci
+      - name: Verify final ZIP and stage release assets
+        if: inputs.release
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: npm run release:stage -- --tag "$env:RELEASE_TAG" --package .build/electron-ci --output .build/release --reports .build/release-reports --acceptance .build/evidence/electron-package-acceptance.json
+      - name: Upload gated release assets
+        if: inputs.release
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-Windows
+          path: app/.build/release/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload package verification reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: desktop-checks-Windows
+          path: |
+            app/.build/electron-ci/package-report.json
+            app/.build/release-reports/
+            app/.build/evidence/electron-package-*-acceptance.json
+          include-hidden-files: true
+          retention-days: 7
+      - name: Upload portable Windows package
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: PractiQ-Windows-x64
+          path: app/.build/electron-ci/*.zip
+          if-no-files-found: error
+          retention-days: 14
   desktop-gate:
     name: Desktop CI
-    needs: [changes, quality, package]
+    needs: [changes, quality, package, package-windows]
     if: ${{ always() }}
     runs-on: ubuntu-22.04
     timeout-minutes: 5

@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { appendFileSync, chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { tmpdir, homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { extractAll } from "@electron/asar";
 import { canonical, checkCandidate, checksum, command, containedFile, digest, externalAcceptanceStatus, externalSigningStatus, macosVersions, MODE, normalizedDigest, object, payloadFingerprint, publicReport, readBytes, readJson, SCHEMA, strictJson, version, versions } from "./release-data.ts";
+import { checkWindowsExecutable, expandWindowsPackage } from "./release-windows.ts";
 
 const gates = ["desktop-bundle.json", "licenses.json", "desktop-version.json", "notices-match.json"];
 const acceptances = [["cleanMachine", "clean-machine"], ["liveModel", "live-model"]] as const;
@@ -24,20 +25,28 @@ function buildRun(value: unknown): string {
   assert.equal(typeof value, "string"); const url = new URL(value as string);
   assert.ok(url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash && url.href === value && /^\/[^/]+\/[^/]+\/actions\/runs\/[1-9][0-9]*$/.test(url.pathname), "Invalid immutable Actions build URL"); return value as string;
 }
+function assetName(version: string, os: string, architecture: string): string {
+  return `PractiQ_${version}_${os}_${architecture}.${os === "windows" ? "zip" : "dmg"}`;
+}
 function identity(candidate: Candidate) {
   const required = ["packageSchemaVersion", "packageMode", "tag", "commit", "components", "os", "architecture", "file", "sha256", "sizeBytes", "signing", "cleanMachineAcceptance", "liveModelAcceptance", "buildRun", "evidence"], optional = ["restagedFinalBytes", "originalBuildCandidate", "signingVerification", "acceptanceVerification", "signingReport", "cleanMachineReport", "liveModelReport"];
   assert.ok(required.every(key => Object.hasOwn(candidate, key)) && Object.keys(candidate).every(key => required.includes(key) || optional.includes(key)), "Invalid release candidate schema");
   assert.equal(candidate.packageSchemaVersion, SCHEMA); assert.equal(candidate.packageMode, MODE, "Legacy and Electron package modes cannot be mixed");
-  versionsTag(candidate.tag); assert.match(candidate.commit, /^[a-f0-9]{40}$/); assert.equal(candidate.os, "macos"); assert.ok(["arm64", "x64"].includes(candidate.architecture));
+  versionsTag(candidate.tag); assert.match(candidate.commit, /^[a-f0-9]{40}$/);
+  assert.ok(candidate.os === "macos" && ["arm64", "x64"].includes(candidate.architecture) || candidate.os === "windows" && candidate.architecture === "x64");
   assert.deepEqual(candidate.components, { desktop: versionsTag(candidate.tag) });
-  assert.equal(candidate.file, `PractiQ_${candidate.components.desktop}_macos_${candidate.architecture}.dmg`);
+  assert.equal(candidate.file, assetName(candidate.components.desktop, candidate.os, candidate.architecture));
   assert.equal(candidate.sha256, normalizedDigest(candidate.sha256)); assert.ok(Number.isSafeInteger(candidate.sizeBytes) && candidate.sizeBytes > 0); buildRun(candidate.buildRun);
 }
 function versionsTag(tag: string): string { assert.equal(typeof tag, "string"); return version(tag); }
 function original(candidate: Candidate) { identity(candidate); assert.equal(candidate.signing, "unsigned", "Build provenance requires the original CI candidate"); for (const key of ["restagedFinalBytes", "originalBuildCandidate", "signingReport", "cleanMachineReport", "liveModelReport", "signingVerification", "acceptanceVerification"]) assert.ok(!Object.hasOwn(candidate, key), "Build provenance must be an original CI candidate"); }
-function validateManifest(value: unknown, expectedVersion: string, architecture: string): void {
-  const metadata = object(value); assert.deepEqual([metadata.version, metadata.appVersion, metadata.arch, metadata.minimumMacOS, metadata.signing, metadata.notarized], [1, expectedVersion, architecture, "14.0", "ad-hoc-local", false]); version(`v${metadata.electronVersion}`);
-  assert.equal(metadata.hardenedRuntime, true); assert.deepEqual(metadata.entitlements, ["com.apple.security.cs.allow-jit"]);
+function validateManifest(value: unknown, expectedVersion: string, architecture: string, windows: boolean): void {
+  const metadata = object(value); assert.deepEqual([metadata.version, metadata.appVersion, metadata.arch], [1, expectedVersion, architecture]); version(`v${metadata.electronVersion}`);
+  if (windows) assert.deepEqual([metadata.platform, metadata.signing], ["win32", "unsigned"]);
+  else {
+    assert.deepEqual([metadata.minimumMacOS, metadata.signing, metadata.notarized], ["14.0", "ad-hoc-local", false]);
+    assert.equal(metadata.hardenedRuntime, true); assert.deepEqual(metadata.entitlements, ["com.apple.security.cs.allow-jit"]);
+  }
   // The archive, its unpack list and the hardened fuse wire are part of the shipped identity.
   assert.equal(metadata.asar, true); normalizedDigest(metadata.asarSha256); assert.deepEqual(metadata.asarUnpack, { unpack: "**/*.{node,dylib,so}", unpackDir: "{node_modules/sharp,node_modules/@img}" });
   assert.deepEqual(metadata.fuses, { RunAsNode: false, EnableNodeOptionsEnvironmentVariable: false, GrantFileProtocolExtraPrivileges: false, OnlyLoadAppFromAsar: true });
@@ -58,12 +67,13 @@ export function validateCandidate(folder: string, tag: string, commit: string, c
   assert.equal(checksum(containedFile(folder, "evidence/THIRD-PARTY.txt")), checksum(containedFile(folder, "evidence/expected-THIRD-PARTY.txt")), "Final notices changed");
   assert.equal(readJson(containedFile(folder, "evidence/notices-match.json")).sha256, checksum(containedFile(folder, "evidence/THIRD-PARTY.txt")));
   assert.equal(readJson(containedFile(folder, "evidence/licenses.json")).noticesSha256, checksum(containedFile(folder, "evidence/THIRD-PARTY.txt")));
-  const metadata = readJson(containedFile(folder, "evidence/build-manifest.json")); validateManifest(metadata, candidate.components.desktop, candidate.architecture);
+  const metadata = readJson(containedFile(folder, "evidence/build-manifest.json")); validateManifest(metadata, candidate.components.desktop, candidate.architecture, candidate.os === "windows");
   assert.equal(metadata.licenseInventorySha256, checksum(containedFile(folder, "evidence/npm-license-inventory.json"))); assert.equal(readJson(containedFile(folder, "evidence/licenses.json")).licenseInventorySha256, metadata.licenseInventorySha256); assert.equal(readJson(containedFile(folder, "evidence/npm-license-inventory.json")).passed, true);
   const bundle = readJson(containedFile(folder, "evidence/desktop-bundle.json")); assert.equal(bundle.noLegacyRuntime, true); normalizedDigest(bundle.payloadSha256); assert.ok(Number.isSafeInteger(bundle.files) && bundle.files > 0);
   assert.deepEqual([readJson(containedFile(folder, "evidence/desktop-version.json")).version, readJson(containedFile(folder, "evidence/desktop-version.json")).architecture], [candidate.components.desktop, candidate.architecture]);
   let build = candidate;
   if (candidate.restagedFinalBytes === true) {
+    assert.equal(candidate.os, "macos", "External final-byte staging supports macOS DMGs");
     assert.equal(candidate.originalBuildCandidate, "evidence/build-candidate.json"); const provenance = readJson(evidenceFile(candidate.originalBuildCandidate));
     assert.equal(provenance.originalCandidate, "evidence/original-candidate.json"); const priorRaw = readBytes(evidenceFile(provenance.originalCandidate), 1024 * 1024), prior = object(strictJson(priorRaw)); original(prior);
     assert.equal(digest(priorRaw), normalizedDigest(provenance.candidateSha256)); assert.deepEqual(prior, provenance.candidate); assert.equal(provenance.verifiedCandidateSha256, digest(canonical(prior))); assert.equal(provenance.assetAndEvidenceVerified, true);
@@ -82,8 +92,9 @@ export function validateCandidate(folder: string, tag: string, commit: string, c
   return candidate;
 }
 export function validateAcceptance(value: unknown, identity: Candidate): void {
-  const report = object(value); assert.equal(report.dmgSha256, identity.sha256); assert.equal(report.version, identity.components.desktop); assert.equal(report.arch, identity.architecture);
-  for (const key of ["packaged", "codesignVerified", "sourceIndependentInstall", "isolatedUserData", "systemOnlyPath", "sandbox", "practice", "backupRestore", "restart", "corePassed", "credentialsEncrypted", "credentialsExcludedFromBackup", "credentialsDecryptAfterRestart"]) assert.equal(report[key], true, `Automated package acceptance is incomplete: ${key}`);
+  const report = object(value), windows = identity.os === "windows";
+  assert.equal(report[windows ? "zipSha256" : "dmgSha256"], identity.sha256); assert.equal(report.version, identity.components.desktop); assert.equal(report.arch, identity.architecture);
+  for (const key of ["packaged", windows ? "executableX64" : "codesignVerified", "sourceIndependentInstall", "isolatedUserData", "systemOnlyPath", "sandbox", "practice", "backupRestore", "restart", "corePassed", "credentialsEncrypted", "credentialsExcludedFromBackup", "credentialsDecryptAfterRestart"]) assert.equal(report[key], true, `Automated package acceptance is incomplete: ${key}`);
   assert.equal(report.paidCalls, 0); assert.equal(report.rendererHttpRequests, 0); assert.deepEqual([...report.codecs].sort(), ["0", "8", "12", "14", "93"].sort()); assert.ok(Number.isSafeInteger(report.pdfPages) && report.pdfPages > 0);
 }
 
@@ -96,33 +107,40 @@ function extractRuntime(root: string, resources: string, metadata: Record<string
   return target;
 }
 
-async function inspectPayload(root: string, bundle: string, tag: string): Promise<Record<string, any>> {
-  const version = versions(root, tag).desktop, resources = join(bundle, "Contents/Resources"), metadata = readJson(containedFile(resources, "PRACTIQ-BUILD.json"));
+async function inspectPayload(root: string, bundle: string, tag: string, windows: boolean): Promise<Record<string, any>> {
+  const version = versions(root, tag).desktop, resources = join(bundle, windows ? "resources" : "Contents/Resources"), metadata = readJson(containedFile(resources, "PRACTIQ-BUILD.json"));
   // An archived runtime is extracted first so the comparison reads the exact shipped bytes.
   const runtime = existsSync(join(resources, "app")) ? join(resources, "app") : extractRuntime(root, resources, metadata);
-  const info = strictJson(command(root, "/usr/bin/plutil", ["-convert", "json", "-o", "-", containedFile(bundle, "Contents/Info.plist")]));
-  for (const [key, value] of Object.entries(macosVersions(version))) assert.equal(info[key], value, "Final macOS version differs from the tag");
-  assert.equal(info.CFBundleExecutable, "PractiQ"); assert.equal(info.CFBundleIdentifier, "com.practiq.desktop");
-  const { checkMachO } = await import("./release-macho.ts"), architecture = metadata.arch;
-  validateManifest(metadata, version, architecture);
-  checkMachO(containedFile(bundle, "Contents/MacOS/PractiQ"), architecture);
+  const architecture = metadata.arch;
+  validateManifest(metadata, version, architecture, windows);
+  if (windows) {
+    assert.equal(architecture, "x64"); checkWindowsExecutable(containedFile(bundle, "PractiQ.exe"));
+  } else {
+    const info = strictJson(command(root, "/usr/bin/plutil", ["-convert", "json", "-o", "-", containedFile(bundle, "Contents/Info.plist")]));
+    for (const [key, value] of Object.entries(macosVersions(version))) assert.equal(info[key], value, "Final macOS version differs from the tag");
+    assert.equal(info.CFBundleExecutable, "PractiQ"); assert.equal(info.CFBundleIdentifier, "com.practiq.desktop");
+    const { checkMachO } = await import("./release-macho.ts");
+    checkMachO(containedFile(bundle, "Contents/MacOS/PractiQ"), architecture);
+  }
   assert.equal(metadata.version, 1); assert.equal(metadata.appVersion, version); assert.equal(metadata.lockfileSha256, checksum(join(root, "app/package-lock.json")));
   assert.deepEqual(metadata.execution, readJson(join(root, "app/.build/electron/app/desktop/execution-version.json")), "Package code is not the tagged source build");
   assert.equal(metadata.runtimeLockfileSha256, checksum(containedFile(runtime, "package-lock.json")));
   assert.equal(payloadFingerprint(join(runtime, "dist")), payloadFingerprint(join(root, "app/dist")), "Renderer differs from the tagged source build");
   for (const group of ["app", "shared"]) {
     const compiled = join(root, "app/.build/electron", group), embedded = join(runtime, ".build/electron", group);
-    const structure = (directory: string) => readdirSync(directory, { recursive: true, withFileTypes: true }).map(entry => [join(entry.parentPath, entry.name).slice(directory.length + 1), entry.isFile() ? "file" : entry.isDirectory() ? "directory" : "unsupported"]).filter(([name]) => !["desktop/build.js", "desktop/vitest.config.js"].includes(name)).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+    const nameInside = (directory: string, entry: { parentPath: string; name: string }) => join(entry.parentPath, entry.name).slice(directory.length + 1).split(sep).join("/");
+    const structure = (directory: string) => readdirSync(directory, { recursive: true, withFileTypes: true }).map(entry => [nameInside(directory, entry), entry.isFile() ? "file" : entry.isDirectory() ? "directory" : "unsupported"]).filter(([name]) => !["desktop/build.js", "desktop/vitest.config.js"].includes(name)).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
     const actualStructure = structure(embedded); assert.ok(actualStructure.every(([, kind]) => kind !== "unsupported"), "Unsupported file type in compiled runtime"); assert.deepEqual(actualStructure, structure(compiled), "Compiled directory structure differs from source");
-    const expected = readdirSync(compiled, { recursive: true, withFileTypes: true }).filter(entry => entry.isFile()).map(entry => join(entry.parentPath, entry.name).slice(compiled.length + 1)).filter(name => !["desktop/build.js", "desktop/vitest.config.js"].includes(name)).sort();
-    const actual = readdirSync(embedded, { recursive: true, withFileTypes: true }).filter(entry => entry.isFile()).map(entry => join(entry.parentPath, entry.name).slice(embedded.length + 1)).sort(); assert.deepEqual(actual, expected, "Compiled package inventory differs from source");
+    const expected = structure(compiled).filter(([, kind]) => kind === "file").map(([name]) => name);
+    const actual = actualStructure.filter(([, kind]) => kind === "file").map(([name]) => name); assert.deepEqual(actual, expected, "Compiled package inventory differs from source");
     for (const name of expected) assert.equal(checksum(containedFile(embedded, name)), checksum(containedFile(compiled, name)), "Compiled code or resource differs from tagged source");
   }
   const project = readJson(join(root, "app/package.json")), packageJson = readJson(containedFile(runtime, "package.json"));
   assert.equal(metadata.electronVersion, project.devDependencies.electron); assert.equal(packageJson.version, version);
-  const { runtimeDependencies, auditPackage, optionalOtherPlatform } = await import("./package-audit.ts"); const dependencies = runtimeDependencies(join(root, "app"), project);
+  const { runtimeDependencies, auditPackage, targetLockPaths } = await import("./package-audit.ts"); const dependencies = runtimeDependencies(join(root, "app"), project);
   assert.deepEqual(packageJson.dependencies, dependencies); assert.deepEqual([...metadata.runtimeDependencies].sort(), Object.keys(dependencies).sort());
   const current = readJson(join(root, "app/package-lock.json")).packages, selected = readJson(containedFile(runtime, "package-lock.json")).packages;
+  const target = targetLockPaths(selected, architecture, process.platform);
   const notices = ["PractiQ third-party dependencies", "Electron and Chromium: see LICENSE and LICENSES.chromium.html; source https://github.com/electron/electron", "PDFium, Unicode and parser resources: see app/.build/electron/app/desktop/resources/licenses/"];
   const inventory: unknown[] = [];
   for (const name of Object.keys(selected).filter(name => name).sort()) {
@@ -131,7 +149,7 @@ async function inspectPayload(root: string, bundle: string, tag: string): Promis
     assert.ok(matches.length > 0, "Runtime lock entry differs from reviewed lockfile");
     for (const key of ["os", "cpu", "libc"]) assert.ok(matches.some(([, value]: any) => canonical(value[key] ?? null) === canonical(locked[key] ?? null)), "Runtime platform metadata differs from reviewed lockfile");
     if (!existsSync(join(runtime, name, "package.json"))) {
-      assert.ok(optionalOtherPlatform(locked, architecture), "Missing runtime dependency for this package target"); continue;
+      assert.ok(locked.optional && !target.has(name), "Missing runtime dependency for this package target"); continue;
     }
     const source = matches.find(([key]) => existsSync(join(root, "app", key, "package.json")));
     assert.ok(source, "Runtime package differs from reviewed lockfile");
@@ -141,7 +159,7 @@ async function inspectPayload(root: string, bundle: string, tag: string): Promis
     inventory.push({ name: installed.name, version: installed.version, license, source: origin, integrity: locked.integrity ?? null }); notices.push(`${installed.name}@${installed.version}: ${license}; source ${origin}`);
   }
   assert.deepEqual(metadata.dependencies, inventory);
-  const { collectLicenses } = await import("./release-licenses.ts"), licenses = collectLicenses(join(root, "app"), architecture), licenseDirectory = join(resources, "DEPENDENCY-LICENSES"); assert.equal(licenses.report.passed, true, "Production dependency license texts are missing or unverified");
+  const { collectLicenses } = await import("./release-licenses.ts"), licenses = collectLicenses(join(root, "app"), architecture, process.platform), licenseDirectory = join(resources, "DEPENDENCY-LICENSES"); assert.equal(licenses.report.passed, true, "Production dependency license texts are missing or unverified");
   assert.deepEqual(readJson(containedFile(licenseDirectory, "inventory.json")), licenses.report); assert.equal(checksum(containedFile(licenseDirectory, "inventory.json")), metadata.licenseInventorySha256);
   assert.deepEqual(readdirSync(licenseDirectory).sort(), ["inventory.json", ...licenses.files.keys()].sort(), "License inventory differs from the source build");
   for (const [name, data] of licenses.files) assert.equal(checksum(containedFile(licenseDirectory, name)), digest(data), "Embedded license differs from verified source");
@@ -149,38 +167,60 @@ async function inspectPayload(root: string, bundle: string, tag: string): Promis
   assert.equal(checksum(containedFile(resources, "PRACTIQ-LICENSE.txt")), checksum(join(root, "LICENSE")));
   for (const name of ["LICENSE", "LICENSES.chromium.html"]) assert.equal(checksum(containedFile(resources, name)), checksum(join(root, "app/node_modules/electron/dist", name)));
   for (const name of readdirSync(join(root, "app/desktop/licenses"))) assert.equal(checksum(containedFile(runtime, `.build/electron/app/desktop/resources/licenses/${name}`)), checksum(join(root, "app/desktop/licenses", name)));
-  command(root, "/usr/bin/codesign", ["--verify", "--deep", "--strict", bundle]);
+  if (windows) {
+    const { FuseState, FuseV1Options, getCurrentFuseWire } = await import("@electron/fuses");
+    const wire = await getCurrentFuseWire(containedFile(bundle, "PractiQ.exe"));
+    for (const name of Object.keys(metadata.fuses) as (keyof typeof FuseV1Options)[]) assert.equal(wire[FuseV1Options[name]], metadata.fuses[name] ? FuseState.ENABLE : FuseState.DISABLE);
+    assert.equal(checksum(containedFile(resources, "practiq.png")), checksum(join(root, "app/desktop/icons/practiq.png")));
+  } else command(root, "/usr/bin/codesign", ["--verify", "--deep", "--strict", bundle]);
   return { metadata, architecture, expectedNotices, licenseReport: licenses.report, files: auditPackage(bundle) };
 }
 async function withInstaller<T>(root: string, installer: string, action: (snapshot: string, bundle: string, sha256: string) => Promise<T>): Promise<T> {
-  assert.equal(process.platform, "darwin", "Installer staging requires macOS"); assert.ok(installer.endsWith(".dmg"));
-  const temporary = realpathSync(mkdtempSync(join(tmpdir(), "practiq-release-installer-"))), snapshot = join(temporary, "installer.dmg"), mount = join(temporary, "mount"), sha = checksum(installer); let mounted = false;
+  const windows = process.platform === "win32", extension = windows ? "zip" : "dmg";
+  assert.ok(windows || process.platform === "darwin", "Package staging requires macOS or Windows"); assert.ok(installer.endsWith(`.${extension}`));
+  const temporary = realpathSync(mkdtempSync(join(tmpdir(), "practiq-release-installer-"))), snapshot = join(temporary, `installer.${extension}`), mount = join(temporary, "mount"), sha = checksum(installer); let mounted = false;
   try {
-    copyChecked(installer, snapshot, sha); chmodSync(snapshot, 0o400); mkdirSync(mount); command(root, "/usr/bin/hdiutil", ["attach", "-readonly", "-nobrowse", "-mountpoint", mount, snapshot]); mounted = true;
-    const bundle = join(mount, "PractiQ.app"); assert.ok(lstatSync(bundle).isDirectory() && !lstatSync(bundle).isSymbolicLink());
+    copyChecked(installer, snapshot, sha);
+    let bundle: string;
+    if (windows) bundle = await expandWindowsPackage(snapshot, mount);
+    else {
+      chmodSync(snapshot, 0o400); mkdirSync(mount); command(root, "/usr/bin/hdiutil", ["attach", "-readonly", "-nobrowse", "-mountpoint", mount, snapshot]); mounted = true;
+      bundle = join(mount, "PractiQ.app");
+    }
+    assert.ok(lstatSync(bundle).isDirectory() && !lstatSync(bundle).isSymbolicLink());
     const fingerprint = payloadFingerprint(bundle), value = await action(snapshot, bundle, sha);
     assert.equal(payloadFingerprint(bundle), fingerprint, "Final package changed during validation"); assert.equal(checksum(snapshot), sha); assert.equal(checksum(installer), sha, "Installer changed during final handoff"); return value;
   } finally { if (mounted) command(root, "/usr/bin/hdiutil", ["detach", mount]); rmSync(temporary, { recursive: true, force: true }); }
 }
 export interface StageOptions { package?: string; output: string; reports: string; installer?: string; buildCandidate?: string; signingReport?: string; cleanMachineReport?: string; liveModelReport?: string; acceptance?: string }
 export async function stage(root: string, tag: string, options: StageOptions, environment = process.env): Promise<void> {
+  const windows = process.platform === "win32", os = windows ? "windows" : "macos";
   const checked = checkCandidate(root, tag), output = destination(options.output), reports = destination(options.reports);
-  fresh(output); fresh(reports); assert.ok(output !== reports && !output.startsWith(`${reports}/`) && !reports.startsWith(`${output}/`), "Asset and report directories must be separate");
+  fresh(output); fresh(reports); assert.ok(output !== reports && !output.startsWith(`${reports}${sep}`) && !reports.startsWith(`${output}${sep}`), "Asset and report directories must be separate");
   const restaged = Boolean(options.installer); assert.equal(Boolean(options.buildCandidate), restaged, "Final staging requires the original build candidate");
   assert.ok(!restaged || !options.package && !options.acceptance, "Final-byte staging cannot replace the original package acceptance");
   assert.ok(restaged || !options.signingReport && !options.cleanMachineReport && !options.liveModelReport, "External reports require explicit final-byte staging");
+  assert.ok(!windows || !restaged, "External final-byte staging supports macOS DMGs");
   let prior: Candidate | undefined, originalBytes: Buffer | undefined;
   if (restaged) { const path = resolve(options.buildCandidate!); prior = validateCandidate(dirname(path), tag, checked.commit, checked.components); original(prior); originalBytes = readBytes(containedFile(dirname(path), "candidate.json"), 1024 * 1024); assert.equal(resolve(path), resolve(dirname(path), "candidate.json")); }
   const packageDirectory = options.package ? realpathSync(options.package) : undefined, packageReport = packageDirectory ? readJson(containedFile(packageDirectory, "package-report.json")) : undefined;
   assert.ok(restaged || packageReport, "Pass a freshly checked Electron package directory");
-  const installer = options.installer ? resolve(options.installer) : containedFile(packageDirectory!, packageReport.dmg.file);
-  if (!restaged) { assert.equal(packageReport.noLegacyRuntime, true); assert.equal(packageReport.codesignVerified, true); assert.equal(packageReport.appVersion, checked.components.desktop); assert.equal(packageReport.dmg.file, `PractiQ-${checked.components.desktop}-${packageReport.arch}.dmg`); assert.equal(checksum(installer), packageReport.dmg.sha256); }
+  const receipt = packageReport?.[windows ? "portableZip" : "dmg"];
+  const installer = options.installer ? resolve(options.installer) : containedFile(packageDirectory!, receipt.file);
+  if (!restaged) {
+    assert.equal(packageReport.noLegacyRuntime, true); assert.equal(packageReport.appVersion, checked.components.desktop);
+    if (windows) assert.deepEqual([packageReport.platform, packageReport.signing, packageReport.arch], ["win32", "unsigned", "x64"]);
+    else assert.equal(packageReport.codesignVerified, true);
+    assert.equal(receipt.file, `PractiQ-${checked.components.desktop}-${windows ? "windows-" : ""}${packageReport.arch}.${windows ? "zip" : "dmg"}`);
+    assert.equal(checksum(installer), receipt.sha256);
+  }
   mkdirSync(reports, { recursive: true }); mkdirSync(dirname(output), { recursive: true }); const temporary = mkdtempSync(join(dirname(output), ".practiq-release-stage-")), staged = join(temporary, "assets");
   try {
-    command(join(root, "app"), "npm", ["run", "build"]); command(join(root, "app"), "npm", ["run", "desktop:build"]);
+    if (windows) assert.ok(environment.npm_execpath, "Run Windows staging through npm");
+    for (const script of ["build", "desktop:build"]) command(join(root, "app"), windows ? process.execPath : "npm", [...(windows ? [environment.npm_execpath!] : []), "run", script]);
     await withInstaller(root, installer, async (snapshot, bundle, sha256) => {
-      const verified = await inspectPayload(root, bundle, tag), resources = join(bundle, "Contents/Resources");
-      const candidate: Candidate = { packageSchemaVersion: SCHEMA, packageMode: MODE, tag, commit: checked.commit, components: checked.components, os: "macos", architecture: verified.architecture, file: `PractiQ_${checked.components.desktop}_macos_${verified.architecture}.dmg`, sha256, sizeBytes: statSync(snapshot).size, signing: restaged ? "unverified" : "unsigned", cleanMachineAcceptance: "pending", liveModelAcceptance: "pending", buildRun: prior?.buildRun ?? buildRun(`${environment.GITHUB_SERVER_URL}/${environment.GITHUB_REPOSITORY}/actions/runs/${environment.GITHUB_RUN_ID}`) };
+      const verified = await inspectPayload(root, bundle, tag, windows), resources = join(bundle, windows ? "resources" : "Contents/Resources");
+      const candidate: Candidate = { packageSchemaVersion: SCHEMA, packageMode: MODE, tag, commit: checked.commit, components: checked.components, os, architecture: verified.architecture, file: assetName(checked.components.desktop, os, verified.architecture), sha256, sizeBytes: statSync(snapshot).size, signing: restaged ? "unverified" : "unsigned", cleanMachineAcceptance: "pending", liveModelAcceptance: "pending", buildRun: prior?.buildRun ?? buildRun(`${environment.GITHUB_SERVER_URL}/${environment.GITHUB_REPOSITORY}/actions/runs/${environment.GITHUB_RUN_ID}`) };
       const accepted = restaged ? readJson(containedFile(dirname(options.buildCandidate!), "evidence/package-acceptance.json")) : readJson(options.acceptance ?? join(root, "app/.build/evidence/electron-package-acceptance.json")); validateAcceptance(accepted, prior ?? candidate);
       json(join(reports, "package-acceptance.json"), accepted); json(join(reports, "build-manifest.json"), verified.metadata); json(join(reports, "desktop-bundle.json"), { passed: true, files: verified.files, noLegacyRuntime: true, payloadSha256: payloadFingerprint(bundle) });
       json(join(reports, "desktop-version.json"), { passed: true, version: checked.components.desktop, architecture: verified.architecture }); json(join(reports, "licenses.json"), { passed: true, noticesSha256: checksum(containedFile(resources, "THIRD-PARTY.txt")), licenseInventorySha256: verified.metadata.licenseInventorySha256, packages: verified.licenseReport.packages.length }); copyChecked(containedFile(resources, "DEPENDENCY-LICENSES/inventory.json"), join(reports, "npm-license-inventory.json"));
@@ -207,35 +247,47 @@ export async function stage(root: string, tag: string, options: StageOptions, en
 
 export async function assemble(root: string, tag: string, inputs: string, outputPath: string, changes?: string): Promise<void> {
   const checked = checkCandidate(root, tag), source = realpathSync(inputs), output = destination(outputPath); fresh(output);
-  assert.ok(!output.startsWith(`${source}/`) && !source.startsWith(`${output}/`) && output !== source, "Release output must be separate from its inputs");
+  assert.ok(!output.startsWith(`${source}${sep}`) && !source.startsWith(`${output}${sep}`) && output !== source, "Release output must be separate from its inputs");
   const folders = readdirSync(source, { withFileTypes: true }).filter(entry => entry.name.startsWith("release-") && existsSync(join(source, entry.name, "candidate.json")));
-  assert.equal(folders.length, 1, "Exactly one gated macOS candidate is required"); assert.ok(folders[0].isDirectory() && !folders[0].isSymbolicLink());
-  const folder = join(source, folders[0].name), candidate = validateCandidate(folder, tag, checked.commit, checked.components), raw = readBytes(containedFile(folder, "candidate.json"), 1024 * 1024);
-  assert.deepEqual(strictJson(raw), candidate, "Candidate changed during assembly");
+  assert.deepEqual(folders.map(entry => entry.name).sort(), ["release-Windows", "release-macOS"], "Exactly one gated macOS and one gated Windows candidate are required");
+  const candidates = [["macos", "release-macOS"], ["windows", "release-Windows"]].map(([os, name]) => {
+    assert.ok(folders.find(entry => entry.name === name)?.isDirectory());
+    const folder = join(source, name), candidate = validateCandidate(folder, tag, checked.commit, checked.components), raw = readBytes(containedFile(folder, "candidate.json"), 1024 * 1024);
+    assert.equal(candidate.os, os); assert.deepEqual(strictJson(raw), candidate, "Candidate changed during assembly");
+    return { os, folder, candidate, raw };
+  });
   const { readAiReports } = await import("./release-reports.ts"), reports = await readAiReports(join(source, "embedded-ai-checks"), [[root, "<source>"], [source, "<inputs>"], [homedir(), "<home>"]]);
   const { writeZip, BoundedZip } = await import(new URL("../.build/electron/app/desktop/zip.js", import.meta.url).href) as typeof import("../desktop/zip.js");
-  const entries: import("../desktop/zip.js").ZipSource[] = [{ name: "macos/candidate.json", data: raw }], expected: Record<string, string> = { "macos/candidate.json": digest(raw) };
-  for (const [name, sha] of Object.entries(candidate.evidence)) {
-    const path = containedFile(folder, name); entries.push({ name: `macos/${name}`, path, sha256: normalizedDigest(sha), size: statSync(path).size }); expected[`macos/${name}`] = normalizedDigest(sha);
+  const entries: import("../desktop/zip.js").ZipSource[] = [], expected: Record<string, string> = {};
+  for (const { os, folder, candidate, raw } of candidates) {
+    entries.push({ name: `${os}/candidate.json`, data: raw }); expected[`${os}/candidate.json`] = digest(raw);
+    for (const [name, sha] of Object.entries(candidate.evidence)) {
+      const path = containedFile(folder, name); entries.push({ name: `${os}/${name}`, path, sha256: normalizedDigest(sha), size: statSync(path).size }); expected[`${os}/${name}`] = normalizedDigest(sha);
+    }
   }
   for (const report of reports) { entries.push({ name: report.name, data: report.data }); expected[report.name] = digest(report.data); }
   mkdirSync(dirname(output), { recursive: true }); const temporary = mkdtempSync(join(dirname(output), ".practiq-release-assemble-")), staged = join(temporary, "assets"); mkdirSync(staged);
   try {
-    copyChecked(containedFile(folder, candidate.file), join(staged, candidate.file), candidate.sha256);
+    for (const { folder, candidate } of candidates) copyChecked(containedFile(folder, candidate.file), join(staged, candidate.file), candidate.sha256);
     const archivePath = join(staged, "release-evidence.zip"), limit = 64 * 1024 * 1024;
     await writeZip(archivePath, entries, limit); const archive = await BoundedZip.open(archivePath, { archiveBytes: limit, expandedBytes: limit, entries: 512 });
     try { assert.deepEqual([...archive.entries.keys()].sort(), Object.keys(expected).sort(), "Evidence archive inventory changed"); for (const [name, sha] of Object.entries(expected)) assert.equal(digest(await archive.read(name, 16 * 1024 * 1024)), sha, "Evidence archive bytes changed"); } finally { archive.close(); }
-    const manifest = { packageSchemaVersion: SCHEMA, packageMode: MODE, componentScope: "Single Electron application with embedded AI workers", ...checked, publicationStatus: "draft; independent signing and manual/live acceptance pending", assets: [candidate], evidenceSha256: checksum(archivePath), embeddedAiReports: reports.map(report => ({ file: report.name, sourceSha256: report.sourceSha256, publicSha256: digest(report.data), sanitized: true })) };
+    const manifest = { packageSchemaVersion: SCHEMA, packageMode: MODE, componentScope: "Single Electron application with embedded AI workers", ...checked, publicationStatus: "draft; independent signing and manual/live acceptance pending", assets: candidates.map(({ candidate }) => candidate), evidenceSha256: checksum(archivePath), embeddedAiReports: reports.map(report => ({ file: report.name, sourceSha256: report.sourceSha256, publicSha256: digest(report.data), sanitized: true })) };
     json(join(staged, "release-manifest.json"), manifest);
     writeFileSync(join(staged, "SHA256SUMS.txt"), readdirSync(staged).sort().map(name => `${checksum(containedFile(staged, name))}  ${name}\n`).join(""), { flag: "wx" });
     const decode = (path: string) => new TextDecoder("utf-8", { fatal: true }).decode(readBytes(path, 1024 * 1024));
-    const substitutions = { TAG: tag, VERSION: checked.components.desktop, COMMIT: checked.commit, ARCH: candidate.architecture, CHANGES: changes ? decode(changes) : "<!-- Add reviewed user-visible additions and fixes. -->" };
+    const substitutions = { TAG: tag, VERSION: checked.components.desktop, COMMIT: checked.commit, ARCH: candidates[0].candidate.architecture, CHANGES: changes ? decode(changes) : "<!-- Add reviewed user-visible additions and fixes. -->" };
     let notes = decode(join(root, ".github/RELEASE_TEMPLATE.md"));
     notes = notes.replace(/@([A-Z_]+)@/g, (placeholder, key: string) => { assert.ok(Object.hasOwn(substitutions, key), `Unknown release template field: ${placeholder}`); return substitutions[key as keyof typeof substitutions]; });
     writeFileSync(join(staged, "RELEASE_NOTES.md"), notes, { flag: "wx" });
-    assert.deepEqual(checkCandidate(root, tag), checked, "Candidate source changed during assembly"); assert.equal(checksum(containedFile(folder, "candidate.json")), digest(raw)); validateCandidate(folder, tag, checked.commit, checked.components);
+    assert.deepEqual(checkCandidate(root, tag), checked, "Candidate source changed during assembly");
+    for (const { folder, candidate, raw } of candidates) {
+      assert.equal(checksum(containedFile(folder, "candidate.json")), digest(raw));
+      validateCandidate(folder, tag, checked.commit, checked.components);
+      assert.equal(checksum(join(staged, candidate.file)), candidate.sha256);
+    }
     for (const report of reports) assert.equal(checksum(containedFile(join(source, "embedded-ai-checks"), report.name.slice("embedded-ai/".length))), report.sourceSha256, "CI evidence changed during assembly");
-    assert.equal(checksum(join(staged, candidate.file)), candidate.sha256); fresh(output); renameSync(staged, output);
+    fresh(output); renameSync(staged, output);
   } finally { rmSync(temporary, { recursive: true, force: true }); }
 }
 

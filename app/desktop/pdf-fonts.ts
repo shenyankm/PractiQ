@@ -1,5 +1,5 @@
 import { closeSync, constants, fstatSync, openSync, readSync, readdirSync, realpathSync, statSync, type Dirent } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 import { hash } from "./assets.js";
 import { invariant } from "./errors.js";
 
@@ -7,13 +7,15 @@ export interface PdfFont { path: string; name: string; size: number; stamp: stri
 const stamp = (stat: NonNullable<ReturnType<typeof statSync>>) => `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`;
 /** Only trusted OS font roots are visible to PDFium's otherwise in-memory filesystem. */
 export function pdfFonts(): { fonts: PdfFont[]; digest: string } {
-  invariant(process.platform === "darwin", "PDF_ENGINE_INVALID", "PDF rendering requires the supported macOS desktop");
-  const fonts: PdfFont[] = [];
-  for (const root of ["/System/Library/Fonts", "/Library/Fonts"]) {
+  const windows = process.platform === "win32", systemRoot = process.env.SystemRoot;
+  invariant(process.platform === "darwin" || windows && systemRoot && isAbsolute(systemRoot) && /^[A-Z]:[\\/]/i.test(systemRoot), "PDF_ENGINE_INVALID", "PDF rendering requires supported system fonts");
+  const fonts: PdfFont[] = [], roots = windows ? [join(systemRoot!, "Fonts")] : ["/System/Library/Fonts", "/Library/Fonts"];
+  if (windows) invariant(!relative(roots[0], realpathSync(roots[0])), "PDF_FONT_UNAVAILABLE", "Windows system fonts cannot be redirected");
+  for (const root of roots) {
     let entries: Dirent[]; try { entries = readdirSync(root, { recursive: true, withFileTypes: true }); } catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") continue; throw error; }
     for (const entry of entries.sort((a, b) => `${a.parentPath}/${a.name}` < `${b.parentPath}/${b.name}` ? -1 : `${a.parentPath}/${a.name}` > `${b.parentPath}/${b.name}` ? 1 : 0)) {
       if (!/\.(ttf|ttc|otf|otc|dfont)$/i.test(entry.name)) continue;
-      try { const path = realpathSync(join(entry.parentPath, entry.name)); if (!["/System/Library/Fonts/", "/Library/Fonts/"].some(root => path.startsWith(root))) continue; const stat = statSync(path); if (stat.isFile() && stat.size > 0 && stat.size <= 256 * 1024 * 1024) fonts.push({ path, name: `${fonts.length}${entry.name.slice(entry.name.lastIndexOf("."))}`, size: stat.size, stamp: stamp(stat) }); } catch { /* Optional OS font assets can be absent. */ }
+      try { const path = realpathSync(join(entry.parentPath, entry.name)); if (!roots.some(root => { const name = relative(root, path); return name && name !== ".." && !name.startsWith(`..${sep}`) && !isAbsolute(name); })) continue; const stat = statSync(path); if (stat.isFile() && stat.size > 0 && stat.size <= 256 * 1024 * 1024) fonts.push({ path, name: `${fonts.length}${entry.name.slice(entry.name.lastIndexOf("."))}`, size: stat.size, stamp: stamp(stat) }); } catch { /* Optional OS font assets can be absent. */ }
     }
   }
   invariant(fonts.length > 0 && fonts.length <= 2048, "PDF_FONT_UNAVAILABLE", "Trusted system fonts are unavailable"); return { fonts, digest: hash(JSON.stringify(fonts)) };

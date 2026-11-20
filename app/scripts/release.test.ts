@@ -9,12 +9,27 @@ import { fileURLToPath } from "node:url";
 import { assemble, checkExisting, main, stage, validateAcceptance, validateCandidate } from "./release.ts";
 import { canonical, checksum, digest, readJson } from "./release-data.ts";
 import { publicXml, readAiReports } from "./release-reports.ts";
+import { expandWindowsPackage, writeWindowsPackage } from "./release-windows.ts";
 
 const projectRoot = fileURLToPath(new URL("../../", import.meta.url)), tag = "v0.2.2";
 type Value = Record<string, any>;
 const json = (path: string, value: unknown) => writeFileSync(path, JSON.stringify(value, null, 2) + "\n");
 function accepted(candidate: Value): Value {
   return { version: candidate.components.desktop, arch: candidate.architecture, dmgSha256: candidate.sha256, packaged: true, codesignVerified: true, sourceIndependentInstall: true, isolatedUserData: true, systemOnlyPath: true, sandbox: true, practice: true, backupRestore: true, restart: true, corePassed: true, credentialsEncrypted: true, credentialsExcludedFromBackup: true, credentialsDecryptAfterRestart: true, paidCalls: 0, rendererHttpRequests: 0, codecs: ["0", "8", "12", "14", "93"], pdfPages: 2 };
+}
+function windowsFixture(inputs: string, mac: Value) {
+  const folder = join(inputs, "release-Windows"), macFolder = join(inputs, "release-macOS");
+  mkdirSync(folder); cpSync(join(macFolder, "evidence"), join(folder, "evidence"), { recursive: true });
+  const file = "PractiQ_0.2.2_windows_x64.zip"; writeFileSync(join(folder, file), "Synthetic Windows package bytes");
+  const candidate = { ...mac, os: "windows", architecture: "x64", file, sha256: checksum(join(folder, file)), sizeBytes: readFileSync(join(folder, file)).length };
+  const evidence = (name: string) => join(folder, "evidence", name);
+  const { notarized, minimumMacOS, hardenedRuntime, entitlements, ...common } = readJson(evidence("build-manifest.json"));
+  json(evidence("build-manifest.json"), { ...common, platform: "win32", arch: "x64", signing: "unsigned" });
+  const { dmgSha256, codesignVerified, ...acceptance } = accepted(candidate);
+  json(evidence("package-acceptance.json"), { ...acceptance, zipSha256: candidate.sha256, executableX64: true });
+  json(evidence("desktop-version.json"), { passed: true, version: "0.2.2", architecture: "x64" });
+  json(join(folder, "candidate.json"), { ...candidate, evidence: Object.fromEntries(Object.keys(mac.evidence).map(name => [name, checksum(join(folder, name))])) });
+  return { folder, candidate: readJson(join(folder, "candidate.json")) };
 }
 function ci(folder: string) {
   const reports: Record<string, string> = {
@@ -40,28 +55,55 @@ async function fixture(action: (value: { root: string; folder: string; inputs: s
     json(join(evidence, "npm-license-inventory.json"), { version: 1, passed: true, packages: [{ name: "example", version: "1.0.0" }] });
     const manifest = readJson(join(evidence, "build-manifest.json")), licenseReport = readJson(join(evidence, "licenses.json")); manifest.licenseInventorySha256 = licenseReport.licenseInventorySha256 = checksum(join(evidence, "npm-license-inventory.json")); json(join(evidence, "build-manifest.json"), manifest); json(join(evidence, "licenses.json"), licenseReport);
     const save = () => { candidate.evidence = Object.fromEntries(Object.keys(candidate.evidence).length ? Object.keys(candidate.evidence).map(name => [name, checksum(join(folder, name))]) : ["build-manifest.json", "desktop-bundle.json", "desktop-version.json", "licenses.json", "npm-license-inventory.json", "notices-match.json", "package-acceptance.json", "THIRD-PARTY.txt", "expected-THIRD-PARTY.txt"].map(name => [`evidence/${name}`, checksum(join(evidence, name))])); json(join(folder, "candidate.json"), candidate); };
-    save(); ci(join(inputs, "embedded-ai-checks")); await action({ root, inputs, folder, candidate, save });
+    save(); windowsFixture(inputs, candidate); ci(join(inputs, "embedded-ai-checks")); await action({ root, inputs, folder, candidate, save });
   } finally { rmSync(root, { recursive: true, force: true }); }
 }
 
 test("assembly archives exact candidate/evidence bytes, sanitizes CI reports and stays a draft", () => fixture(async ({ root, inputs, folder, candidate }) => {
   const yaml = createRequire(new URL("../package.json", import.meta.url))("js-yaml"), workflow = yaml.load(readFileSync(join(projectRoot, ".github/workflows/release.yml"), "utf8"));
   const downloads = workflow.jobs.draft.steps.filter((step: Value) => step.uses?.startsWith("actions/download-artifact@"));
-  assert.deepEqual(downloads.map((step: Value) => step.with.name), ["release-macOS", "embedded-ai-checks"]);
+  assert.deepEqual(downloads.map((step: Value) => step.with.name), ["release-macOS", "release-Windows", "embedded-ai-checks"]);
   for (const step of downloads) cpSync(join(inputs, step.with.name), join(root, step.with.path), { recursive: true });
   const downloaded = join(root, "app/.build/release-inputs"), output = join(root, ".work/assets"); await assemble(root, tag, downloaded, output);
-  assert.deepEqual(readJson(join(output, "release-manifest.json")).assets, [candidate]); assert.match(readJson(join(output, "release-manifest.json")).publicationStatus, /^draft;/);
-  assert.equal(checksum(join(output, candidate.file)), candidate.sha256);
+  const windows = readJson(join(inputs, "release-Windows/candidate.json"));
+  assert.deepEqual(readJson(join(output, "release-manifest.json")).assets, [candidate, windows]); assert.match(readJson(join(output, "release-manifest.json")).publicationStatus, /^draft;/);
+  for (const asset of [candidate, windows]) assert.equal(checksum(join(output, asset.file)), asset.sha256);
   const { BoundedZip } = await import(new URL("../.build/electron/app/desktop/zip.js", import.meta.url).href) as typeof import("../desktop/zip.js");
   const zip = await BoundedZip.open(join(output, "release-evidence.zip"), { archiveBytes: 64 * 1024 * 1024, expandedBytes: 64 * 1024 * 1024, entries: 512 });
   try {
     assert.deepEqual(await zip.read("macos/candidate.json", 1024 * 1024), readFileSync(join(folder, "candidate.json")));
+    assert.deepEqual(await zip.read("windows/candidate.json", 1024 * 1024), readFileSync(join(inputs, "release-Windows/candidate.json")));
     for (const [name, hash] of Object.entries(candidate.evidence)) assert.equal(digest(await zip.read(`macos/${name}`, 1024 * 1024)), hash);
     for (const name of [...zip.entries.keys()].filter(name => name.startsWith("embedded-ai/"))) { const text = (await zip.read(name, 16 * 1024 * 1024)).toString("utf8"); assert.doesNotMatch(text, /private|private-host/); if (name.endsWith(".xml")) await publicXml(text, name.endsWith("desktop.xml") ? "testsuites" : "coverage"); }
   } finally { zip.close(); }
   for (const line of readFileSync(join(output, "SHA256SUMS.txt"), "utf8").trim().split("\n")) { const [hash, name] = line.split("  "); assert.equal(checksum(join(output, name)), hash); }
   const notes = readFileSync(join(output, "RELEASE_NOTES.md"), "utf8"); assert.doesNotMatch(notes, /@[A-Z_]+@|\[x\]/); assert.ok(notes.includes(candidate.commit));
   await assert.rejects(assemble(root, tag, inputs, output)); assert.equal(checksum(join(output, candidate.file)), candidate.sha256);
+}));
+
+test("assembly rejects missing or changed Windows packages", () => fixture(async ({ root, inputs }) => {
+  const folder = join(inputs, "release-Windows"), { file } = readJson(join(folder, "candidate.json"));
+  const output = join(root, ".work/no-release");
+  writeFileSync(join(folder, file), "Changed Windows package");
+  await assert.rejects(assemble(root, tag, inputs, output));
+  rmSync(join(folder, "candidate.json"));
+  await assert.rejects(assemble(root, tag, inputs, output), /gated Windows candidate/);
+  assert.equal(existsSync(output), false);
+}));
+
+test("portable ZIP extracts verified files and rejects Windows path aliases", () => fixture(async ({ root }) => {
+  const payload = join(root, ".work/payload"), asset = join(root, ".work/portable.zip"), extraction = join(root, ".work/extracted");
+  mkdirSync(join(payload, "resources"), { recursive: true });
+  writeFileSync(join(payload, "resources/app.asar"), "archive bytes");
+  await writeWindowsPackage(payload, asset);
+  assert.equal(readFileSync(join(await expandWindowsPackage(asset, extraction), "resources/app.asar"), "utf8"), "archive bytes");
+  const { writeZip } = await import(new URL("../.build/electron/app/desktop/zip.js", import.meta.url).href) as typeof import("../desktop/zip.js");
+  for (const [index, names] of [["PractiQ/NUL.txt"], ["PractiQ/a", "PractiQ/A"], ["PractiQ/a:alias"]].entries()) {
+    const bad = join(root, `.work/bad-${index}.zip`), rejected = join(root, ".work/rejected-extraction");
+    await writeZip(bad, names.map(name => ({ name, data: Buffer.from("test") })), 65536);
+    await assert.rejects(expandWindowsPackage(bad, rejected), /Unsafe Windows package entries/);
+    assert.equal(existsSync(rejected), false);
+  }
 }));
 
 for (const mutation of ["commit", "components", "schema", "mode", "architecture", "file", "buildRun", "asset", "size", "evidence", "gate", "missingGate", "notice", "version", "licenseHash", "acceptance", "duplicate", "link"])

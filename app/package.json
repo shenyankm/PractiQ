@@ -1,6 +1,6 @@
 {
   "name": "practiq-desktop",
-  "version": "0.2.2",
+  "version": "0.3.0-beta.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -23,6 +23,7 @@
     "test:preview": "playwright test --project preview",
     "test:rich-content": "playwright test --project rich-content",
     "package:electron": "npm run desktop:install && node scripts/package-electron.ts",
+    "release:stage": "node scripts/release.ts stage",
     "verify:existing-data": "node scripts/verify-existing-data.ts",
     "test:package": "node scripts/verify-electron-package.ts",
     "check:packaging": "tsc -p scripts/tsconfig.packaging.json"

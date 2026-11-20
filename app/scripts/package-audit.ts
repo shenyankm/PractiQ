@@ -3,7 +3,7 @@ import { parse } from "@babel/parser";
 import type { Node } from "@babel/types";
 import { listPackage, uncache } from "@electron/asar";
 import { existsSync, lstatSync, readFileSync, readdirSync, readlinkSync, realpathSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 const forbidden = /^(?:(?:lib)?python(?:[0-9._-].*)?|soffice(?:\.exe)?|libreoffice(?:\.app)?|postgres(?:ql|\.exe)?|pg_ctl|rabbitmq(?:-server)?|erl|practiq-ai(?:\.exe)?|base_library\.zip)$/i;
 /** A packaged runtime never ships an interpreter, converter, server or environment file, packed or not. */
@@ -29,16 +29,36 @@ export function runtimeDependencies(root: string, project: Record<string, any>) 
   while (pending.length) {
     const path = pending.pop()!; if (seen.has(path)) continue; seen.add(path);
     for (const name of moduleNames(readFileSync(path, "utf8"))) {
-      if (name.startsWith(".")) { const local = resolve(dirname(path), name); assert.ok(local.startsWith(`${directory}/`) && existsSync(local), "Compiled dependency is missing or outside the runtime"); if (local.endsWith(".js")) pending.push(local); }
+      if (name.startsWith(".")) { const local = resolve(dirname(path), name); assert.ok(local.startsWith(`${directory}${sep}`) && existsSync(local), "Compiled dependency is missing or outside the runtime"); if (local.endsWith(".js")) pending.push(local); }
       else if (!name.startsWith("node:") && name !== "electron") packages.add(name.startsWith("@") ? name.split("/").slice(0, 2).join("/") : name.split("/")[0]);
     }
   }
   return Object.fromEntries([...packages].sort().map(name => { assert.ok(project.dependencies[name], `Declare runtime dependency ${name}`); return [name, project.dependencies[name]]; }));
 }
-export function optionalOtherPlatform(locked: Record<string, any>, architecture: string): boolean {
+export function optionalOtherPlatform(locked: Record<string, any>, architecture: string, platform = "darwin"): boolean {
   assert.ok(["arm64", "x64"].includes(architecture));
   const supports = (values: unknown, target: string) => { if (values === undefined) return true; assert.ok(Array.isArray(values) && values.every(value => typeof value === "string")); return !values.includes(`!${target}`) && (!values.some(value => !value.startsWith("!")) || values.includes(target) || values.includes("any")); };
-  const os = supports(locked.os, "darwin"), cpu = supports(locked.cpu, architecture); return locked.optional === true && (!os || !cpu);
+  const os = supports(locked.os, platform), cpu = supports(locked.cpu, architecture); return locked.optional === true && (!os || !cpu);
+}
+/** An optional dependency can be unreachable when its parent is for another platform. */
+export function targetLockPaths(packages: Record<string, any>, architecture: string, platform: string): Set<string> {
+  const reachable = new Set<string>(), pending = [""];
+  while (pending.length) {
+    const path = pending.pop()!;
+    if (reachable.has(path) || optionalOtherPlatform(packages[path], architecture, platform)) continue;
+    reachable.add(path);
+    const { dependencies, optionalDependencies, peerDependencies } = packages[path];
+    for (const name of Object.keys({ ...dependencies, ...optionalDependencies, ...peerDependencies })) {
+      let parent = path;
+      for (;;) {
+        const candidate = `${parent ? parent + "/" : ""}node_modules/${name}`;
+        if (Object.hasOwn(packages, candidate)) { pending.push(candidate); break; }
+        if (!parent) break;
+        parent = parent.slice(0, Math.max(0, parent.lastIndexOf("/node_modules/")));
+      }
+    }
+  }
+  return reachable;
 }
 export function auditPackage(bundle: string) {
   assert.ok(lstatSync(bundle).isDirectory() && !lstatSync(bundle).isSymbolicLink(), "Package root must be a real directory");
@@ -49,7 +69,7 @@ export function auditPackage(bundle: string) {
     for (const name of readdirSync(directory)) {
       const path = join(directory, name), stat = lstatSync(path);
       assertShippedName(name, relative(bundle, path));
-      if (stat.isSymbolicLink()) { assert.ok(!isAbsolute(readlinkSync(path)) && realpathSync(path).startsWith(`${realpathSync(bundle)}/`), "Package link escapes the app bundle"); continue; }
+      if (stat.isSymbolicLink()) { assert.ok(!isAbsolute(readlinkSync(path)) && realpathSync(path).startsWith(`${realpathSync(bundle)}${sep}`), "Package link escapes the app bundle"); continue; }
       if (stat.isDirectory()) files += audit(path);
       else if (stat.isFile() && name.endsWith(".asar")) files += 1 + audited(path);
       else { assert.ok(stat.isFile(), "Unsupported package file type"); files++; }

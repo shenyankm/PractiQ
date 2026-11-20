@@ -1,6 +1,6 @@
 # Install PractiQ
 
-The current source builds one macOS Electron application with embedded Node AI
+The current source builds one Electron application for macOS and Windows with embedded Node AI
 workers, LangGraph.js, SQLite and local files. No independent service, Python,
 Rust, PostgreSQL, RabbitMQ or LibreOffice installation is required. Historical
 service runtime sources are retired. Frozen fixtures, Git history and retained
@@ -15,7 +15,7 @@ assuming these source instructions describe an older package.
 
 | Item | Requirement |
 | --- | --- |
-| Desktop | macOS 14+ on Apple Silicon; other targets are not accepted |
+| Desktop | macOS 14+ on Apple Silicon or Windows 11 x64 preview |
 | Node.js | 22.18+ within 22.x, or 24.11+ |
 | macOS tools | Command Line Tools providing the system signing/package utilities |
 | Network | Needed to install locked npm dependencies and Electron; explicit AI actions and playback addresses also need network access |
@@ -59,6 +59,28 @@ and extra `file://` privileges, load the app only from the archive,
 and expose no DevTools or reload entry; the window frame and a bounded
 `logs/main.log` are kept under the app's user-data directory, outside `v4/`.
 
+### Windows x64 preview
+
+Download the Windows ZIP when it is listed in a candidate's GitHub Release.
+Extract the entire archive to a local NTFS folder and launch
+`PractiQ/PractiQ.exe` from the extracted folder. The preview executable is
+unsigned and may trigger SmartScreen. Replacing the extracted application
+folder leaves the study profile under `%APPDATA%\PractiQ\v4`.
+
+To build and verify on Windows, run from `app/` in PowerShell:
+
+```powershell
+npm ci
+npm run package:electron -- .build/packages/windows-check
+npm run test:package -- .build/packages/windows-check
+```
+
+Use a fresh output directory. Verification launches the exact ZIP contents
+from a temporary folder with isolated user data and substituted file dialogs.
+It checks offline practice, backup and restore, PDFium, archive codecs and DPAPI
+credential decryption after restart. Windows does not explicitly flush
+directory metadata, so this does not establish sudden power-loss durability.
+
 ## Confirm offline practice works
 
 Run `make dev` or open the packaged app, then:
@@ -70,15 +92,16 @@ Run `make dev` or open the packaged app, then:
 
 This needs no provider keys or model calls. The example omits recordings;
 listening questions need a QR-derived or manually supplied playback address.
-Historical ZIPs, recordings and version-4/schema-11 learning backups remain
-supported. Older database schemas are rejected without replacement.
+Historical ZIPs and version-4/schema-11 learning backups remain supported.
+Use macOS for bank and backup operations that must validate legacy recordings.
+Older database schemas are rejected without replacement.
 
 ## Configure optional AI import and grading
 
 Open **Settings → AI model and recognition** and save the model provider,
 endpoint, model ID/API key and Tencent Secret ID/Secret Key. Import and explicit
-grading share this configuration. Current credentials use macOS-protected
-encrypted local storage; learning backups exclude credentials and AI task state.
+grading share this configuration. Credentials use Keychain on macOS and DPAPI
+on Windows. Learning backups exclude credentials and AI task state.
 Preserve old `.env` files and Keychain namespaces; they are not imported or
 deleted automatically.
 

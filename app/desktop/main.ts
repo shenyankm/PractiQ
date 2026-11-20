@@ -37,6 +37,7 @@ app.on("ready", () => trace("ready"));
 
 const contentPolicy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-src 'none'; frame-ancestors 'none'";
 app.setName("PractiQ");
+if (process.platform === "win32") app.setAppUserModelId("com.practiq.desktop");
 // Every renderer, including one created later, starts sandboxed and without Node integration.
 app.enableSandbox();
 protocol.registerSchemesAsPrivileged([{ scheme: "practiq", privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
@@ -93,6 +94,7 @@ function createWindow() {
     title: "PractiQ", width: restored?.width ?? 1440, height: restored?.height ?? 960,
     minWidth: WINDOW_MINIMUM.width, minHeight: WINDOW_MINIMUM.height,
     backgroundColor: "#090d15",
+    ...(process.platform === "win32" && app.isPackaged ? { icon: join(process.resourcesPath, "practiq.png") } : {}),
     webPreferences: {
       preload: join(base, "preload.cjs"), contextIsolation: true, sandbox: true, nodeIntegration: false, webSecurity: true,
       // A packaged window exposes neither developer tools nor a reload entry to its content.
@@ -151,7 +153,7 @@ else {
   trace("database-client");
   const aiRuntime = () => { invariant(!shuttingDown, "AI_RUNTIME_UNAVAILABLE", "AI runtime is closing"); return ai ??= new AiClient(directory); };
   const aiSettings = new AiSettings(directory, {
-    isAsyncEncryptionAvailable: () => process.platform === "darwin" ? safeStorage.isAsyncEncryptionAvailable() : Promise.resolve(false),
+    isAsyncEncryptionAvailable: () => ["darwin", "win32"].includes(process.platform) ? safeStorage.isAsyncEncryptionAvailable() : Promise.resolve(false),
     encryptStringAsync: value => safeStorage.encryptStringAsync(value),
     decryptStringAsync: value => safeStorage.decryptStringAsync(value),
   });

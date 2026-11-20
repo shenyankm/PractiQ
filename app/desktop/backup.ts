@@ -1,6 +1,6 @@
 import { backup, DatabaseSync } from "node:sqlite";
 import { lstatSync, mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync } from "node:fs";
-import { basename, dirname, isAbsolute, join, relative } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, sep } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { PracticeStore } from "./store.js";
 import { Assets, ASSET_LIMIT, hash } from "./assets.js";
@@ -32,7 +32,7 @@ function resources(db: DatabaseSync): Resource[] {
 function settingsBackup(value: unknown): LegacyConfig | null {
   const settings = fields(value, ["version", "config"]); invariant(settings.version === 1 && Object.hasOwn(settings, "config"), "LOCAL_BACKUP_VERSION_UNSUPPORTED", "Unsupported grading settings backup"); return validateLegacyConfig(settings.config);
 }
-function isWithin(directory: string, path: string): boolean { const result = relative(directory, path); return result === "" || !result.startsWith("../") && !isAbsolute(result); }
+function isWithin(directory: string, path: string): boolean { const result = relative(directory, path); return result !== ".." && !result.startsWith(`..${sep}`) && !isAbsolute(result); }
 
 export class Backups {
   constructor(readonly store: PracticeStore) {}

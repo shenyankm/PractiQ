@@ -5,36 +5,55 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { DatabaseSync } from "node:sqlite";
-import { createHash } from "node:crypto";
 import { stripTypeScriptTypes } from "node:module";
 import { FuseState, FuseV1Options, getCurrentFuseWire } from "@electron/fuses";
-import { version } from "./release-data.ts";
+import { checksum, containedFile, version } from "./release-data.ts";
+import { checkWindowsExecutable, expandWindowsPackage } from "./release-windows.ts";
 import type { DesktopBridge } from "../desktop/bridge.js";
 import type { WebPreferences } from "electron";
 declare global { interface Window { practiq?: DesktopBridge } }
 
 assert.ok(process.argv[2], "Pass the package output directory");
 const release = realpathSync(process.argv[2]), report = JSON.parse(readFileSync(join(release, "package-report.json"), "utf8")), temporary = realpathSync(mkdtempSync(join(tmpdir(), "practiq-installed-"))), mount = join(temporary, "mount"), installed = join(temporary, "installed"), profile = join(temporary, "profile"), evidence = resolve(".build/evidence");
-version(`v${report.appVersion}`); assert.ok(["arm64", "x64"].includes(report.arch)); assert.equal(report.dmg.file, `PractiQ-${report.appVersion}-${report.arch}.dmg`);
-assert.equal(createHash("sha256").update(readFileSync(join(release, report.dmg.file))).digest("hex"), report.dmg.sha256, "DMG checksum differs from its build receipt");
-mkdirSync(mount); mkdirSync(installed); mkdirSync(evidence, { recursive: true }); let mounted = false, instance: Awaited<ReturnType<typeof electron.launch>> | undefined;
+const windows = process.platform === "win32", asset = windows ? report.portableZip : report.dmg;
+version(`v${report.appVersion}`); assert.ok(windows ? report.arch === "x64" && report.platform === "win32" : ["arm64", "x64"].includes(report.arch));
+assert.equal(asset.file, `PractiQ-${report.appVersion}-${windows ? "windows-" : ""}${report.arch}.${windows ? "zip" : "dmg"}`);
+const packagePath = containedFile(release, asset.file);
+assert.equal(checksum(packagePath), asset.sha256, "Package checksum differs from its build receipt");
+mkdirSync(evidence, { recursive: true }); let mounted = false, instance: Awaited<ReturnType<typeof electron.launch>> | undefined;
 const oldProfile = join(profile, "electron-migration", "v4"), oldBytes = Buffer.from("Historical prototype state must remain unopened and unchanged");
 mkdirSync(oldProfile, { recursive: true }); writeFileSync(join(oldProfile, "practiq.sqlite"), oldBytes);
 const run = (command: string, args: string[]) => { const result = spawnSync(command, args, { encoding: "utf8", timeout: 30000 }); if (result.error) throw result.error; assert.equal(result.status, 0, `${command} failed: ${result.stderr}`); };
 let stage = "startup";
-const watchdog = setTimeout(() => { console.error(`Package check timed out during ${stage}; macOS may require Keychain approval for a new signature.`); instance?.process().kill("SIGTERM"); const force = setTimeout(() => { const process = instance?.process(); if (process && process.exitCode === null && process.signalCode === null) process.kill("SIGKILL"); }, 2000); force.unref(); }, 120000); watchdog.unref();
+const watchdog = setTimeout(() => { console.error(`Package check timed out during ${stage}${windows ? "." : "; macOS may require Keychain approval for a new signature."}`); instance?.process().kill("SIGTERM"); const force = setTimeout(() => { const process = instance?.process(); if (process && process.exitCode === null && process.signalCode === null) process.kill("SIGKILL"); }, 2000); force.unref(); }, 120000); watchdog.unref();
 const environment: Record<string, string> = {};
 for (const [key, value] of Object.entries(process.env)) if (value !== undefined && !["ELECTRON_RUN_AS_NODE", "PRACTIQ_DATA_DIR", "PRACTIQ_DEV_URL"].includes(key)) environment[key] = value;
-environment.PATH = "/usr/bin:/bin:/usr/sbin:/sbin";
-const launch = () => electron.launch({ executablePath: join(installed, "PractiQ.app/Contents/MacOS/PractiQ"), cwd: temporary, args: [`--user-data-dir=${profile}`, "--lang=zh-CN"], env: environment, timeout: 20000 });
+const systemRoot = process.env.SystemRoot;
+if (windows) assert.ok(systemRoot, "Windows system directory is required");
+const systemPath = windows ? [join(systemRoot!, "System32"), systemRoot].join(";") : "/usr/bin:/bin:/usr/sbin:/sbin";
+for (const key of Object.keys(environment)) if (key.toUpperCase() === "PATH") delete environment[key];
+environment.PATH = systemPath;
+const executable = join(installed, windows ? "PractiQ/PractiQ.exe" : "PractiQ.app/Contents/MacOS/PractiQ");
+const launch = () => electron.launch({ executablePath: executable, cwd: temporary, args: [`--user-data-dir=${profile}`, "--lang=zh-CN"], env: environment, timeout: 20000 });
 try {
-  run("/usr/bin/hdiutil", ["attach", "-readonly", "-nobrowse", "-mountpoint", mount, join(release, report.dmg.file)]); mounted = true;
-  cpSync(join(mount, "PractiQ.app"), join(installed, "PractiQ.app"), { recursive: true, verbatimSymlinks: true });
-  run("/usr/bin/hdiutil", ["detach", mount]); mounted = false; run("/usr/bin/codesign", ["--verify", "--deep", "--strict", join(installed, "PractiQ.app")]);
+  if (windows) {
+    await expandWindowsPackage(packagePath, installed); checkWindowsExecutable(executable);
+  } else {
+    mkdirSync(mount); mkdirSync(installed);
+    run("/usr/bin/hdiutil", ["attach", "-readonly", "-nobrowse", "-mountpoint", mount, packagePath]); mounted = true;
+    cpSync(join(mount, "PractiQ.app"), join(installed, "PractiQ.app"), { recursive: true, verbatimSymlinks: true });
+    run("/usr/bin/hdiutil", ["detach", mount]); mounted = false; run("/usr/bin/codesign", ["--verify", "--deep", "--strict", join(installed, "PractiQ.app")]);
+  }
+  assert.equal(checksum(packagePath), asset.sha256, "Package changed during extraction");
   // The shipped binary, not its build receipt, must carry the hardened fuse wire.
-  const manifest = JSON.parse(readFileSync(join(installed, "PractiQ.app/Contents/Resources/PRACTIQ-BUILD.json"), "utf8"));
-  assert.equal(manifest.hardenedRuntime, true); assert.equal(manifest.notarized, false);
-  const wire = await getCurrentFuseWire(join(installed, "PractiQ.app/Contents/MacOS/PractiQ"));
+  const resources = join(installed, windows ? "PractiQ/resources" : "PractiQ.app/Contents/Resources");
+  const manifest = JSON.parse(readFileSync(join(resources, "PRACTIQ-BUILD.json"), "utf8"));
+  assert.equal(checksum(containedFile(resources, "app.asar")), manifest.asarSha256);
+  assert.equal(manifest.asarSha256, report.asarSha256);
+  if (windows) { assert.equal(manifest.platform, "win32"); assert.equal(manifest.signing, "unsigned"); }
+  else { assert.equal(manifest.hardenedRuntime, true); assert.equal(manifest.notarized, false); }
+  const wire = await getCurrentFuseWire(executable);
+  assert.equal(wire[FuseV1Options.OnlyLoadAppFromAsar], FuseState.ENABLE);
   const expectedFuses = { RunAsNode: FuseV1Options.RunAsNode, EnableNodeOptionsEnvironmentVariable: FuseV1Options.EnableNodeOptionsEnvironmentVariable, GrantFileProtocolExtraPrivileges: FuseV1Options.GrantFileProtocolExtraPrivileges } as const;
   for (const [name, option] of Object.entries(expectedFuses)) { assert.equal(manifest.fuses[name], false, `Build receipt did not declare ${name}`); assert.equal(wire[option], FuseState.DISABLE, `Installed bundle still enables ${name}`); }
   instance = await launch(); const page = await instance.firstWindow({ timeout: 20000 }); page.setDefaultTimeout(15000);
@@ -63,10 +82,11 @@ try {
   stage = "bundled helpers";
   const helpers = await instance.evaluate(async ({ app }, data) => {
     const { Worker } = process.getBuiltinModule("node:worker_threads"), { pathToFileURL } = process.getBuiltinModule("node:url"), moduleBase = pathToFileURL(`${app.getAppPath()}/.build/electron/app/desktop/`).href;
-    const worker = new Worker(`const {parentPort,workerData:d}=require('node:worker_threads');(async()=>{const [{TencentBundle},{renderPdf}]=await Promise.all(['tencent-bundle','pdf-render'].map(name=>import(d.moduleBase+name+'.js')));const codecs=[];for(const [codec,encoded] of Object.entries(d.codecs)){const bundle=await TencentBundle.open(Buffer.from(encoded,'base64'),{pageCount:1});try{const image=await bundle.image('image.png');if(!image.bytes.length)throw Error('Empty image');codecs.push(codec);}finally{bundle.close();}}const pdf=await renderPdf(Buffer.from(d.pdf,'base64'),new AbortController().signal,{maxPages:3,maxPixels:25000000,maxBytes:52428800,timeoutMs:20000});parentPort.postMessage({codecs,pages:pdf.images.length,wasm:pdf.engine.wasmSha256});})().catch(error=>parentPort.postMessage({error:error.code||'PACKAGE_HELPER_FAILED'}));`, { eval: true, workerData: { ...data, moduleBase }, env: { PATH: "/usr/bin:/bin:/usr/sbin:/sbin" }, execArgv: [], resourceLimits: { maxOldGenerationSizeMb: 256 } });
+    const worker = new Worker(`const {parentPort,workerData:d}=require('node:worker_threads');(async()=>{const [{TencentBundle},{renderPdf}]=await Promise.all(['tencent-bundle','pdf-render'].map(name=>import(d.moduleBase+name+'.js')));const codecs=[];for(const [codec,encoded] of Object.entries(d.codecs)){const bundle=await TencentBundle.open(Buffer.from(encoded,'base64'),{pageCount:1});try{const image=await bundle.image('image.png');if(!image.bytes.length)throw Error('Empty image');codecs.push(codec);}finally{bundle.close();}}const pdf=await renderPdf(Buffer.from(d.pdf,'base64'),new AbortController().signal,{maxPages:3,maxPixels:25000000,maxBytes:52428800,timeoutMs:20000});parentPort.postMessage({codecs,pages:pdf.images.length,wasm:pdf.engine.wasmSha256});})().catch(error=>parentPort.postMessage({error:error.code||'PACKAGE_HELPER_FAILED'}));`, { eval: true, workerData: { ...data, moduleBase }, env: process.platform === "win32" ? { SystemRoot: process.env.SystemRoot } : {}, execArgv: [], resourceLimits: { maxOldGenerationSizeMb: 256 } });
     try { return await new Promise<{ codecs: string[]; pages: number; wasm: string; error?: string }>((resolve, reject) => { const timer = setTimeout(() => reject(Error("Packaged helpers timed out")), 30000); worker.once("message", value => { clearTimeout(timer); resolve(value); }); worker.once("error", error => { clearTimeout(timer); reject(error); }); }); } finally { await worker.terminate(); }
   }, { codecs: JSON.parse(readFileSync("fixtures/tencent/zip-codecs.json", "utf8")), pdf: readFileSync("fixtures/pdf/unembedded-cjk.pdf").toString("base64") });
   assert.equal(helpers.error, undefined); assert.equal(helpers.codecs.length, 5); assert.ok(helpers.pages > 0); assert.match(helpers.wasm, /^[a-f0-9]{64}$/);
+  stage = "backup and restore";
   const backup = join(temporary, "backup.zip"); await instance.evaluate(({ dialog }, filePath) => { dialog.showSaveDialog = async () => ({ canceled: false, filePath }); }, backup);
   await page.getByRole("button", { name: "设置", exact: true }).click(); await page.getByRole("button", { name: "导出备份", exact: true }).click(); await page.getByText(/备份已保存：/).waitFor(); assert.ok(existsSync(backup));
   const { BoundedZip } = await import(new URL("../.build/electron/app/desktop/zip.js", import.meta.url).href) as typeof import("../desktop/zip.js");
@@ -92,8 +112,9 @@ try {
     const result = JSON.parse(readFileSync(existingDataReport, "utf8")); assert.equal(result.runtimeNode, state.node); assert.equal(result.runtimeImplementation, "installed-package"); assert.equal(result.originalProfileUnchanged, true);
   }
   await reopened.screenshot({ path: join(evidence, "electron-packaged-reopened.png") });
-  const acceptance = { checkedAt: new Date().toISOString(), dmgSha256: report.dmg.sha256, version: report.appVersion, arch: report.arch, packaged: state.packaged, node: state.node, electron: state.electron, codesignVerified: true, sourceIndependentInstall: true, isolatedUserData: true, systemOnlyPath: true, sandbox: true, devToolsDisabled: true, hardenedFuses: Object.fromEntries(Object.keys(expectedFuses).map(name => [name, false])), practice: true, backupRestore: true, restart: true, codecs: helpers.codecs, pdfPages: helpers.pages, paidCalls: 0, rendererHttpRequests: 0, existingDataCopy: Boolean(existingDataReport), existingDataReport, corePassed: true, credentialsEncrypted: false, credentialsExcludedFromBackup: false, credentialsDecryptAfterRestart: false, nativeDialogs: "substituted", notarized: false };
-  const receipt = join(evidence, `electron-package-${report.dmg.sha256.slice(0, 12)}-${Date.now()}-acceptance.json`), publish = () => { const value = JSON.stringify(acceptance, null, 2) + "\n"; writeFileSync(receipt, value); writeFileSync(join(evidence, "electron-package-acceptance.json"), value); };
+  const platformEvidence = windows ? { zipSha256: asset.sha256, executableX64: true } : { dmgSha256: asset.sha256, codesignVerified: true, notarized: false };
+  const acceptance = { checkedAt: new Date().toISOString(), ...platformEvidence, version: report.appVersion, arch: report.arch, packaged: state.packaged, node: state.node, electron: state.electron, sourceIndependentInstall: true, isolatedUserData: true, systemOnlyPath: true, sandbox: true, devToolsDisabled: true, hardenedFuses: Object.fromEntries(Object.keys(expectedFuses).map(name => [name, false])), practice: true, backupRestore: true, restart: true, codecs: helpers.codecs, pdfPages: helpers.pages, paidCalls: 0, rendererHttpRequests: 0, existingDataCopy: Boolean(existingDataReport), existingDataReport, corePassed: true, credentialsEncrypted: false, credentialsExcludedFromBackup: false, credentialsDecryptAfterRestart: false, nativeDialogs: "substituted" };
+  const receipt = join(evidence, `electron-package-${asset.sha256.slice(0, 12)}-${Date.now()}-acceptance.json`), publish = () => { const value = JSON.stringify(acceptance, null, 2) + "\n"; writeFileSync(receipt, value); writeFileSync(join(evidence, "electron-package-acceptance.json"), value); };
   publish(); console.log(`Installed package core passed: ${receipt}; verifying OS-protected credentials next`);
   const currentSettings = await bridge({ type: "ai_settings" }, reopened);
   stage = "OS credential initialization";
@@ -105,6 +126,7 @@ try {
   const protectedArchive = await BoundedZip.open(credentialBackup, { archiveBytes: 600 * 1024 * 1024, expandedBytes: 600 * 1024 * 1024, entries: 100000 });
   try { assert.ok([...protectedArchive.entries.keys()].every(name => ["manifest.json", "practiq.sqlite"].includes(name) || /^assets\/[a-f0-9]{64}$/.test(name))); } finally { protectedArchive.close(); }
   await instance.close(); instance = await launch(); const credentialWindow = await instance.firstWindow({ timeout: 20000 }); await credentialWindow.waitForFunction(() => Boolean(window.practiq?.request));
+  await credentialWindow.getByText("安装包验证", { exact: true }).waitFor();
   stage = "OS credential decryption after restart";
   watchdog.refresh();
   const decrypted = await instance.evaluate(async ({ app, safeStorage }, data) => {
@@ -113,5 +135,19 @@ try {
     const snapshot = await settings.snapshot(); return { matches: Object.entries(data.expected).every(([key, value]) => snapshot.secrets[key] === value), revision: snapshot.revision };
   }, { directory, expected: testSecrets }); assert.equal(decrypted.matches, true); assert.equal(decrypted.revision, savedSettings.revision);
   acceptance.credentialsEncrypted = true; acceptance.credentialsExcludedFromBackup = true; acceptance.credentialsDecryptAfterRestart = true; publish();
-  console.log("Installed Electron package passed: isolated DMG copy, sandbox, offline practice, codecs/PDFium, embedded runtime, backup/restore and restart");
-} finally { clearTimeout(watchdog); if (instance) { const process = instance.process(), force = setTimeout(() => process.kill("SIGKILL"), 5000); try { await instance.close().catch(() => {}); } finally { clearTimeout(force); } } if (mounted) run("/usr/bin/hdiutil", ["detach", mount]); rmSync(temporary, { recursive: true, force: true }); }
+  console.log("Installed Electron package passed: isolated package, sandbox, offline practice, codecs/PDFium, embedded runtime, backup/restore, protected credentials and restart");
+} catch (error) {
+  console.error(`Package verification failed during ${stage}:`, error); throw error;
+} finally {
+  clearTimeout(watchdog);
+  if (instance) {
+    const child = instance.process(), force = setTimeout(() => {
+      // Playwright launches a cmd wrapper on Windows, so also stop its Electron descendants.
+      if (windows && child.pid && child.exitCode === null) spawnSync(join(systemRoot!, "System32/taskkill.exe"), ["/PID", String(child.pid), "/T", "/F"], { timeout: 5000 });
+      else child.kill("SIGKILL");
+    }, 5000);
+    try { await instance.close().catch(() => {}); } finally { clearTimeout(force); }
+  }
+  if (mounted) run("/usr/bin/hdiutil", ["detach", mount]);
+  rmSync(temporary, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+}

@@ -1,3 +1,7 @@
+# Keep generated contracts and the source lockfile byte-identical across platforms.
+app/src/contracts.generated.ts text eol=lf
+app/package-lock.json text eol=lf
+
 # Preserve checksum-pinned upstream notices and acceptance input bytes.
 app/licenses/texts/** -text whitespace=-blank-at-eol
 app/licenses/*.provenance.json -text
