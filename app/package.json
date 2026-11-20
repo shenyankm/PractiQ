@@ -57,7 +57,7 @@
     "yazl": "3.3.1"
   },
   "devDependencies": {
-    "@babel/core": "^8.1.0",
+    "@babel/core": "^8.1.2",
     "@babel/eslint-parser": "^8.0.7",
     "@babel/parser": "^7.29.9",
     "@electron/asar": "4.3.2",
